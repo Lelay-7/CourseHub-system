@@ -1,0 +1,58 @@
+/* ========== 响应式布局样式 ========== */
+
+/* 桌面端（≥768px）显示侧边栏 */
+.desktop-only {
+  display: block;
+}
+.mobile-only {
+  display: none;
+}
+
+/* 移动端（<768px）显示 TabBar */
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: block;
+  }
+
+  .page-content {
+    padding: var(--spacing-sm);
+    padding-bottom: calc(var(--tabbar-height) + var(--spacing-md));
+  }
+
+  /* 移动端卡片全宽 */
+  .card {
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+  }
+
+  /* 表格横向滚动 */
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* 平板端（768px ~ 1199px） */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .page-content {
+    padding: var(--spacing-md);
+  }
+}
+
+/* 桌面端小屏（1200px ~ 1919px） */
+@media (min-width: 1200px) and (max-width: 1919px) {
+  .page-content {
+    padding: var(--spacing-lg);
+  }
+}
+
+/* 桌面端大屏（≥1920px） */
+@media (min-width: 1920px) {
+  .page-content {
+    padding: var(--spacing-xl);
+    max-width: 1400px;
+  }
+}

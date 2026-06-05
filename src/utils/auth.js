@@ -1,0 +1,83 @@
+/**
+ * Token 管理工具
+ * 职责：Access Token / Refresh Token 的存取、过期判断、清除
+ */
+
+const ACCESS_TOKEN_KEY = 'access_token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
+
+/**
+ * 获取 Access Token
+ */
+export function getAccessToken() {
+  return localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+/**
+ * 设置 Access Token
+ */
+export function setAccessToken(token) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, token)
+}
+
+/**
+ * 获取 Refresh Token
+ */
+export function getRefreshToken() {
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+/**
+ * 设置 Refresh Token
+ */
+export function setRefreshToken(token) {
+  localStorage.setItem(REFRESH_TOKEN_KEY, token)
+}
+
+/**
+ * 保存完整的 Token 对
+ */
+export function saveTokens(accessToken, refreshToken) {
+  setAccessToken(accessToken)
+  setRefreshToken(refreshToken)
+}
+
+/**
+ * 判断 Token 是否已过期（本地 JWT 解码）
+ * @param {string} token - JWT token
+ * @returns {boolean}
+ */
+export function isTokenExpired(token) {
+  if (!token) return true
+  try {
+    const payload = JSON.parse(
+      decodeURIComponent(
+        atob(token.split('.')[1])
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      )
+    )
+    const now = Math.floor(Date.now() / 1000)
+    // 提前 5 分钟视为过期，避免在请求中过期
+    return payload.exp && payload.exp < now + 300
+  } catch {
+    return true
+  }
+}
+
+/**
+ * 清除所有 Token
+ */
+export function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+/**
+ * 判断是否已登录（有有效 Token）
+ */
+export function isAuthenticated() {
+  const token = getAccessToken()
+  return token && !isTokenExpired(token)
+}
