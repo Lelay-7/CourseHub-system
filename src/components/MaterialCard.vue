@@ -8,7 +8,7 @@
     </div>
 
     <div class="material-right">
-      <h4 class="material-name text-ellipsis">{{ material.material_name }}</h4>
+      <h4 class="material-name text-ellipsis" v-html="highlightedName" />
       <div class="material-meta">
         <span>{{ material.uploader_name || '未知' }}</span>
         <span class="meta-divider">|</span>
@@ -47,7 +47,8 @@ import {
 } from '@/utils/constants'
 
 const props = defineProps({
-  material: { type: Object, required: true }
+  material: { type: Object, required: true },
+  keyword: { type: String, default: '' }
 })
 
 const emit = defineEmits(['favorite'])
@@ -63,12 +64,12 @@ const iconMap = {
   [MATERIAL_TYPE.ARCHIVE]: 'FolderOpened'
 }
 const colorMap = {
-  [MATERIAL_TYPE.PDF]: '#F56C6C',
-  [MATERIAL_TYPE.WORD]: '#409EFF',
-  [MATERIAL_TYPE.EXCEL]: '#67C23A',
-  [MATERIAL_TYPE.PPT]: '#E6A23C',
-  [MATERIAL_TYPE.IMAGE]: '#9B59B6',
-  [MATERIAL_TYPE.ARCHIVE]: '#795548'
+  [MATERIAL_TYPE.PDF]: '#d95d5d',
+  [MATERIAL_TYPE.WORD]: '#16697a',
+  [MATERIAL_TYPE.EXCEL]: '#2a9d8f',
+  [MATERIAL_TYPE.PPT]: '#e9a23b',
+  [MATERIAL_TYPE.IMAGE]: '#7c6a9e',
+  [MATERIAL_TYPE.ARCHIVE]: '#8a6f4d'
 }
 
 const typeIcon = computed(() => iconMap[props.material.material_type] || 'Document')
@@ -80,6 +81,20 @@ const scoreLabel = computed(() =>
 const scoreType = computed(() =>
   props.material.download_score === 0 ? 'success' : 'warning'
 )
+const highlightedName = computed(() => highlightText(props.material.material_name || '', props.keyword))
+
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]))
+}
+
+function highlightText(text, keyword) {
+  if (!keyword || keyword.length < 2) return escapeHtml(text)
+  const escaped = escapeHtml(text)
+  const pattern = escapeHtml(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return escaped.replace(new RegExp(pattern, 'gi'), match => `<mark>${match}</mark>`)
+}
 
 function formatTime(time) {
   if (!time) return ''
@@ -112,8 +127,10 @@ function toggleFavorite() {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  min-height: 86px;
   cursor: pointer;
   position: relative;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .material-left {
@@ -123,7 +140,7 @@ function toggleFavorite() {
 .material-type-icon {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -138,8 +155,15 @@ function toggleFavorite() {
 .material-name {
   margin: 0 0 6px;
   font-size: var(--font-size-base);
-  font-weight: 500;
+  font-weight: 700;
   color: var(--color-text-primary);
+}
+
+.material-name :deep(mark) {
+  color: var(--color-primary-dark);
+  background: rgba(239, 131, 84, 0.28);
+  border-radius: 3px;
+  padding: 0 2px;
 }
 
 .material-meta {
@@ -157,5 +181,22 @@ function toggleFavorite() {
 
 .favorite-btn {
   flex-shrink: 0;
+  margin-left: auto;
+  background: rgba(255, 253, 248, 0.9);
+}
+
+@media (max-width: 767px) {
+  .material-card {
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+  .material-type-icon {
+    width: 44px;
+    height: 44px;
+  }
+  .material-meta {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
 }
 </style>

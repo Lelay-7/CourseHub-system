@@ -7,6 +7,58 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--color-bg-page);
+}
+
+body {
+  color: var(--color-text-primary);
+}
+
+body::selection {
+  background: rgba(239, 131, 84, 0.25);
+}
+
+button,
+.el-button,
+.el-menu-item,
+.el-radio-button,
+.el-select,
+.el-input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Element Plus 轻量主题覆盖 */
+.el-button {
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-dark);
+  --el-button-hover-border-color: var(--color-primary-dark);
+}
+
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--color-border-light) inset;
+  background: rgba(255, 253, 248, 0.92);
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--color-primary) inset, 0 0 0 4px rgba(22, 105, 122, 0.1);
+}
+
+.el-dialog {
+  border-radius: var(--radius-lg);
+}
+
 /* 滚动条美化 */
 ::-webkit-scrollbar {
   width: 6px;
@@ -67,10 +119,12 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   padding: var(--spacing-md);
+  border: 1px solid rgba(22, 105, 122, 0.08);
 }
 .card-hover:hover {
   box-shadow: var(--shadow-md);
-  transition: box-shadow var(--transition-fast);
+  transform: translateY(-2px);
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
 /* 图片通用 */
@@ -91,9 +145,19 @@
   background: var(--color-bg-page);
 }
 .page-content {
-  max-width: var(--content-max-width);
+  width: min(calc(100% - (var(--page-gutter) * 2)), var(--content-max-width));
   margin: 0 auto;
-  padding: var(--spacing-md);
+  padding: var(--spacing-lg) 0 var(--spacing-xl);
+  position: relative;
+}
+
+.app-content {
+  background:
+    linear-gradient(90deg, rgba(22, 105, 122, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(22, 105, 122, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at 24% 12%, rgba(239, 131, 84, 0.14), transparent 28%),
+    var(--color-bg-page);
+  background-size: 34px 34px, 34px 34px, 100% 100%, auto;
 }
 
 /* 关键词高亮 */
@@ -112,4 +176,11 @@
   pointer-events: none;
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 767px) {
+  .page-content {
+    width: calc(100% - 24px);
+    padding: var(--spacing-md) 0 calc(var(--tabbar-height) + var(--spacing-md));
+  }
 }

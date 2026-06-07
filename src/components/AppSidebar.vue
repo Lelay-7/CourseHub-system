@@ -12,9 +12,9 @@
       :collapse="appStore.sidebarCollapsed"
       :collapse-transition="false"
       router
-      background-color="#304156"
-      text-color="#bfcbd9"
-      active-text-color="#409EFF"
+      background-color="transparent"
+      text-color="rgba(255,255,255,.72)"
+      active-text-color="#fff"
       class="sidebar-menu"
     >
       <el-menu-item index="/home">
@@ -81,11 +81,14 @@ const activeMenu = computed(() => {
 .app-sidebar {
   position: relative;
   height: 100vh;
-  background: #304156;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), transparent 30%),
+    #12343b;
   display: flex;
   flex-direction: column;
   transition: width var(--transition-normal);
   flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-logo {
@@ -96,18 +99,38 @@ const activeMenu = computed(() => {
   padding: 0 var(--spacing-md);
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .logo-text {
   font-size: var(--font-size-md);
   font-weight: 600;
   white-space: nowrap;
+  letter-spacing: 0;
 }
 
 .sidebar-menu {
   flex: 1;
   border-right: none;
   overflow-y: auto;
+  padding: var(--spacing-md) var(--spacing-sm);
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  height: 44px;
+  margin: 4px 0;
+  border-radius: var(--radius-md);
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  color: #fff;
+  background: rgba(239, 131, 84, 0.92);
+  box-shadow: 0 10px 22px rgba(239, 131, 84, 0.22);
 }
 
 .sidebar-menu:not(.el-menu--collapse) {

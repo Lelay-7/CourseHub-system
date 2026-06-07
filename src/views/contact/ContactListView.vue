@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <div class="page-content contact-list-page">
       <PageHeader title="通讯录" />
 
       <!-- Tab切换：教师 / 学生 -->
@@ -138,24 +138,35 @@ onMounted(fetchContacts)
 </script>
 
 <style scoped>
+.contact-list-page {
+  --content-max-width: 1080px;
+}
+
 .search-input { margin: var(--spacing-md) 0; }
 
 .contact-groups { display: flex; flex-direction: column; gap: var(--spacing-lg); }
 .contact-group { }
 .group-title {
+  position: sticky;
+  top: var(--spacing-sm);
+  z-index: 1;
   margin: 0 0 var(--spacing-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   padding-left: var(--spacing-xs);
   border-left: 3px solid var(--color-primary);
+  background: rgba(246, 244, 238, 0.86);
+  backdrop-filter: blur(10px);
 }
 
 .contact-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  min-height: 72px;
   margin-bottom: var(--spacing-sm);
   cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 .contact-info {
   flex: 1;

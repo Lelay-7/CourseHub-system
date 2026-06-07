@@ -8,6 +8,16 @@
       </div>
 
       <template v-else-if="goods.goods_id">
+        <transition name="success-pop">
+          <div v-if="exchangeSuccess" class="success-banner card">
+            <el-icon><CircleCheckFilled /></el-icon>
+            <div>
+              <strong>兑换成功</strong>
+              <span>已生成兑换记录，可在订单中查看进度。</span>
+            </div>
+          </div>
+        </transition>
+
         <div class="detail-card card">
           <!-- 商品图片轮播 -->
           <el-carousel v-if="goods.images?.length > 1" height="360px" class="goods-carousel">
@@ -46,6 +56,7 @@
               <strong :class="{ insufficient: userStore.scoreBalance < goods.exchange_score }">
                 {{ userStore.scoreBalance }}
               </strong>
+              <em v-if="scoreDelta">-{{ scoreDelta }}</em>
             </div>
             <el-button
               type="primary"
@@ -83,7 +94,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { StarFilled } from '@element-plus/icons-vue'
+import { StarFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
@@ -99,8 +110,10 @@ const goods = ref({})
 const exchangeRecords = ref([])
 const loading = ref(true)
 const exchanging = ref(false)
+const exchangeSuccess = ref(false)
+const scoreDelta = ref(0)
 
-const defaultImg = new URL('@/assets/images/default-cover.png', import.meta.url).href
+const defaultImg = new URL('@/assets/images/default-cover.svg', import.meta.url).href
 
 const stockTag = computed(() => {
   if (goods.value.stock <= 0) return 'danger'
@@ -162,12 +175,22 @@ async function handleExchange() {
 
   exchanging.value = true
   try {
+    const before = userStore.scoreBalance
     const res = await mallApi.exchangeGoods({ goods_id: goods.value.goods_id })
     if (res.code === 200) {
-      ElMessage.success('兑换成功！')
-      userStore.updateScoreBalance(res.data?.score_balance ?? userStore.scoreBalance - goods.value.exchange_score)
+      const after = res.data?.score_balance ?? userStore.scoreBalance - goods.value.exchange_score
+      scoreDelta.value = Math.max(0, before - after)
+      userStore.updateScoreBalance(after)
       goods.value.has_exchanged = true
-      fetchDetail()
+      goods.value.stock = Math.max(0, (goods.value.stock || 0) - 1)
+      exchangeRecords.value.unshift({
+        exchange_id: Date.now(),
+        status: 1,
+        exchange_time: new Date().toISOString()
+      })
+      exchangeSuccess.value = true
+      ElMessage.success('兑换成功，积分已更新')
+      setTimeout(() => { scoreDelta.value = 0 }, 1800)
     }
   } catch { /* handled */ }
   finally { exchanging.value = false }
@@ -184,6 +207,31 @@ onMounted(fetchDetail)
 <style scoped>
 .detail-loading { padding: var(--spacing-lg); }
 .detail-card { margin-bottom: var(--spacing-md); overflow: hidden; padding: 0; }
+
+.success-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-primary-dark);
+  background: linear-gradient(135deg, var(--color-bg-soft), #fffdf8);
+}
+
+.success-banner .el-icon {
+  color: var(--color-success);
+  font-size: 30px;
+}
+
+.success-banner div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.success-banner span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
 
 .goods-carousel { }
 .goods-cover-img {
@@ -209,7 +257,30 @@ onMounted(fetchDetail)
 }
 .balance-info strong { font-size: var(--font-size-xl); color: var(--color-primary); }
 .balance-info strong.insufficient { color: var(--color-danger); }
+.balance-info em {
+  margin-left: var(--spacing-sm);
+  color: var(--color-danger);
+  font-style: normal;
+  font-weight: 800;
+  animation: float-up 1.6s ease both;
+}
 
 .exchange-records { padding: var(--spacing-lg); }
 .exchange-records h3 { margin: 0 0 var(--spacing-md); }
+
+.success-pop-enter-active,
+.success-pop-leave-active {
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+}
+.success-pop-enter-from,
+.success-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+@keyframes float-up {
+  0% { opacity: 0; transform: translateY(8px); }
+  20% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-12px); }
+}
 </style>

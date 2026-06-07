@@ -10,6 +10,9 @@
           >
             {{ course.is_favorited ? '已收藏' : '收藏' }}
           </el-button>
+          <el-button type="primary" :icon="ChatDotRound" @click="showReviewDialog = true">
+            写评价
+          </el-button>
           <el-button :icon="Share" @click="handleShare">分享</el-button>
         </template>
       </PageHeader>
@@ -19,8 +22,20 @@
       </div>
 
       <template v-else-if="course.course_id">
+        <div class="detail-anchor card">
+          <button
+            v-for="item in detailAnchors"
+            :key="item.id"
+            type="button"
+            @click="scrollToSection(item.id)"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            {{ item.label }}
+          </button>
+        </div>
+
         <!-- 基本信息 -->
-        <div class="detail-section card">
+        <div id="course-basic" class="detail-section card">
           <div class="course-header">
             <img
               :src="course.cover_url || defaultCover"
@@ -62,7 +77,7 @@
         </div>
 
         <!-- 课程大纲 -->
-        <div class="detail-section card">
+        <div id="course-outline" class="detail-section card">
           <h3 class="section-title">课程大纲</h3>
           <div
             class="course-outline"
@@ -72,7 +87,7 @@
         </div>
 
         <!-- 课程评价 -->
-        <div class="detail-section card">
+        <div id="course-reviews" class="detail-section card">
           <h3 class="section-title">
             课程评价
             <span class="avg-rating">
@@ -93,7 +108,7 @@
         </div>
 
         <!-- 相关课程推荐 -->
-        <div class="detail-section" v-if="relatedCourses.length > 0">
+        <div id="course-related" class="detail-section" v-if="relatedCourses.length > 0">
           <h3 class="section-title">相关课程推荐</h3>
           <div class="course-grid">
             <CourseCard
@@ -106,15 +121,39 @@
       </template>
 
       <ErrorState v-else title="课程不存在" @retry="fetchDetail" />
+
+      <el-dialog v-model="showReviewDialog" title="写课程评价" width="520px">
+        <el-form label-position="top">
+          <el-form-item label="评分">
+            <StarRating v-model="reviewForm.rating" :size="22" />
+          </el-form-item>
+          <el-form-item label="评价内容">
+            <el-input
+              v-model="reviewForm.content"
+              type="textarea"
+              :rows="5"
+              maxlength="300"
+              show-word-limit
+              placeholder="请写下真实学习体验，至少 20 字"
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showReviewDialog = false">取消</el-button>
+          <el-button type="primary" :loading="reviewSubmitting" @click="submitReview">
+            提交评价
+          </el-button>
+        </template>
+      </el-dialog>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Star, StarFilled, Share } from '@element-plus/icons-vue'
+import { Star, StarFilled, Share, ChatDotRound } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 import AppLayout from '@/components/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -125,16 +164,27 @@ import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
 import * as courseApi from '@/api/course'
 import * as favoriteApi from '@/api/favorite'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const courseId = computed(() => route.params.id)
+const userStore = useUserStore()
 
 const course = ref({})
 const reviews = ref([])
 const relatedCourses = ref([])
 const loading = ref(true)
+const showReviewDialog = ref(false)
+const reviewSubmitting = ref(false)
+const reviewForm = reactive({ rating: 5, content: '' })
+const detailAnchors = [
+  { id: 'course-basic', label: '基本信息', icon: 'InfoFilled' },
+  { id: 'course-outline', label: '课程大纲', icon: 'Tickets' },
+  { id: 'course-reviews', label: '课程评价', icon: 'ChatDotRound' },
+  { id: 'course-related', label: '相关推荐', icon: 'Connection' }
+]
 
-const defaultCover = new URL('@/assets/images/default-cover.png', import.meta.url).href
+const defaultCover = new URL('@/assets/images/default-cover.svg', import.meta.url).href
 
 const sanitizedOutline = computed(() => {
   if (!course.value.outline) return ''
@@ -182,6 +232,35 @@ function handleShare() {
   })
 }
 
+async function submitReview() {
+  if (!reviewForm.rating) {
+    ElMessage.warning('请先选择评分')
+    return
+  }
+  if (reviewForm.content.trim().length < 20) {
+    ElMessage.warning('评价内容至少 20 字')
+    return
+  }
+  reviewSubmitting.value = true
+  try {
+    const res = await courseApi.submitCourseReview(courseId.value, {
+      rating: reviewForm.rating,
+      content: reviewForm.content.trim()
+    })
+    if (res.code === 200) {
+      const review = res.data?.review
+      if (review) reviews.value.unshift(review)
+      if (res.data?.avg_rating) course.value.avg_rating = res.data.avg_rating
+      if (res.data?.score_balance !== undefined) userStore.updateScoreBalance(res.data.score_balance)
+      reviewForm.rating = 5
+      reviewForm.content = ''
+      showReviewDialog.value = false
+      ElMessage.success('评价已提交，积分 +3')
+    }
+  } catch { /* handled */ }
+  finally { reviewSubmitting.value = false }
+}
+
 function maskName(name) {
   if (!name) return '匿名'
   if (name.length <= 1) return name
@@ -193,6 +272,12 @@ function formatTime(time) {
   return new Date(time).toLocaleDateString('zh-CN')
 }
 
+function scrollToSection(id) {
+  const target = document.getElementById(id)
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
 onMounted(fetchDetail)
 </script>
 
@@ -201,6 +286,37 @@ onMounted(fetchDetail)
 
 .detail-section {
   margin-bottom: var(--spacing-lg);
+  scroll-margin-top: 76px;
+}
+
+.detail-anchor {
+  position: sticky;
+  top: var(--spacing-md);
+  z-index: 2;
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: rgba(255, 253, 248, 0.88);
+  backdrop-filter: blur(12px);
+}
+
+.detail-anchor button {
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--color-text-regular);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail-anchor button:hover {
+  color: #fff;
+  background: var(--color-primary);
 }
 
 .course-header {
@@ -278,6 +394,12 @@ onMounted(fetchDetail)
 }
 
 @media (max-width: 767px) {
+  .detail-anchor {
+    overflow-x: auto;
+  }
+  .detail-anchor button {
+    flex: 0 0 auto;
+  }
   .course-header {
     flex-direction: column;
   }

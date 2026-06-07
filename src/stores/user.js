@@ -51,6 +51,18 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  /** 注册并登录 */
+  async function register(data) {
+    const res = await authApi.register(data)
+    if (res.code === 200) {
+      const { accessToken: at, refreshToken: rt } = res.data
+      saveTokens(at, rt)
+      accessToken.value = at
+      refreshToken.value = rt
+      await fetchUserInfo()
+    }
+  }
+
   /** 获取用户信息 */
   async function fetchUserInfo() {
     try {
@@ -101,6 +113,7 @@ export const useUserStore = defineStore('user', () => {
     // actions
     loginByPassword,
     loginBySms,
+    register,
     fetchUserInfo,
     updateScoreBalance,
     logout,

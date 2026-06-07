@@ -23,6 +23,11 @@ export function sendSmsCode(phone) {
   return request.post('/api/auth/sms/send', { phone })
 }
 
+/** 注册新账号 */
+export function register(data) {
+  return request.post('/api/auth/register', data)
+}
+
 /** 刷新 Token */
 export function refreshToken(refreshToken) {
   return request.post('/api/auth/refresh', { refreshToken })
@@ -31,4 +36,9 @@ export function refreshToken(refreshToken) {
 /** 获取当前用户信息 */
 export function getUserInfo() {
   return request.get('/api/auth/userinfo')
+}
+
+/** 上传头像 */
+export function uploadAvatar(data) {
+  return request.post('/api/user/avatar', data)
 }

@@ -157,8 +157,9 @@ async function handleCommand(command) {
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-md);
-  background: var(--color-bg-card);
-  border-bottom: 1px solid var(--color-border-light);
+  background: rgba(255, 253, 248, 0.88);
+  border-bottom: 1px solid rgba(22, 105, 122, 0.1);
+  backdrop-filter: blur(14px);
   flex-shrink: 0;
 }
 
@@ -171,6 +172,7 @@ async function handleCommand(command) {
   font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-primary);
+  letter-spacing: 0;
 }
 
 .navbar-right {
@@ -183,7 +185,11 @@ async function handleCommand(command) {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-warning);
+  color: #9b6419;
+  background: #fff4dc;
+  border: 1px solid rgba(233, 162, 59, 0.22);
+  border-radius: 999px;
+  padding: 5px 10px;
   font-size: var(--font-size-sm);
   font-weight: 500;
 }
@@ -194,11 +200,11 @@ async function handleCommand(command) {
   gap: var(--spacing-xs);
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   transition: background var(--transition-fast);
 }
 .user-info:hover {
-  background: var(--color-bg-page);
+  background: var(--color-bg-soft);
 }
 .username {
   font-size: var(--font-size-sm);

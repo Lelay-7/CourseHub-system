@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <div class="page-content mall-list-page">
       <PageHeader title="积分商城">
         <template #extra>
           <div class="score-bar">
@@ -128,6 +128,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.mall-list-page {
+  --content-max-width: 1320px;
+}
+
 .score-bar {
   display: flex; align-items: center; gap: 4px;
   color: var(--color-warning); font-size: var(--font-size-base);
@@ -139,23 +143,31 @@ onMounted(() => {
   margin-bottom: var(--spacing-md); flex-wrap: wrap;
 }
 
-.mall-layout { display: flex; gap: var(--spacing-md); }
-.mall-categories {
-  width: 160px; flex-shrink: 0;
-  background: var(--color-bg-card); border-radius: var(--radius-md); overflow: hidden;
+.mall-layout {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--spacing-md);
+  align-items: start;
 }
-.goods-grid-wrapper { flex: 1; min-width: 0; }
+.mall-categories {
+  min-height: 360px;
+  background: var(--color-bg-card); border-radius: var(--radius-md); overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.goods-grid-wrapper { min-width: 0; overflow: hidden; }
 
 .goods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--spacing-md);
+  align-items: start;
 }
 
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
 .load-more.no-more { color: var(--color-text-placeholder); }
 
 @media (max-width: 767px) {
+  .mall-layout { grid-template-columns: 1fr; }
   .goods-grid { grid-template-columns: repeat(2, 1fr); }
 }
 </style>

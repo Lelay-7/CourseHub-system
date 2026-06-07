@@ -18,14 +18,44 @@
   }
 
   .page-content {
-    padding: var(--spacing-sm);
-    padding-bottom: calc(var(--tabbar-height) + var(--spacing-md));
+    width: calc(100% - 24px);
+    padding: var(--spacing-md) 0 calc(var(--tabbar-height) + var(--spacing-md));
   }
 
   /* 移动端卡片全宽 */
   .card {
     border-radius: var(--radius-sm);
     padding: var(--spacing-sm);
+  }
+
+  .el-dialog {
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px);
+  }
+
+  .el-dialog__footer .el-button + .el-button {
+    margin-left: 0;
+  }
+
+  .el-dialog__footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+  }
+
+  .el-radio-group {
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .el-radio-button {
+    flex: 0 0 auto;
+  }
+
+  .el-select,
+  .el-input {
+    width: 100%;
   }
 
   /* 表格横向滚动 */
@@ -38,21 +68,23 @@
 /* 平板端（768px ~ 1199px） */
 @media (min-width: 768px) and (max-width: 1199px) {
   .page-content {
-    padding: var(--spacing-md);
+    width: calc(100% - 32px);
+    padding: var(--spacing-md) 0 var(--spacing-xl);
   }
 }
 
 /* 桌面端小屏（1200px ~ 1919px） */
 @media (min-width: 1200px) and (max-width: 1919px) {
   .page-content {
-    padding: var(--spacing-lg);
+    width: min(calc(100% - (var(--page-gutter) * 2)), var(--content-max-width));
+    padding: var(--spacing-lg) 0 var(--spacing-xl);
   }
 }
 
 /* 桌面端大屏（≥1920px） */
 @media (min-width: 1920px) {
   .page-content {
-    padding: var(--spacing-xl);
-    max-width: 1400px;
+    width: min(calc(100% - 64px), var(--content-max-width));
+    padding: var(--spacing-xl) 0 var(--spacing-xl);
   }
 }

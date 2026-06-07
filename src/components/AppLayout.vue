@@ -10,13 +10,15 @@
 
       <!-- 内容区（keep-alive 缓存列表页状态） -->
       <div class="app-content">
-        <router-view v-slot="{ Component, route }">
-          <transition name="fade-slide" mode="out-in">
-            <keep-alive :include="cachedViews">
-              <component :is="Component" :key="route.fullPath" />
-            </keep-alive>
-          </transition>
-        </router-view>
+        <slot>
+          <router-view v-slot="{ Component, route }">
+            <transition name="fade-slide" mode="out-in">
+              <keep-alive :include="cachedViews">
+                <component :is="Component" :key="route.fullPath" />
+              </keep-alive>
+            </transition>
+          </router-view>
+        </slot>
       </div>
     </div>
 

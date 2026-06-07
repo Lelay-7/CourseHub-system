@@ -21,7 +21,10 @@
             </el-tag>
           </div>
           <div class="order-body">
-            <span>{{ order.subject || order.description }}</span>
+            <div class="order-subject">
+              <strong>{{ order.subject || order.description }}</strong>
+              <small>积分商城兑换</small>
+            </div>
             <span class="order-amount">
               <el-icon><StarFilled /></el-icon> {{ order.score_amount }} 积分
             </span>
@@ -121,15 +124,48 @@ onMounted(() => { fetchList(true) })
 .status-filter { margin-bottom: var(--spacing-md); }
 
 .order-list { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-.order-card { cursor: pointer; }
+.order-card {
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
 .order-header { margin-bottom: var(--spacing-sm); }
 .order-id { font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 .order-body {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: var(--spacing-sm);
 }
+.order-subject {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.order-subject strong {
+  color: var(--color-text-primary);
+}
+.order-subject small {
+  color: var(--color-text-secondary);
+}
 .order-amount { display: flex; align-items: center; gap: 4px; color: var(--color-warning); font-weight: 600; }
 .order-time { font-size: var(--font-size-xs); color: var(--color-text-placeholder); }
 
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
+
+@media (max-width: 767px) {
+  .status-filter {
+    max-width: 100%;
+    overflow-x: auto;
+    display: flex;
+    padding-bottom: 4px;
+  }
+  .order-body,
+  .order-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+}
 </style>

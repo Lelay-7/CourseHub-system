@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <div class="page-content profile-page">
       <PageHeader title="个人中心" />
 
       <!-- 用户信息卡 -->
@@ -27,6 +27,31 @@
             <span class="score-value">{{ userStore.userInfo?.total_score || 0 }}</span>
             <span class="score-label">累计积分</span>
           </div>
+        </div>
+      </div>
+
+      <div class="learning-card card">
+        <div class="learning-title">
+          <h3>学习档案</h3>
+          <span>本周活跃</span>
+        </div>
+        <div class="learning-grid">
+          <div>
+            <strong>7</strong>
+            <span>已看课程</span>
+          </div>
+          <div>
+            <strong>12</strong>
+            <span>下载资料</span>
+          </div>
+          <div>
+            <strong>4</strong>
+            <span>收藏内容</span>
+          </div>
+        </div>
+        <div class="learning-actions">
+          <el-button type="primary" plain @click="$router.push('/course/2')">继续演示课程</el-button>
+          <el-button plain @click="$router.push('/mall/1')">去兑换奖励</el-button>
         </div>
       </div>
 
@@ -115,11 +140,13 @@ import { useUserStore } from '@/stores/user'
 import { USER_TYPE_LABEL, AVATAR_MAX_SIZE } from '@/utils/constants'
 import { formRules } from '@/utils/validator'
 import * as homeApi from '@/api/home'
+import * as authApi from '@/api/auth'
 
 const router = useRouter()
 const userStore = useUserStore()
 const showEditDialog = ref(false)
 const saving = ref(false)
+const avatarUploading = ref(false)
 const orderCount = ref(0)
 const editFormRef = ref(null)
 
@@ -148,17 +175,34 @@ function initEditForm() {
   })
 }
 
-function beforeAvatarUpload(file) {
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+async function beforeAvatarUpload(file) {
   if (file.size > AVATAR_MAX_SIZE) {
     ElMessage.warning('头像文件不能超过 2MB')
     return false
   }
-  // 本地预览（实际项目这里会上传至OSS）
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    editForm.avatar_url = e.target.result
+  avatarUploading.value = true
+  try {
+    const avatarUrl = await readFileAsDataUrl(file)
+    const res = await authApi.uploadAvatar({ avatar_url: avatarUrl, file_name: file.name })
+    if (res.code === 200) {
+      editForm.avatar_url = res.data?.avatar_url || avatarUrl
+      userStore.updateUserInfo({ avatar_url: editForm.avatar_url })
+      ElMessage.success('头像上传成功')
+    }
+  } catch {
+    ElMessage.warning('头像上传失败，请稍后重试')
+  } finally {
+    avatarUploading.value = false
   }
-  reader.readAsDataURL(file)
   return false
 }
 
@@ -198,6 +242,10 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.profile-page {
+  --content-max-width: 1080px;
+}
+
 .profile-header { margin-bottom: var(--spacing-md); }
 .user-basic {
   display: flex; align-items: center; gap: var(--spacing-md);
@@ -217,6 +265,65 @@ onMounted(async () => {
 .score-value { font-size: var(--font-size-xxl); font-weight: 700; color: var(--color-warning); }
 .score-label { font-size: var(--font-size-xs); color: var(--color-text-secondary); }
 
+.learning-card {
+  margin-bottom: var(--spacing-md);
+}
+
+.learning-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.learning-title h3 {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.learning-title span {
+  color: var(--color-primary-dark);
+  background: var(--color-bg-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.learning-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.learning-grid div {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background: rgba(22, 105, 122, 0.06);
+  text-align: center;
+}
+
+.learning-grid strong,
+.learning-grid span {
+  display: block;
+}
+
+.learning-grid strong {
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-xl);
+}
+
+.learning-grid span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.learning-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
 .menu-list { }
 .menu-item {
   display: flex; align-items: center; gap: var(--spacing-md);
@@ -228,4 +335,17 @@ onMounted(async () => {
 .menu-item:hover { background: var(--color-bg-page); }
 .menu-item span { flex: 1; }
 .menu-arrow { color: var(--color-text-placeholder); }
+
+@media (max-width: 767px) {
+  .user-basic {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .user-basic .el-button {
+    margin-left: auto;
+  }
+  .learning-actions {
+    flex-direction: column;
+  }
+}
 </style>

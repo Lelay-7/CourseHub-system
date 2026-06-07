@@ -99,7 +99,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Share, Warning, Download } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -156,6 +156,31 @@ async function fetchDetail() {
 }
 
 async function handleDownload() {
+  const cost = Number(material.value.download_score || 0)
+  if (cost > userStore.scoreBalance) {
+    ElMessageBox.alert(
+      '当前积分不足。可以通过每日签到、学习课程、评价课程和分享资料获得积分。',
+      '积分不足',
+      { confirmButtonText: '知道了', type: 'warning' }
+    )
+    return
+  }
+  if (cost > 0) {
+    try {
+      await ElMessageBox.confirm(
+        `下载「${material.value.material_name}」将消耗 ${cost} 积分。当前余额 ${userStore.scoreBalance} 积分。`,
+        '下载确认',
+        {
+          confirmButtonText: '确认下载',
+          cancelButtonText: '再看看',
+          type: 'warning'
+        }
+      )
+    } catch {
+      return
+    }
+  }
+
   downloading.value = true
   try {
     const res = await materialApi.getDownloadUrl(route.params.id)
@@ -166,7 +191,11 @@ async function handleDownload() {
         ElMessage.success('开始下载')
         // 更新积分
         if (res.data?.score_balance !== undefined) {
+          const before = userStore.scoreBalance
           userStore.updateScoreBalance(res.data.score_balance)
+          if (cost > 0) {
+            ElMessage.info(`积分 ${before} → ${res.data.score_balance}`)
+          }
         }
       }
     }
@@ -195,9 +224,16 @@ function handleShare() {
   }).catch(() => ElMessage.info(`分享链接: ${url}`))
 }
 
-function submitReport() {
-  ElMessage.success('举报已提交，管理员将尽快审核')
-  showReport.value = false
+async function submitReport() {
+  try {
+    const res = await materialApi.reportMaterial(route.params.id, reportForm)
+    if (res.code === 200) {
+      ElMessage.success('举报已提交，管理员将尽快审核')
+      showReport.value = false
+      reportForm.reason = 'infringement'
+      reportForm.detail = ''
+    }
+  } catch { /* handled */ }
 }
 
 function formatTime(time) {

@@ -22,3 +22,8 @@ export function getCourseDetail(id) {
 export function searchCourse(params) {
   return request.get('/api/course/search', { params })
 }
+
+/** 提交课程评价 */
+export function submitCourseReview(id, data) {
+  return request.post(`/api/course/${id}/review`, data)
+}

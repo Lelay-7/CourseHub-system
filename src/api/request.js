@@ -10,14 +10,17 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { getAccessToken, setAccessToken, clearTokens, isTokenExpired, getRefreshToken } from '@/utils/auth'
 import router from '@/router'
+import { mockAdapter } from './mock'
 
 // 使用 vite 环境变量
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const TIMEOUT = Number(import.meta.env.VITE_REQUEST_TIMEOUT) || 10000
+const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 
 const service = axios.create({
   baseURL: BASE_URL,
   timeout: TIMEOUT,
+  adapter: USE_MOCK ? mockAdapter : undefined,
   headers: {
     'Content-Type': 'application/json;charset=UTF-8'
   }

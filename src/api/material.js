@@ -22,3 +22,13 @@ export function getMaterialDetail(id) {
 export function getDownloadUrl(id) {
   return request.get(`/api/material/${id}/download`)
 }
+
+/** 上传学习资料 */
+export function uploadMaterial(data) {
+  return request.post('/api/material/upload', data)
+}
+
+/** 举报违规资料 */
+export function reportMaterial(id, data) {
+  return request.post(`/api/material/${id}/report`, data)
+}
