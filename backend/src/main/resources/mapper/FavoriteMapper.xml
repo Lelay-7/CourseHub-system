@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.FavoriteMapper">
+
+    <select id="selectByUserIdAndType" resultType="com.bugaoshan.entity.Favorite">
+        SELECT * FROM favorite
+        WHERE user_id = #{userId} AND target_type = #{targetType}
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectByUserIdAndTarget" resultType="com.bugaoshan.entity.Favorite">
+        SELECT * FROM favorite
+        WHERE user_id = #{userId} AND target_type = #{targetType} AND target_id = #{targetId}
+        LIMIT 1
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="favoriteId">
+        INSERT INTO favorite (user_id, target_type, target_id, create_time)
+        VALUES (#{userId}, #{targetType}, #{targetId}, #{createTime})
+    </insert>
+
+    <delete id="deleteByUserIdAndTarget">
+        DELETE FROM favorite
+        WHERE user_id = #{userId} AND target_type = #{targetType} AND target_id = #{targetId}
+    </delete>
+
+</mapper>

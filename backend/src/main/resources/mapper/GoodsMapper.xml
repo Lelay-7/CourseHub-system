@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.GoodsMapper">
+
+    <select id="selectById" resultType="com.bugaoshan.entity.Goods">
+        SELECT * FROM goods WHERE goods_id = #{goodsId} AND is_deleted = 0
+    </select>
+
+    <select id="selectList" resultType="com.bugaoshan.entity.Goods">
+        SELECT * FROM goods
+        <where>
+            is_deleted = 0 AND status = 1
+            <if test="categoryId != null">
+                AND category = #{categoryId}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countList" resultType="long">
+        SELECT COUNT(*) FROM goods
+        <where>
+            is_deleted = 0 AND status = 1
+            <if test="categoryId != null">
+                AND category = #{categoryId}
+            </if>
+        </where>
+    </select>
+
+    <update id="decrementStock">
+        UPDATE goods SET stock = stock - 1, update_time = NOW()
+        WHERE goods_id = #{goodsId} AND stock > 0
+    </update>
+
+</mapper>

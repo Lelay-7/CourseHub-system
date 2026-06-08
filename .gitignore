@@ -1,0 +1,28 @@
+# Dependencies
+frontend/node_modules/
+backend/target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Build
+*.class
+*.jar
+*.war
+
+# Logs
+*.log
+*.pid
+
+# Uploads
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env.local
+.env.*.local

@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: bugaoshan-backend
+  datasource:
+    url: jdbc:mysql://127.0.0.1:3306/bgss_xtt?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=5000
+    username: bgss_user
+    password: bgss123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 495514
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.bugaoshan.entity
+  configuration:
+    map-underscore-to-camel-case: true
+
+jwt:
+  secret: bgs-xtt-jwt-secret-key-2026-bugaoshan-course-helper
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+file:
+  upload:
+    max-size: 50MB
+    upload-path: ./uploads
+
+logging:
+  level:
+    com.bugaoshan: DEBUG
+
+sms:
+  mock: true

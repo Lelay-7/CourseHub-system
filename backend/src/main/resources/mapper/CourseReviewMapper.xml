@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.CourseReviewMapper">
+
+    <select id="selectByCourseId" resultType="com.bugaoshan.entity.CourseReview">
+        SELECT * FROM course_review
+        WHERE course_id = #{courseId} AND is_deleted = 0
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCourseId" resultType="int">
+        SELECT COUNT(*) FROM course_review
+        WHERE course_id = #{courseId} AND is_deleted = 0
+    </select>
+
+    <select id="existsByUserIdAndCourseId" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM course_review
+        WHERE user_id = #{userId} AND course_id = #{courseId} AND is_deleted = 0
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="reviewId">
+        INSERT INTO course_review (course_id, user_id, rating, content, status, create_time, update_time, is_deleted)
+        VALUES (#{courseId}, #{userId}, #{rating}, #{content}, #{status}, #{createTime}, #{updateTime}, #{isDeleted})
+    </insert>
+
+</mapper>

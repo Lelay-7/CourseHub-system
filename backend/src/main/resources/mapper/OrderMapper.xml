@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.OrderMapper">
+
+    <select id="selectById" resultType="com.bugaoshan.entity.Order">
+        SELECT * FROM `order` WHERE order_id = #{orderId} AND is_deleted = 0
+    </select>
+
+    <select id="selectByUserId" resultType="com.bugaoshan.entity.Order">
+        SELECT * FROM `order`
+        <where>
+            user_id = #{userId} AND is_deleted = 0
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM `order`
+        <where>
+            user_id = #{userId} AND is_deleted = 0
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+        </where>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="orderId">
+        INSERT INTO `order` (order_no, user_id, goods_id, goods_name, score_amount, status, remark,
+                             cancel_time, complete_time, create_time, update_time, is_deleted)
+        VALUES (#{orderNo}, #{userId}, #{goodsId}, #{goodsName}, #{scoreAmount}, #{status}, #{remark},
+                #{cancelTime}, #{completeTime}, #{createTime}, #{updateTime}, #{isDeleted})
+    </insert>
+
+    <update id="updateStatus">
+        UPDATE `order`
+        SET status = #{status},
+            <if test="cancelTime != null">cancel_time = #{cancelTime},</if>
+            <if test="completeTime != null">complete_time = #{completeTime},</if>
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+    </update>
+
+    <select id="countPendingByUserId" resultType="long">
+        SELECT COUNT(*) FROM `order` WHERE user_id = #{userId} AND status IN (1, 2) AND is_deleted = 0
+    </select>
+
+</mapper>

@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.CourseMapper">
+
+    <select id="selectById" resultType="com.bugaoshan.entity.Course">
+        SELECT * FROM course WHERE course_id = #{courseId} AND is_deleted = 0
+    </select>
+
+    <select id="selectList" resultType="com.bugaoshan.entity.Course">
+        SELECT c.* FROM course c
+        <if test="teacherName != null and teacherName != ''">
+            LEFT JOIN user u ON c.teacher_id = u.user_id
+        </if>
+        <where>
+            c.is_deleted = 0 AND c.status = 1
+            <if test="categoryId != null">
+                AND c.category_id = #{categoryId}
+            </if>
+            <if test="courseType != null">
+                AND c.course_type = #{courseType}
+            </if>
+            <if test="creditMin != null">
+                AND c.credit &gt;= #{creditMin}
+            </if>
+            <if test="creditMax != null">
+                AND c.credit &lt;= #{creditMax}
+            </if>
+            <if test="teacherName != null and teacherName != ''">
+                AND u.real_name LIKE CONCAT('%', #{teacherName}, '%')
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (c.course_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'avg_rating'">ORDER BY c.avg_rating</when>
+            <when test="sortBy == 'selection_count'">ORDER BY c.selection_count</when>
+            <when test="sortBy == 'credit'">ORDER BY c.credit</when>
+            <otherwise>ORDER BY c.create_time</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        <if test="offset != null and limit != null">
+            LIMIT #{limit} OFFSET #{offset}
+        </if>
+    </select>
+
+    <select id="countList" resultType="long">
+        SELECT COUNT(*) FROM course c
+        <if test="teacherName != null and teacherName != ''">
+            LEFT JOIN user u ON c.teacher_id = u.user_id
+        </if>
+        <where>
+            c.is_deleted = 0 AND c.status = 1
+            <if test="categoryId != null">
+                AND c.category_id = #{categoryId}
+            </if>
+            <if test="courseType != null">
+                AND c.course_type = #{courseType}
+            </if>
+            <if test="creditMin != null">
+                AND c.credit &gt;= #{creditMin}
+            </if>
+            <if test="creditMax != null">
+                AND c.credit &lt;= #{creditMax}
+            </if>
+            <if test="teacherName != null and teacherName != ''">
+                AND u.real_name LIKE CONCAT('%', #{teacherName}, '%')
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (c.course_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <select id="selectRelatedCourses" resultType="com.bugaoshan.entity.Course">
+        SELECT * FROM course
+        WHERE is_deleted = 0 AND status = 1 AND course_id != #{courseId}
+        ORDER BY avg_rating DESC, selection_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateRating">
+        UPDATE course SET avg_rating = #{avgRating}, rating_count = #{ratingCount}, update_time = NOW()
+        WHERE course_id = #{courseId}
+    </update>
+
+    <update id="incrementSelectionCount">
+        UPDATE course SET selection_count = selection_count + 1, update_time = NOW()
+        WHERE course_id = #{courseId}
+    </update>
+
+    <select id="selectCategories" resultType="map">
+        SELECT category_id, category_name FROM category WHERE is_deleted = 0 ORDER BY sort_order
+    </select>
+
+</mapper>

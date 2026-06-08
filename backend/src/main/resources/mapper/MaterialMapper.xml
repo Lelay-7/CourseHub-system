@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.MaterialMapper">
+
+    <select id="selectById" resultType="com.bugaoshan.entity.Material">
+        SELECT * FROM material WHERE material_id = #{materialId} AND is_deleted = 0
+    </select>
+
+    <select id="selectList" resultType="com.bugaoshan.entity.Material">
+        SELECT m.* FROM material m
+        <where>
+            m.is_deleted = 0 AND m.status = 1
+            <if test="materialType != null">
+                AND m.material_type = #{materialType}
+            </if>
+            <if test="courseId != null">
+                AND m.course_id = #{courseId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        <choose>
+            <when test="sortBy == 'download_count'">ORDER BY m.download_count</when>
+            <when test="sortBy == 'create_time'">ORDER BY m.create_time</when>
+            <when test="sortBy == 'file_size'">ORDER BY m.file_size</when>
+            <otherwise>ORDER BY m.create_time</otherwise>
+        </choose>
+        <choose>
+            <when test="sortOrder == 'asc'">ASC</when>
+            <otherwise>DESC</otherwise>
+        </choose>
+        <if test="offset != null and limit != null">
+            LIMIT #{limit} OFFSET #{offset}
+        </if>
+    </select>
+
+    <select id="countList" resultType="long">
+        SELECT COUNT(*) FROM material m
+        <where>
+            m.is_deleted = 0 AND m.status = 1
+            <if test="materialType != null">
+                AND m.material_type = #{materialType}
+            </if>
+            <if test="courseId != null">
+                AND m.course_id = #{courseId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="materialId">
+        INSERT INTO material (material_name, material_type, course_id, uploader_id, file_url, file_size,
+                              download_score, download_count, description, status, keyword,
+                              create_time, update_time, is_deleted)
+        VALUES (#{materialName}, #{materialType}, #{courseId}, #{uploaderId}, #{fileUrl}, #{fileSize},
+                #{downloadScore}, #{downloadCount}, #{description}, #{status}, #{keyword},
+                #{createTime}, #{updateTime}, #{isDeleted})
+    </insert>
+
+    <update id="incrementDownloadCount">
+        UPDATE material SET download_count = download_count + 1, update_time = NOW()
+        WHERE material_id = #{materialId}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE material SET status = #{status}, update_time = NOW()
+        WHERE material_id = #{materialId}
+    </update>
+
+    <select id="selectCategories" resultType="map">
+        SELECT DISTINCT material_type AS category_id, material_type AS category_name
+        FROM material WHERE is_deleted = 0
+    </select>
+
+</mapper>
