@@ -297,7 +297,7 @@ onMounted(fetchDetail)
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-sm);
-  background: rgba(255, 253, 248, 0.88);
+  background: rgba(255, 250, 243, 0.9);
   backdrop-filter: blur(12px);
 }
 

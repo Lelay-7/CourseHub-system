@@ -75,14 +75,15 @@ public class FavoriteServiceImpl implements FavoriteService {
     @Override
     @Transactional
     public Result addFavorite(Long userId, FavoriteDTO dto) {
-        Favorite existing = favoriteMapper.selectByUserIdAndTarget(userId, dto.getTargetType(), dto.getTargetId());
+        int targetType = "course".equals(dto.getType()) ? 1 : 2;
+        Favorite existing = favoriteMapper.selectByUserIdAndTarget(userId, targetType, dto.getTargetId());
         if (existing != null) {
             throw new BusinessException("已收藏，请勿重复操作");
         }
 
         Favorite favorite = new Favorite();
         favorite.setUserId(userId);
-        favorite.setTargetType(dto.getTargetType());
+        favorite.setTargetType(targetType);
         favorite.setTargetId(dto.getTargetId());
         favorite.setCreateTime(LocalDateTime.now());
         favoriteMapper.insert(favorite);
@@ -92,11 +93,12 @@ public class FavoriteServiceImpl implements FavoriteService {
 
     @Override
     public Result removeFavorite(Long userId, FavoriteDTO dto) {
-        Favorite existing = favoriteMapper.selectByUserIdAndTarget(userId, dto.getTargetType(), dto.getTargetId());
+        int targetType = "course".equals(dto.getType()) ? 1 : 2;
+        Favorite existing = favoriteMapper.selectByUserIdAndTarget(userId, targetType, dto.getTargetId());
         if (existing == null) {
             throw new BusinessException("收藏不存在");
         }
-        favoriteMapper.deleteByUserIdAndTarget(userId, dto.getTargetType(), dto.getTargetId());
+        favoriteMapper.deleteByUserIdAndTarget(userId, targetType, dto.getTargetId());
         return Result.ok();
     }
 }

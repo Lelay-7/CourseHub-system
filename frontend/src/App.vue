@@ -5,6 +5,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useAppStore } from '@/stores/app'
+import bgImage from '@/assets/images/beijing.png'
 
 const appStore = useAppStore()
 
@@ -14,6 +15,9 @@ onMounted(() => {
   window.addEventListener('resize', () => {
     appStore.checkViewport()
   })
+
+  // 设置全局背景图
+  document.body.style.background = `url(${bgImage}) center / cover no-repeat fixed`
 })
 </script>
 

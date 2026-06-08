@@ -14,18 +14,13 @@ import com.bugaoshan.mapper.MaterialMapper;
 import com.bugaoshan.mapper.ScoreRecordMapper;
 import com.bugaoshan.mapper.UserMapper;
 import com.bugaoshan.service.MaterialService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class MaterialServiceImpl implements MaterialService {
@@ -34,9 +29,6 @@ public class MaterialServiceImpl implements MaterialService {
     private final FavoriteMapper favoriteMapper;
     private final UserMapper userMapper;
     private final ScoreRecordMapper scoreRecordMapper;
-
-    @Value("${file.upload.upload-path:./uploads}")
-    private String uploadDir;
 
     public MaterialServiceImpl(MaterialMapper materialMapper, FavoriteMapper favoriteMapper,
                                UserMapper userMapper, ScoreRecordMapper scoreRecordMapper) {
@@ -125,35 +117,17 @@ public class MaterialServiceImpl implements MaterialService {
 
     @Override
     @Transactional
-    public Result uploadMaterial(Long userId, MaterialUploadDTO dto, MultipartFile file) {
-        String fileUrl = null;
-        Long fileSize = 0L;
-        if (file != null && !file.isEmpty()) {
-            fileSize = file.getSize();
-            File dir = new File(uploadDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
-            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
-            File dest = new File(uploadDir, fileName);
-            try {
-                file.transferTo(dest);
-                fileUrl = "/uploads/" + fileName;
-            } catch (IOException e) {
-                throw new BusinessException("文件上传失败");
-            }
-        }
-
+    public Result uploadMaterial(Long userId, MaterialUploadDTO dto) {
         Material material = new Material();
         material.setMaterialName(dto.getMaterialName());
         material.setMaterialType(dto.getMaterialType());
         material.setCourseId(dto.getCourseId());
         material.setUploaderId(userId);
-        material.setFileUrl(fileUrl);
-        material.setFileSize(fileSize);
+        material.setFileUrl(dto.getFileUrl());
+        material.setFileSize(0L);
         material.setDownloadScore(dto.getDownloadScore() != null ? dto.getDownloadScore() : 0);
         material.setDownloadCount(0);
-        material.setDescription(dto.getDescription());
+        material.setDescription(dto.getFileName());
         material.setKeyword(dto.getKeyword());
         material.setStatus(1);
         material.setIsDeleted(0);

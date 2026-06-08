@@ -1,173 +1,85 @@
 <template>
   <AppLayout>
-    <div class="page-content mall-list-page">
-      <PageHeader title="积分商城">
+    <PageContainer>
+      <PageHeader
+        title="积分商城"
+        subtitle="使用积分兑换学习资料、校园权益和服务。"
+      >
         <template #extra>
-          <div class="score-bar">
-            <el-icon><StarFilled /></el-icon>
-            <span>我的积分：<strong>{{ userStore.scoreBalance }}</strong></span>
-          </div>
+          <div class="mall-score">我的积分 <strong>{{ userStore.scoreBalance }}</strong></div>
         </template>
       </PageHeader>
 
-      <!-- 筛选 -->
-      <div class="filter-bar">
-        <el-select
-          v-model="filters.scoreRange"
-          placeholder="积分区间"
-          clearable
-          style="width: 150px"
-          @change="applyFilters"
-        >
-          <el-option v-for="r in SCORE_RANGE" :key="r.label" :label="r.label" :value="r.label" />
-        </el-select>
-        <el-radio-group v-model="filters.sortBy" size="small" @change="applyFilters">
-          <el-radio-button value="popularity">热度</el-radio-button>
-          <el-radio-button value="score">积分</el-radio-button>
-          <el-radio-button value="newest">最新</el-radio-button>
+      <Toolbar>
+        <el-radio-group v-model="category" size="small">
+          <el-radio-button v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</el-radio-button>
         </el-radio-group>
+        <el-radio-group v-model="sortBy" size="small">
+          <el-radio-button value="hot">热度</el-radio-button>
+          <el-radio-button value="score">积分</el-radio-button>
+          <el-radio-button value="new">最新</el-radio-button>
+        </el-radio-group>
+      </Toolbar>
+
+      <div class="goods-grid-pro">
+        <GoodsCard v-for="goods in visibleGoods" :key="goods.goods_id" :goods="goods" />
       </div>
-
-      <!-- 左侧分类 + 右侧商品布局 -->
-      <div class="mall-layout">
-        <div class="mall-categories desktop-only">
-          <el-menu :default-active="String(filters.categoryId || '')" @select="onCategorySelect">
-            <el-menu-item index="">
-              <el-icon><Grid /></el-icon> 全部
-            </el-menu-item>
-            <el-menu-item v-for="(label, val) in GOODS_TYPE_LABEL" :key="val" :index="String(val)">
-              {{ label }}
-            </el-menu-item>
-          </el-menu>
-        </div>
-
-        <div class="goods-grid-wrapper">
-          <div v-if="goodsList.length > 0" class="goods-grid">
-            <GoodsCard
-              v-for="goods in goodsList"
-              :key="goods.goods_id"
-              :goods="goods"
-            />
-          </div>
-          <EmptyState v-else-if="!loading" description="暂无商品" />
-
-          <div v-if="loading" class="load-more">
-            <el-icon class="is-loading"><Loading /></el-icon> 加载中...
-          </div>
-          <div v-else-if="noMore && goodsList.length > 0" class="load-more no-more">
-            没有更多了
-          </div>
-        </div>
-      </div>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { Loading, StarFilled, Grid } from '@element-plus/icons-vue'
+import { computed, ref } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import Toolbar from '@/components/Toolbar.vue'
 import GoodsCard from '@/components/GoodsCard.vue'
-import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
-import { GOODS_TYPE_LABEL, SCORE_RANGE } from '@/utils/constants'
-import * as mallApi from '@/api/mall'
 
 const userStore = useUserStore()
+const category = ref('全部')
+const sortBy = ref('hot')
+const categories = ['全部', '资料权益', '校园权益', '学习服务', '实物周边']
 
-const goodsList = ref([])
-const loading = ref(false)
-const page = ref(1)
-const noMore = ref(false)
-const filters = reactive({
-  categoryId: null,
-  scoreRange: '',
-  sortBy: 'popularity'
-})
+const goodsList = [
+  { goods_id: 1, category: '资料权益', name: '资料下载券', description: '可抵扣一次积分资料下载，适合期末集中复习。', exchange_score: 60, stock: 42 },
+  { goods_id: 2, category: '资料权益', name: '课程评价查看券', description: '查看课程评价摘要，帮助你快速判断课程风格。', exchange_score: 80, stock: 28 },
+  { goods_id: 3, category: '学习服务', name: '老师答疑优先卡', description: '用于课程答疑预约优先排队，适合项目和考前问题。', exchange_score: 220, stock: 8 },
+  { goods_id: 4, category: '校园权益', name: '图书馆预约券', description: '优先预约研修间 2 小时，方便小组讨论。', exchange_score: 120, stock: 16 },
+  { goods_id: 5, category: '校园权益', name: '打印优惠券', description: '用于打印复习提纲、实验报告和答辩材料。', exchange_score: 45, stock: 80 },
+  { goods_id: 6, category: '校园权益', name: '校园咖啡券', description: '复习周补给权益，可在合作点位核销。', exchange_score: 88, stock: 24 },
+  { goods_id: 7, category: '实物周边', name: '复习资料礼包', description: '包含重点课程复习提纲、错题页和计划卡。', exchange_score: 260, stock: 0 }
+]
 
-async function fetchList(reset = false) {
-  if (loading.value) return
-  if (reset) { page.value = 1; goodsList.value = []; noMore.value = false }
-  loading.value = true
-  try {
-    const res = await mallApi.getGoodsList({ page: page.value, pageSize: 20, ...filters })
-    if (res.code === 200) {
-      const data = res.data || {}
-      const list = data.list || data.records || []
-      if (reset) goodsList.value = list
-      else goodsList.value.push(...list)
-      noMore.value = goodsList.value.length >= (data.total || 0)
-    }
-  } catch { /* handled */ }
-  finally { loading.value = false }
-}
-
-function applyFilters() { fetchList(true) }
-
-function onCategorySelect(index) {
-  filters.categoryId = index ? Number(index) : null
-  applyFilters()
-}
-
-// 滚动加载
-function onScroll() {
-  const el = document.querySelector('.app-content')
-  if (!el) return
-  const { scrollTop, scrollHeight, clientHeight } = el
-  if (scrollHeight - scrollTop - clientHeight < 200) {
-    if (!noMore.value && !loading.value) { page.value++; fetchList(false) }
-  }
-}
-
-onMounted(() => {
-  fetchList(true)
-  const el = document.querySelector('.app-content')
-  el?.addEventListener('scroll', onScroll)
+const visibleGoods = computed(() => {
+  let list = category.value === '全部' ? [...goodsList] : goodsList.filter(item => item.category === category.value)
+  if (sortBy.value === 'score') list = list.sort((a, b) => a.exchange_score - b.exchange_score)
+  if (sortBy.value === 'new') list = list.sort((a, b) => b.goods_id - a.goods_id)
+  return list
 })
 </script>
 
 <style scoped>
-.mall-list-page {
-  --content-max-width: 1320px;
+.mall-score {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  background: var(--color-accent-light);
+  font-weight: 900;
 }
 
-.score-bar {
-  display: flex; align-items: center; gap: 4px;
-  color: var(--color-warning); font-size: var(--font-size-base);
-}
-.score-bar strong { font-size: var(--font-size-lg); }
-
-.filter-bar {
-  display: flex; gap: var(--spacing-md); align-items: center;
-  margin-bottom: var(--spacing-md); flex-wrap: wrap;
+.mall-score strong {
+  font-size: var(--font-size-lg);
 }
 
-.mall-layout {
+.goods-grid-pro {
   display: grid;
-  grid-template-columns: 160px minmax(0, 1fr);
-  gap: var(--spacing-md);
-  align-items: start;
-}
-.mall-categories {
-  min-height: 360px;
-  background: var(--color-bg-card); border-radius: var(--radius-md); overflow: hidden;
-  box-shadow: var(--shadow-sm);
-}
-.goods-grid-wrapper { min-width: 0; overflow: hidden; }
-
-.goods-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--spacing-md);
-  align-items: start;
-}
-
-.load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
-.load-more.no-more { color: var(--color-text-placeholder); }
-
-@media (max-width: 767px) {
-  .mall-layout { grid-template-columns: 1fr; }
-  .goods-grid { grid-template-columns: repeat(2, 1fr); }
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
 }
 </style>

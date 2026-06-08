@@ -7,7 +7,6 @@ import com.bugaoshan.dto.MaterialUploadDTO;
 import com.bugaoshan.service.MaterialService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/material")
@@ -49,22 +48,9 @@ public class MaterialController {
     }
 
     @PostMapping("/upload")
-    public Result<?> upload(@RequestParam("file") MultipartFile file,
-                            @RequestParam String materialName,
-                            @RequestParam Integer materialType,
-                            @RequestParam Long courseId,
-                            @RequestParam(required = false) Integer downloadScore,
-                            @RequestParam(required = false) String description,
-                            @RequestParam(required = false) String keyword) {
+    public Result<?> upload(@Valid @RequestBody MaterialUploadDTO dto) {
         Long userId = SecurityUtils.getCurrentUserId();
-        MaterialUploadDTO dto = new MaterialUploadDTO();
-        dto.setMaterialName(materialName);
-        dto.setMaterialType(materialType);
-        dto.setCourseId(courseId);
-        dto.setDownloadScore(downloadScore);
-        dto.setDescription(description);
-        dto.setKeyword(keyword);
-        return materialService.uploadMaterial(userId, dto, file);
+        return materialService.uploadMaterial(userId, dto);
     }
 
     @PostMapping("/{id}/report")

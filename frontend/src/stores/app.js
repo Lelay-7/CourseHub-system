@@ -13,9 +13,7 @@ export const useAppStore = defineStore('app', () => {
   const isMobile = ref(false)
 
   // ========== Getters ==========
-  const sidebarWidth = computed(() =>
-    sidebarCollapsed.value ? '64px' : '220px'
-  )
+  const sidebarWidth = computed(() => '72px')
   const orderBadgeText = computed(() =>
     pendingOrderCount.value > 99 ? '99+' : String(pendingOrderCount.value)
   )
