@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: bugaoshan-backend
+  jackson:
+    property-naming-strategy: SNAKE_CASE
   datasource:
     url: jdbc:mysql://127.0.0.1:3306/bgss_xtt?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=5000
     username: bgss_user

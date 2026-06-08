@@ -201,9 +201,10 @@ async function fetchDetail() {
       courseApi.getCourseDetail(courseId.value)
     ])
     if (detailRes.code === 200) {
-      course.value = detailRes.data || {}
-      reviews.value = detailRes.data?.reviews || []
-      relatedCourses.value = (detailRes.data?.related_courses || []).slice(0, 6)
+      const data = detailRes.data || {}
+      course.value = data.course || data
+      reviews.value = data.reviews || []
+      relatedCourses.value = (data.relatedCourses || data.related_courses || []).slice(0, 6)
     }
   } catch { /* handled */ }
   finally { loading.value = false }

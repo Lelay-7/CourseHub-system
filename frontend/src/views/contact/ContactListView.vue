@@ -36,12 +36,12 @@
         <section v-for="group in groupedContacts" :key="group.department" class="contact-group">
           <SectionTitle :title="group.department || '其他学院'" />
           <div class="contact-grid">
-            <article v-for="contact in group.list" :key="contact.user_id" class="contact-card">
-              <el-avatar :size="54" :src="contact.avatar_url">
+            <article v-for="contact in group.list" :key="contact.userId || contact.user_id" class="contact-card">
+              <el-avatar :size="54" :src="contact.avatarUrl || contact.avatar_url">
                 <el-icon :size="24"><User /></el-icon>
               </el-avatar>
               <div class="contact-info">
-                <h3>{{ contact.real_name }}</h3>
+                <h3>{{ contact.realName || contact.real_name }}</h3>
                 <p v-if="contactType === 'teacher'">{{ contact.title || '教师' }} · {{ contact.department }}</p>
                 <p v-else>{{ contact.department }} · {{ contact.student_id || contact.class_name }}</p>
                 <div class="contact-course">
@@ -52,7 +52,7 @@
                 <el-button plain @click="$router.push(contactType === 'teacher' ? '/course' : '/course')">
                   {{ contactType === 'teacher' ? '查看课程' : '查看共同课程' }}
                 </el-button>
-                <el-button type="primary" @click="$router.push(`/contact/${contact.user_id}`)">
+                <el-button type="primary" @click="$router.push(`/contact/${contact.userId || contact.user_id}`)">
                   {{ contactType === 'teacher' ? '联系老师' : '联系同学' }}
                 </el-button>
               </div>
@@ -97,7 +97,7 @@ const departments = computed(() => [...new Set(contactList.value.map(item => ite
 const filteredContacts = computed(() => {
   const q = searchKeyword.value.trim().toLowerCase()
   return contactList.value.filter(item => {
-    const text = `${item.real_name} ${item.student_id || ''} ${item.department || ''} ${item.title || ''} ${teacherCourse(item)}`.toLowerCase()
+    const text = `${item.realName || item.real_name} ${item.studentId || item.student_id || ''} ${item.department || ''} ${item.title || ''} ${teacherCourse(item)}`.toLowerCase()
     return (!q || text.includes(q)) &&
       (!filters.department || item.department === filters.department) &&
       (!filters.title || item.title === filters.title) &&
