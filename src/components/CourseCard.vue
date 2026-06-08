@@ -1,82 +1,82 @@
 <template>
-  <div class="course-card card card-hover" @click="goDetail">
-    <!-- 封面图：16:9 -->
-    <div class="course-cover">
-      <img
-        :src="course.cover_url || defaultCover"
-        :alt="course.course_name"
-        class="img-cover"
-        @error="onImgError"
-      />
-      <!-- 收藏按钮 -->
-      <el-button
-        class="favorite-btn"
-        :icon="course.is_favorited ? StarFilled : Star"
-        :type="course.is_favorited ? 'warning' : 'default'"
-        circle
-        size="small"
-        @click.stop="toggleFavorite"
-      />
-      <button
-        v-if="selectable"
-        type="button"
-        class="compare-toggle"
-        :class="{ selected }"
-        @click.stop="toggleCompare"
-      >
-        {{ selected ? '已加入对比' : '加入对比' }}
-      </button>
+  <article class="course-card-pro">
+    <div class="course-card-pro__head">
+      <StatusTag :tone="typeTone">{{ courseTypeLabel }}</StatusTag>
+      <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>
     </div>
 
-    <div class="course-info">
-      <h3 class="course-name text-ellipsis" v-html="highlightedName" />
-      <div class="course-meta">
-        <span class="meta-item">
-          <el-icon><User /></el-icon>
-          {{ course.teacher_name || '未知教师' }}
-        </span>
-        <span class="meta-item">
-          <el-icon><UserFilled /></el-icon>
-          {{ formatNumber(course.student_count) }}人选课
-        </span>
-      </div>
-      <div class="course-footer">
-        <el-tag :type="courseTypeTag" size="small">
-          {{ courseTypeLabel }}
-        </el-tag>
-        <span class="course-credit">{{ course.credit }} 学分</span>
-      </div>
+    <h3 v-html="highlightedName" />
+    <p>{{ courseDescription }}</p>
+
+    <div class="course-card-pro__meta">
+      <span><el-icon><User /></el-icon>{{ course.teacher_name || '未知教师' }}</span>
+      <span><el-icon><Collection /></el-icon>{{ course.credit || 0 }} 学分</span>
+      <span><el-icon><Clock /></el-icon>{{ course.schedule || '时间待定' }}</span>
+      <span><el-icon><UserFilled /></el-icon>{{ formatNumber(course.student_count) }} 人已选</span>
     </div>
-  </div>
+
+    <div class="course-card-pro__links">
+      <button type="button" @click="$router.push(`/material?course=${course.course_id}`)">查看资料</button>
+      <button type="button" @click="$router.push(`/square?course=${course.course_id}`)">查看讨论</button>
+      <button type="button" @click="$router.push('/contact')">联系老师</button>
+    </div>
+
+    <div class="course-card-pro__actions">
+      <el-button plain @click="$router.push(`/course/${course.course_id}`)">查看详情</el-button>
+      <el-button plain @click="$emit('compare-toggle', course)">加入对比</el-button>
+      <el-button type="primary" :disabled="selectDisabled" @click="$emit('select-course', course)">
+        {{ statusLabel === '已选' ? '已选择' : '选择课程' }}
+      </el-button>
+    </div>
+  </article>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { Star, StarFilled, User, UserFilled } from '@element-plus/icons-vue'
+import { User, UserFilled, Collection, Clock } from '@element-plus/icons-vue'
+import StatusTag from '@/components/StatusTag.vue'
 import { COURSE_TYPE, COURSE_TYPE_LABEL } from '@/utils/constants'
 
 const props = defineProps({
   course: { type: Object, required: true },
-  keyword: { type: String, default: '' },
-  selectable: { type: Boolean, default: false },
-  selected: { type: Boolean, default: false }
+  keyword: { type: String, default: '' }
 })
 
-const emit = defineEmits(['favorite', 'compare-toggle'])
-const router = useRouter()
+defineEmits(['compare-toggle', 'select-course'])
 
-const defaultCover = new URL('@/assets/images/default-cover.svg', import.meta.url).href
+const descriptions = {
+  1: '围绕常用数据结构、复杂度分析和算法设计展开，适合需要打牢程序设计基础的同学。',
+  2: '以 Vue3、组件拆分和前端工程实践为主线，强调可维护界面和项目交付能力。',
+  3: '从关系模型、SQL 查询到索引优化，帮助你理解数据库系统在真实项目中的使用方式。',
+  4: '覆盖机器学习基本流程、模型评估和小型实践任务，适合作为人工智能方向入门课。',
+  5: '聚焦需求分析、项目计划、迭代管理和答辩表达，适合准备团队项目的同学。',
+  6: '讲解常见网络攻击、防护思路和实验验证，适合希望补齐安全意识的同学。',
+  7: '围绕移动端页面、接口联调和应用发布流程展开，强调完整应用开发体验。',
+  8: '结合数字内容生产、交互媒体和作品展示，适合跨专业拓展与创意实践。'
+}
 
-const courseTypeLabel = computed(() => COURSE_TYPE_LABEL[props.course.course_type] || '')
-const courseTypeTag = computed(() =>
-  props.course.course_type === COURSE_TYPE.REQUIRED ? 'danger' : 'primary'
-)
+const statusList = ['可选', '已选', '名额紧张', '时间冲突', '已满']
+const statusLabel = computed(() => props.course.status || statusList[(props.course.course_id - 1) % statusList.length])
+const statusTone = computed(() => ({
+  可选: 'success',
+  已选: 'default',
+  名额紧张: 'warning',
+  时间冲突: 'danger',
+  已满: 'info'
+}[statusLabel.value] || 'default'))
+const selectDisabled = computed(() => ['已选', '时间冲突', '已满'].includes(statusLabel.value))
+const courseTypeLabel = computed(() => COURSE_TYPE_LABEL[props.course.course_type] || '课程')
+const typeTone = computed(() => props.course.course_type === COURSE_TYPE.REQUIRED ? 'danger' : 'default')
+const courseDescription = computed(() => props.course.description || descriptions[props.course.course_id] || '课程信息已整理，可结合评价、资料和同学讨论进行选择。')
 const highlightedName = computed(() => highlightText(props.course.course_name || '', props.keyword))
 
 function escapeHtml(text) {
   return String(text).replace(/[&<>"']/g, (char) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
   }[char]))
 }
 
@@ -89,133 +89,100 @@ function highlightText(text, keyword) {
 
 function formatNumber(num) {
   if (!num) return '0'
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
+  if (num >= 10000) return `${(num / 10000).toFixed(1)}万`
   return String(num)
-}
-
-function goDetail() {
-  router.push(`/course/${props.course.course_id}`)
-}
-
-function toggleFavorite() {
-  emit('favorite', props.course)
-}
-
-function toggleCompare() {
-  emit('compare-toggle', props.course)
-}
-
-function onImgError(e) {
-  e.target.src = defaultCover
 }
 </script>
 
 <style scoped>
-.course-card {
-  cursor: pointer;
-  overflow: hidden;
-  padding: 0;
+.course-card-pro {
+  display: flex;
+  flex-direction: column;
+  min-height: 306px;
+  padding: 20px;
+  border-radius: 24px;
+  background: var(--color-bg-card);
+  border: 1px solid rgba(154, 66, 45, 0.08);
+  box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.course-cover {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  padding-top: 0;
-  background: var(--color-bg-page);
-  overflow: hidden;
+.course-card-pro:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
-.course-cover img {
-  position: absolute;
-  inset: 0;
-  transition: transform var(--transition-slow);
+.course-card-pro__head,
+.course-card-pro__actions,
+.course-card-pro__links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
 }
 
-.course-card:hover .course-cover img {
-  transform: scale(1.05);
+.course-card-pro__head {
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
 }
 
-.favorite-btn {
-  position: absolute;
-  top: var(--spacing-sm);
-  right: var(--spacing-sm);
-  z-index: 1;
-  backdrop-filter: blur(10px);
-  background: rgba(255, 253, 248, 0.9);
-}
-
-.compare-toggle {
-  position: absolute;
-  left: var(--spacing-sm);
-  bottom: var(--spacing-sm);
-  z-index: 1;
-  border: 0;
-  border-radius: 999px;
-  padding: 6px 10px;
-  color: var(--color-primary-dark);
-  background: rgba(255, 253, 248, 0.9);
-  backdrop-filter: blur(10px);
-  cursor: pointer;
-  font-size: var(--font-size-xs);
-  font-weight: 800;
-  box-shadow: 0 0 0 1px rgba(22, 105, 122, 0.12) inset;
-}
-
-.compare-toggle.selected {
-  color: #fff;
-  background: var(--color-accent);
-  box-shadow: 0 8px 18px rgba(239, 131, 84, 0.28);
-}
-
-.course-info {
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
-  min-height: 112px;
-}
-
-.course-name {
-  margin: 0 0 var(--spacing-sm);
-  font-size: var(--font-size-base);
-  font-weight: 700;
+.course-card-pro h3 {
+  margin: 0 0 10px;
   color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 900;
+  line-height: 1.35;
 }
 
-.course-name :deep(mark) {
+.course-card-pro h3 :deep(mark) {
   color: var(--color-primary-dark);
-  background: rgba(239, 131, 84, 0.28);
-  border-radius: 3px;
+  background: rgba(232, 116, 82, 0.22);
+  border-radius: 4px;
   padding: 0 2px;
 }
 
-.course-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-sm);
-  min-width: 0;
+.course-card-pro p {
+  margin: 0;
+  color: var(--color-text-regular);
+  line-height: 1.7;
 }
 
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  font-size: var(--font-size-xs);
+.course-card-pro__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: var(--spacing-md) 0;
   color: var(--color-text-secondary);
-}
-
-.course-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.course-credit {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-soft);
-  border-radius: 999px;
-  padding: 3px 8px;
+}
+
+.course-card-pro__meta span {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.course-card-pro__links {
+  margin-top: auto;
+  padding-top: var(--spacing-sm);
+}
+
+.course-card-pro__links button {
+  border: 0;
+  padding: 0;
+  color: #4c91d8;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.course-card-pro__actions {
+  margin-top: var(--spacing-md);
+}
+
+.course-card-pro__actions :deep(.el-button) {
+  flex: 1 1 auto;
+  min-width: 90px;
 }
 </style>

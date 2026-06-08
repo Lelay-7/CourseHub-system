@@ -19,12 +19,12 @@ function svgData(title, colorA, colorB) {
 }
 
 const covers = [
-  svgData('算法与数据结构', '#1f8a70', '#004e64'),
-  svgData('Web 前端工程', '#2f80ed', '#00a6a6'),
-  svgData('数据库系统', '#8e7cc3', '#3d5a80'),
-  svgData('机器学习导论', '#d76d77', '#3a1c71'),
-  svgData('软件工程实践', '#11998e', '#38ef7d'),
-  svgData('网络安全基础', '#e96443', '#904e95')
+  svgData('算法与数据结构', '#e87452', '#f4b24f'),
+  svgData('Web 前端工程', '#c98272', '#e87452'),
+  svgData('数据库系统', '#b56b48', '#8b6f55'),
+  svgData('机器学习导论', '#d89334', '#c98272'),
+  svgData('软件工程实践', '#86a96f', '#e0b36a'),
+  svgData('网络安全基础', '#9a422d', '#e87452')
 ]
 
 const user = {
@@ -120,8 +120,8 @@ const goods = [
   exchange_score: item[2],
   stock: item[3],
   description: item[4],
-  cover_url: svgData(item[0], ['#ef476f', '#118ab2', '#06d6a0', '#f4a261'][index % 4], ['#073b4c', '#264653', '#1d3557', '#2a9d8f'][index % 4]),
-  images: [svgData(item[0], '#118ab2', '#06d6a0'), svgData('兑换说明', '#ef476f', '#ffd166')],
+  cover_url: svgData(item[0], ['#e87452', '#c98272', '#86a96f', '#f4b24f'][index % 4], ['#9a422d', '#b56b48', '#8b6f55', '#d89334'][index % 4]),
+  images: [svgData(item[0], '#e87452', '#f4b24f'), svgData('兑换说明', '#c98272', '#fff0cf')],
   has_exchanged: index === 1
 }))
 
@@ -193,9 +193,9 @@ export async function mockAdapter(config) {
     data = ok({ avatar_url: user.avatar_url })
   } else if (url === '/api/home/banners') {
     data = ok([
-      { id: 1, title: '选课周提醒', image_url: svgData('选课周提醒', '#2f80ed', '#00a6a6'), link_url: '/course' },
-      { id: 2, title: '资料共享计划', image_url: svgData('资料共享计划', '#11998e', '#38ef7d'), link_url: '/material' },
-      { id: 3, title: '积分兑换上新', image_url: svgData('积分兑换上新', '#ef476f', '#ffd166'), link_url: '/mall' }
+      { id: 1, title: '选课周提醒', image_url: svgData('选课周提醒', '#e87452', '#f4b24f'), link_url: '/course' },
+      { id: 2, title: '资料共享计划', image_url: svgData('资料共享计划', '#c98272', '#e87452'), link_url: '/material' },
+      { id: 3, title: '积分兑换上新', image_url: svgData('积分兑换上新', '#86a96f', '#d89334'), link_url: '/mall' }
     ])
   } else if (url === '/api/home/news') {
     const type = params.type

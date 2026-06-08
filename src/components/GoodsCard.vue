@@ -1,110 +1,95 @@
 <template>
-  <div class="goods-card card card-hover" @click="goDetail">
-    <div class="goods-image">
-      <img :src="goods.cover_url || defaultImg" :alt="goods.name" class="img-cover" />
-      <!-- 库存不足遮罩 -->
-      <div v-if="goods.stock <= 0" class="sold-out-mask">
-        <span>已售罄</span>
-      </div>
+  <article class="goods-card-pro" :class="{ soldout: goods.stock <= 0 }">
+    <div class="goods-card-pro__icon">
+      <el-icon :size="34"><component :is="icon" /></el-icon>
     </div>
-
-    <div class="goods-info">
-      <h4 class="goods-name text-ellipsis-2">{{ goods.name }}</h4>
-      <div class="goods-footer">
-        <span class="goods-score">
-          <el-icon><StarFilled /></el-icon>
-          {{ goods.exchange_score }} 积分
-        </span>
-        <el-tag size="small" :type="goods.stock > 0 ? 'success' : 'info'">
-          {{ goods.stock > 0 ? `库存 ${goods.stock}` : '已售罄' }}
-        </el-tag>
-      </div>
+    <h3>{{ goods.name }}</h3>
+    <p>{{ goods.description || '适用于选课、资料下载和校园学习场景的积分权益。' }}</p>
+    <div class="goods-card-pro__meta">
+      <strong>{{ goods.exchange_score }} 积分</strong>
+      <StatusTag :tone="goods.stock > 0 ? 'success' : 'info'">
+        {{ goods.stock > 0 ? `库存 ${goods.stock}` : '已售罄' }}
+      </StatusTag>
     </div>
-  </div>
+    <el-button type="primary" :disabled="goods.stock <= 0" @click="$router.push(`/mall/${goods.goods_id}`)">
+      立即兑换
+    </el-button>
+  </article>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
-import { StarFilled } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { Tickets, Reading, Service, FolderOpened, Medal, Present, Document } from '@element-plus/icons-vue'
+import StatusTag from '@/components/StatusTag.vue'
 
 const props = defineProps({
   goods: { type: Object, required: true }
 })
 
-const router = useRouter()
-const defaultImg = new URL('@/assets/images/default-cover.svg', import.meta.url).href
-
-function goDetail() {
-  router.push(`/mall/${props.goods.goods_id}`)
-}
+const icons = [Tickets, Reading, Service, FolderOpened, Present, Document, Medal]
+const icon = computed(() => icons[(props.goods.goods_id - 1) % icons.length])
 </script>
 
 <style scoped>
-.goods-card {
-  cursor: pointer;
-  overflow: hidden;
-  padding: 0;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+.goods-card-pro {
+  min-height: 276px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-lg);
+  border-radius: 24px;
+  background: var(--color-bg-card);
+  border: 1px solid rgba(154, 66, 45, 0.08);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
 }
 
-.goods-image {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  background: var(--color-bg-page);
-  overflow: hidden;
-  padding-top: 0;
+.goods-card-pro:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
 }
 
-.goods-image img {
-  position: absolute;
-  inset: 0;
-  transition: transform var(--transition-slow);
+.goods-card-pro.soldout {
+  opacity: 0.62;
 }
 
-.goods-card:hover .goods-image img {
-  transform: scale(1.05);
-}
-
-.sold-out-mask {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+.goods-card-pro__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 24px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255,255,255,.24), transparent 32%),
+    linear-gradient(135deg, #f07462, #f8b25f);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
+  margin-bottom: var(--spacing-md);
 }
 
-.goods-info {
-  padding: var(--spacing-sm) var(--spacing-md) var(--spacing-md);
-  min-height: 112px;
-}
-
-.goods-name {
-  margin: 0 0 var(--spacing-sm);
-  font-size: var(--font-size-base);
-  font-weight: 700;
+.goods-card-pro h3 {
+  margin: 0;
   color: var(--color-text-primary);
-  line-height: 1.4;
-  min-height: 2.8em;
+  font-size: var(--font-size-lg);
+  font-weight: 900;
 }
 
-.goods-footer {
+.goods-card-pro p {
+  flex: 1;
+  margin: 10px 0 var(--spacing-md);
+  color: var(--color-text-regular);
+  line-height: 1.7;
+}
+
+.goods-card-pro__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
 }
 
-.goods-score {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #9b6419;
-  font-size: var(--font-size-md);
-  font-weight: 600;
+.goods-card-pro__meta strong {
+  color: var(--color-primary-dark);
+  font-size: var(--font-size-lg);
 }
 </style>

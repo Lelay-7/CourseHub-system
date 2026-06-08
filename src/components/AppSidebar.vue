@@ -1,153 +1,122 @@
 <template>
-  <div class="app-sidebar" :style="{ width: appStore.sidebarWidth }">
+  <aside class="app-sidebar">
     <div class="sidebar-logo">
-      <el-icon v-if="appStore.sidebarCollapsed" :size="24">
-        <School />
-      </el-icon>
-      <span v-else class="logo-text">不高山选课通</span>
+      <el-icon :size="24"><School /></el-icon>
     </div>
 
-    <el-menu
-      :default-active="activeMenu"
-      :collapse="appStore.sidebarCollapsed"
-      :collapse-transition="false"
-      router
-      background-color="transparent"
-      text-color="rgba(255,255,255,.72)"
-      active-text-color="#fff"
-      class="sidebar-menu"
-    >
-      <el-menu-item index="/home">
-        <el-icon><HomeFilled /></el-icon>
-        <template #title>首页</template>
-      </el-menu-item>
-
-      <el-menu-item index="/course">
-        <el-icon><Reading /></el-icon>
-        <template #title>课程</template>
-      </el-menu-item>
-
-      <el-menu-item index="/material">
-        <el-icon><FolderOpened /></el-icon>
-        <template #title>资料</template>
-      </el-menu-item>
-
-      <el-menu-item index="/contact">
-        <el-icon><UserFilled /></el-icon>
-        <template #title>通讯录</template>
-      </el-menu-item>
-
-      <el-menu-item index="/mall">
-        <el-icon><ShoppingCart /></el-icon>
-        <template #title>积分商城</template>
-      </el-menu-item>
-
-      <el-menu-item index="/profile">
-        <el-icon><User /></el-icon>
-        <template #title>个人中心</template>
-      </el-menu-item>
-    </el-menu>
-
-    <!-- 折叠按钮 -->
-    <div class="sidebar-toggle" @click="appStore.toggleSidebar">
-      <el-icon :size="18">
-        <ArrowLeft v-if="!appStore.sidebarCollapsed" />
-        <ArrowRight v-else />
-      </el-icon>
-    </div>
-  </div>
+    <nav class="sidebar-menu">
+      <el-tooltip
+        v-for="item in menus"
+        :key="item.path"
+        :content="item.label"
+        placement="right"
+      >
+        <button
+          type="button"
+          class="sidebar-item"
+          :class="{ active: activeMenu === item.path }"
+          @click="$router.push(item.path)"
+        >
+          <el-icon :size="22"><component :is="item.icon" /></el-icon>
+        </button>
+      </el-tooltip>
+    </nav>
+  </aside>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAppStore } from '@/stores/app'
+import {
+  School,
+  HomeFilled,
+  Reading,
+  ChatDotRound,
+  FolderOpened,
+  UserFilled,
+  ShoppingCart,
+  User
+} from '@element-plus/icons-vue'
 
 const route = useRoute()
-const appStore = useAppStore()
+
+const menus = [
+  { path: '/home', label: '首页', icon: HomeFilled },
+  { path: '/course', label: '选课中心', icon: Reading },
+  { path: '/square', label: '同学广场', icon: ChatDotRound },
+  { path: '/material', label: '学习资料', icon: FolderOpened },
+  { path: '/contact', label: '师生通讯录', icon: UserFilled },
+  { path: '/mall', label: '积分商城', icon: ShoppingCart },
+  { path: '/profile', label: '个人中心', icon: User }
+]
 
 const activeMenu = computed(() => {
   const path = route.path
   if (path.startsWith('/course')) return '/course'
+  if (path.startsWith('/square')) return '/square'
   if (path.startsWith('/material')) return '/material'
   if (path.startsWith('/contact')) return '/contact'
   if (path.startsWith('/mall')) return '/mall'
   if (path.startsWith('/profile')) return '/profile'
-  return path
+  return '/home'
 })
 </script>
 
 <style scoped>
 .app-sidebar {
-  position: relative;
+  width: 72px;
   height: 100vh;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.08), transparent 30%),
-    #12343b;
+  flex: 0 0 72px;
   display: flex;
   flex-direction: column;
-  transition: width var(--transition-normal);
-  flex-shrink: 0;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  align-items: center;
+  background:
+    linear-gradient(180deg, rgba(255, 246, 234, 0.24), transparent 34%),
+    linear-gradient(180deg, #fa7f70 0%, #e7664a 100%);
+  box-shadow: 10px 0 24px rgba(125, 62, 38, 0.1);
 }
 
 .sidebar-logo {
-  height: var(--navbar-height);
+  width: 72px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 var(--spacing-md);
-  color: #fff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.logo-text {
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  white-space: nowrap;
-  letter-spacing: 0;
+  color: #fffaf3;
 }
 
 .sidebar-menu {
-  flex: 1;
-  border-right: none;
-  overflow-y: auto;
-  padding: var(--spacing-md) var(--spacing-sm);
-}
-
-.sidebar-menu :deep(.el-menu-item) {
-  height: 44px;
-  margin: 4px 0;
-  border-radius: var(--radius-md);
-}
-
-.sidebar-menu :deep(.el-menu-item:hover) {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-menu :deep(.el-menu-item.is-active) {
-  color: #fff;
-  background: rgba(239, 131, 84, 0.92);
-  box-shadow: 0 10px 22px rgba(239, 131, 84, 0.22);
-}
-
-.sidebar-menu:not(.el-menu--collapse) {
   width: 100%;
+  padding: 10px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
-.sidebar-toggle {
-  height: 40px;
-  display: flex;
+.sidebar-item {
+  appearance: none;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 18px;
+  color: rgba(255, 250, 243, 0.86);
+  background: transparent;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #bfcbd9;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  transition: background var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
-.sidebar-toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
+
+.sidebar-item:hover {
+  color: #fffaf3;
+  background: rgba(255, 250, 243, 0.16);
+}
+
+.sidebar-item.active {
+  color: var(--color-primary-dark);
+  background: #fffaf3;
+  box-shadow: 0 10px 22px rgba(125, 62, 38, 0.18);
 }
 </style>
