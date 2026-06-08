@@ -7,17 +7,17 @@
         <LoadingSkeleton type="list" :rows="5" />
       </div>
 
-      <template v-else-if="contact.user_id">
+      <template v-else-if="contact.userId || contact.user_id">
         <div class="detail-card card">
           <!-- 头像 + 基本身份 -->
           <div class="contact-header">
-            <el-avatar :size="72" :src="contact.avatar_url">
+            <el-avatar :size="72" :src="contact.avatarUrl || contact.avatar_url">
               <el-icon :size="36"><User /></el-icon>
             </el-avatar>
             <div class="contact-identity">
-              <h2>{{ contact.real_name }}</h2>
+              <h2>{{ contact.realName || contact.real_name }}</h2>
               <div class="identity-tags">
-                <el-tag>{{ contact.title || (contact.user_type === 1 ? '学生' : '教师') }}</el-tag>
+                <el-tag>{{ contact.title || (contact.userType === 1 || contact.user_type === 1 ? '学生' : '教师') }}</el-tag>
                 <el-tag type="info">{{ contact.department }}</el-tag>
               </div>
             </div>
@@ -25,7 +25,7 @@
 
           <!-- 详细信息 -->
           <el-descriptions :column="2" border class="info-table">
-            <el-descriptions-item label="姓名">{{ contact.real_name }}</el-descriptions-item>
+            <el-descriptions-item label="姓名">{{ contact.realName || contact.real_name }}</el-descriptions-item>
             <el-descriptions-item label="职称">{{ contact.title || '-' }}</el-descriptions-item>
             <el-descriptions-item label="院系">{{ contact.department || '-' }}</el-descriptions-item>
             <el-descriptions-item label="办公地点">{{ contact.office || '-' }}</el-descriptions-item>
@@ -39,7 +39,7 @@
               <span v-else class="text-muted">未提供</span>
             </el-descriptions-item>
             <el-descriptions-item label="邮箱">
-              <template v-if="contact.email && contact.email_visible">
+              <template v-if="contact.email && (contact.emailVisible || contact.email_visible)">
                 <a :href="'mailto:' + contact.email">{{ contact.email }}</a>
               </template>
               <span v-else class="text-muted">暂未开放</span>
@@ -51,7 +51,7 @@
 
           <!-- 学生隐私提示 -->
           <el-alert
-            v-if="isStudent && !contact.is_authorized && contact.user_id !== userStore.userInfo?.user_id"
+            v-if="isStudent && !(contact.isAuthorized || contact.is_authorized) && (contact.userId || contact.user_id) !== userStore.userInfo?.user_id"
             title="该同学暂未开放联系方式"
             type="info"
             :closable="false"
@@ -67,7 +67,7 @@
           </el-button>
           <el-button
             :icon="Message"
-            :disabled="!contact.email || !contact.email_visible"
+            :disabled="!contact.email || !(contact.emailVisible || contact.email_visible)"
             @click="sendEmail"
           >
             发送邮件
@@ -101,11 +101,11 @@ const userStore = useUserStore()
 const contact = ref({})
 const loading = ref(true)
 
-const isStudent = computed(() => contact.value.user_type === 1)
+const isStudent = computed(() => (contact.value.userType || contact.value.user_type) === 1)
 const canShowPhone = computed(() =>
-  contact.value.user_type !== 1 || // 教师全员可见
-  contact.value.is_authorized ||   // 学生已授权
-  contact.value.user_id === userStore.userInfo?.user_id // 本人
+  (contact.value.userType || contact.value.user_type) !== 1 || // 教师全员可见
+  contact.value.isAuthorized || contact.value.is_authorized ||   // 学生已授权
+  (contact.value.userId || contact.value.user_id) === userStore.userInfo?.userId || (contact.value.userId || contact.value.user_id) === userStore.userInfo?.user_id // 本人
 )
 
 async function fetchDetail() {
@@ -140,10 +140,10 @@ function sendEmail() {
 
 async function copyWechat() {
   try {
-    if (contact.value.wechat_id) {
-      await navigator.clipboard.writeText(contact.value.wechat_id)
+    if (contact.value.wechatId || contact.value.wechat_id) {
+      await navigator.clipboard.writeText(contact.value.wechatId || contact.value.wechat_id)
     } else {
-      await navigator.clipboard.writeText(contact.value.real_name || '')
+      await navigator.clipboard.writeText(contact.value.realName || contact.value.real_name || '')
     }
     ElMessage.success('已复制到剪贴板')
   } catch {

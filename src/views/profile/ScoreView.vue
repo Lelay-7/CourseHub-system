@@ -52,8 +52,10 @@ import { Loading } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { useUserStore } from '@/stores/user'
 import * as scoreApi from '@/api/score'
 
+const userStore = useUserStore()
 const scoreList = ref([])
 const loading = ref(false)
 const page = ref(1)
