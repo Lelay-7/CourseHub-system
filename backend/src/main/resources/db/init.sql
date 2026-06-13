@@ -510,25 +510,25 @@ INSERT INTO course_review
 -- 资料：0-待审核 1-已发布 2-已驳回 3-已下架
 INSERT INTO material
     (material_id, material_name, material_type, course_id, uploader_id, file_url,
-     original_file_name, content_type, file_size, download_score, download_count,
+     storage_key, original_file_name, content_type, file_size, download_score, download_count,
      description, reject_reason, keyword, status, create_time) VALUES
 (1, '算法期末复习提纲', 1, 1, 5, '/uploads/seed/algorithm-review.pdf',
- 'algorithm-review.pdf', 'application/pdf', 245760, 0, 12,
+ 'seed/algorithm-review.pdf', 'algorithm-review.pdf', 'application/pdf', 245760, 0, 12,
  '算法与数据结构核心知识点汇总', NULL, '算法 复习 数据结构', 1, '2026-04-01 09:00:00'),
 (2, 'Web 前端项目模板', 4, 2, 6, '/uploads/seed/web-project-template.pptx',
- 'web-project-template.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+ 'seed/web-project-template.pptx', 'web-project-template.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
  524288, 20, 8, '课程项目结构与答辩模板', NULL, 'Vue 前端 项目', 1, '2026-04-02 10:00:00'),
 (3, '数据库实验报告示例', 2, 3, 7, '/uploads/seed/database-lab.docx',
- 'database-lab.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+ 'seed/database-lab.docx', 'database-lab.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
  188416, 0, 0, '等待管理员审核的资料', NULL, '数据库 实验', 0, '2026-04-03 11:00:00'),
 (4, '机器学习练习答案', 1, 4, 5, '/uploads/seed/ml-answer.pdf',
- 'ml-answer.pdf', 'application/pdf', 156672, 10, 0,
+ 'seed/ml-answer.pdf', 'ml-answer.pdf', 'application/pdf', 156672, 10, 0,
  '用于演示审核驳回状态', '内容缺少来源说明，请补充后重新提交。', '机器学习 答案', 2, '2026-04-04 12:00:00'),
 (5, '软件工程旧版讲义', 1, 5, 6, '/uploads/seed/se-legacy.pdf',
- 'se-legacy.pdf', 'application/pdf', 204800, 0, 2,
+ 'seed/se-legacy.pdf', 'se-legacy.pdf', 'application/pdf', 204800, 0, 2,
  '用于演示已下架状态', NULL, '软件工程 旧版', 3, '2026-04-05 13:00:00'),
 (6, '网络安全实验清单', 3, 6, 7, '/uploads/seed/security-labs.xlsx',
- 'security-labs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+ 'seed/security-labs.xlsx', 'security-labs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
  98304, 10, 5, '网络安全实验环境与检查项', NULL, '网络安全 实验', 1, '2026-04-06 14:00:00');
 
 INSERT INTO material_download
