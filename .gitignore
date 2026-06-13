@@ -31,9 +31,12 @@ tmp/
 coverage/
 **/coverage/
 
-# Uploads
-uploads/
-**/uploads/
+# Uploads — runtime data ignored, seed data tracked
+uploads/*
+**/uploads/*
+!uploads/
+!uploads/seed/
+!uploads/seed/**
 uploads-acceptance/
 **/uploads-acceptance/
 
