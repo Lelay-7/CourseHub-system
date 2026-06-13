@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import {
-  clearTokens,
+  clearAllAuth,
   getAccessToken,
   getRefreshToken,
   isTokenExpired,
@@ -47,13 +47,19 @@ function ensureFreshAccessToken() {
   return refreshPromise
 }
 
+let sessionExpired = false
+
 function expireSession(message = '登录已过期，请重新登录') {
-  clearTokens()
+  if (sessionExpired) return
+  sessionExpired = true
+  clearAllAuth()
   import('@/stores/user').then(({ useUserStore }) => {
     useUserStore().logout()
   }).catch(() => {})
   ElMessage.error(message)
   if (router.currentRoute.value.path !== '/login') router.push('/login')
+  // 延迟重置标记，避免短时间内重复触发
+  setTimeout(() => { sessionExpired = false }, 2000)
 }
 
 service.interceptors.request.use(async config => {
@@ -111,7 +117,7 @@ service.interceptors.response.use(
       }
     }
 
-    if (status === 401) expireSession('请先登录')
+    if (status === 401) expireSession('登录已失效，请重新登录')
     else if (status === 403) ElMessage.error('权限不足，无法执行此操作')
     else if (status === 404) ElMessage.error(data?.message || '请求的资源不存在')
     else ElMessage.error(data?.message || '请求失败，请稍后重试')

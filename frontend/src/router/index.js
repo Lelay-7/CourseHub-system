@@ -21,7 +21,7 @@ const routes = [
   },
 
   // ==================== 首页 ====================
-  { path: '/', redirect: '/home' },
+  { path: '/', redirect: '/login' },
   {
     path: '/home',
     name: 'Home',
@@ -243,7 +243,7 @@ const routes = [
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
-    redirect: '/home'
+    redirect: '/login'
   }
 ]
 

@@ -98,6 +98,7 @@ export const useUserStore = defineStore('user', () => {
     scoreBalance.value = 0
     clearTokens()
     removeItem('user_info')
+    removeItem('user-store')
     selectionStore.setCurrentUser(null)
   }
 

@@ -84,15 +84,30 @@ export function isAuthenticated() {
 
 /**
  * 获取当前用户类型（从 localStorage 的 user_info 解析）
- * @returns {number} 1-学生 2-教师 3-管理员，默认 1
+ * @returns {number|null} 1-学生 2-教师 3-管理员，无信息时返回 null
  */
 export function getUserType() {
   try {
     const raw = localStorage.getItem('user_info')
     if (raw) {
       const info = JSON.parse(raw)
-      return info.userType || info.user_type || 1
+      return info.userType || info.user_type || null
     }
   } catch { /* ignore */ }
-  return 1
+  return null
+}
+
+/**
+ * 彻底清除所有登录态（token + user_info + pinia user-store）
+ */
+export function clearAllAuth() {
+  clearTokens()
+  localStorage.removeItem('user_info')
+  localStorage.removeItem('user-store')
+  // 清除所有以 pinia 持久化 key 开头的内容
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('user-store') || key.startsWith('user_store')) {
+      localStorage.removeItem(key)
+    }
+  })
 }
