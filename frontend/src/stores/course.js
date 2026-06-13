@@ -19,7 +19,7 @@ export const useCourseStore = defineStore('course', () => {
     creditMax: null,
     teacherName: '',
     keyword: '',
-    sortBy: 'student_count',  // student_count / rating / schedule
+    sortBy: 'selection_count',
     sortOrder: 'desc'
   })
 
@@ -54,7 +54,7 @@ export const useCourseStore = defineStore('course', () => {
       creditMax: null,
       teacherName: '',
       keyword: '',
-      sortBy: 'student_count',
+      sortBy: 'selection_count',
       sortOrder: 'desc'
     })
   }

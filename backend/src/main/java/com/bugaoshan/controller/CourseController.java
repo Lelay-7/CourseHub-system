@@ -31,12 +31,13 @@ public class CourseController {
                           @RequestParam(required = false) BigDecimal creditMax,
                           @RequestParam(required = false) String teacherName,
                           @RequestParam(required = false) String keyword,
+                          @RequestParam(required = false) String timeSlot,
                           @RequestParam(required = false) String sortBy,
                           @RequestParam(required = false) String sortOrder,
                           @RequestParam(required = false, defaultValue = "1") Integer page,
                           @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
         return courseService.getCourseList(categoryId, courseType, creditMin, creditMax, teacherName,
-                keyword, sortBy, sortOrder, page, pageSize);
+                keyword, timeSlot, sortBy, sortOrder, page, pageSize);
     }
 
     @GetMapping("/search")
@@ -44,6 +45,26 @@ public class CourseController {
                             @RequestParam(required = false, defaultValue = "1") Integer page,
                             @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
         return courseService.searchCourse(keyword, page, pageSize);
+    }
+
+    @GetMapping("/selected")
+    public Result<?> selected() {
+        return courseService.getSelectedCourses(SecurityUtils.getCurrentUserId());
+    }
+
+    @GetMapping("/reviews/my")
+    public Result<?> myReviews() {
+        return courseService.getMyReviews(SecurityUtils.getCurrentUserId());
+    }
+
+    @PostMapping("/{id}/select")
+    public Result<?> select(@PathVariable Long id) {
+        return courseService.selectCourse(id, SecurityUtils.getCurrentUserId());
+    }
+
+    @DeleteMapping("/{id}/select")
+    public Result<?> drop(@PathVariable Long id) {
+        return courseService.dropCourse(id, SecurityUtils.getCurrentUserId());
     }
 
     @GetMapping("/{id}")
@@ -56,5 +77,11 @@ public class CourseController {
     public Result<?> review(@PathVariable Long id, @Valid @RequestBody CourseReviewDTO dto) {
         Long userId = SecurityUtils.getCurrentUserId();
         return courseService.submitReview(id, userId, dto);
+    }
+
+    @DeleteMapping("/{id}/review")
+    public Result<?> deleteReview(@PathVariable Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return courseService.deleteReview(id, userId);
     }
 }

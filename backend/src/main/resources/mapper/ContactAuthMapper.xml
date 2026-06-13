@@ -6,4 +6,13 @@
         SELECT * FROM contact_auth WHERE user_id = #{userId}
     </select>
 
+    <update id="updateAuth">
+        UPDATE contact_auth
+        SET phone_visible = #{phoneVisible},
+            email_visible = #{emailVisible},
+            contact_visible = #{contactVisible},
+            update_time = NOW()
+        WHERE auth_id = #{authId}
+    </update>
+
 </mapper>

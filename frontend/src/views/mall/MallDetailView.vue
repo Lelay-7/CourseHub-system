@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="商品详情" :show-back="true" />
 
       <div v-if="loading" class="detail-loading">
@@ -33,11 +33,11 @@
 
           <!-- 商品信息 -->
           <div class="goods-info">
-            <h2>{{ goods.name }}</h2>
+            <h2>{{ goods.goods_name }}</h2>
             <div class="goods-meta">
               <span class="goods-score">
                 <el-icon><StarFilled /></el-icon>
-                <strong>{{ goods.exchange_score }}</strong> 积分
+                <strong>{{ goods.price_score }}</strong> 积分
               </span>
               <el-tag :type="stockTag">{{ stockText }}</el-tag>
             </div>
@@ -53,7 +53,7 @@
           <div class="flex-between">
             <div class="balance-info">
               <span>我的积分：</span>
-              <strong :class="{ insufficient: userStore.scoreBalance < goods.exchange_score }">
+              <strong :class="{ insufficient: userStore.scoreBalance < goods.price_score }">
                 {{ userStore.scoreBalance }}
               </strong>
               <em v-if="scoreDelta">-{{ scoreDelta }}</em>
@@ -76,8 +76,8 @@
           <el-timeline>
             <el-timeline-item
               v-for="record in exchangeRecords"
-              :key="record.exchange_id"
-              :timestamp="formatTime(record.exchange_time)"
+              :key="record.order_id"
+              :timestamp="formatTime(record.create_time)"
             >
               {{ EXCHANGE_STATUS_LABEL[record.status] || '未知' }}
             </el-timeline-item>
@@ -86,7 +86,7 @@
       </template>
 
       <ErrorState v-else title="商品不存在" @retry="fetchDetail" />
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -96,6 +96,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { StarFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -127,14 +128,12 @@ const stockText = computed(() => {
 
 const canExchange = computed(() =>
   goods.value.stock > 0 &&
-  userStore.scoreBalance >= (goods.value.exchange_score || 0) &&
-  !goods.value.has_exchanged
+  userStore.scoreBalance >= (goods.value.price_score || 0)
 )
 
 const exchangeButtonText = computed(() => {
   if (goods.value.stock <= 0) return '已售罄'
-  if (goods.value.has_exchanged) return '已兑换'
-  if (userStore.scoreBalance < (goods.value.exchange_score || 0)) return '积分不足'
+  if (userStore.scoreBalance < (goods.value.price_score || 0)) return '积分不足'
   return '立即兑换'
 })
 
@@ -143,11 +142,14 @@ async function fetchDetail() {
   try {
     const [detailRes, recordsRes] = await Promise.all([
       mallApi.getGoodsDetail(route.params.id),
-      mallApi.getExchangeList({ goods_id: route.params.id })
+      mallApi.getExchangeList()
     ])
-    if (detailRes.code === 200) goods.value = detailRes.data || {}
+    if (detailRes.code === 200) {
+      goods.value = detailRes.data || {}
+    }
     if (recordsRes.code === 200) {
-      exchangeRecords.value = (recordsRes.data?.list || recordsRes.data?.records || [])
+      const allRecords = (recordsRes.data?.list || recordsRes.data?.records || [])
+      exchangeRecords.value = allRecords.filter(r => r.goods_id === Number(route.params.id))
     }
   } catch { /* handled */ }
   finally { loading.value = false }
@@ -155,7 +157,7 @@ async function fetchDetail() {
 
 async function handleExchange() {
   if (!canExchange.value) {
-    if (userStore.scoreBalance < (goods.value.exchange_score || 0)) {
+    if (userStore.scoreBalance < (goods.value.price_score || 0)) {
       ElMessageBox.alert(
         '积分不足！您可以通过以下方式赚取积分：\n1. 每日签到 +10分\n2. 学习课程 +5分/课时\n3. 评价课程 +3分\n4. 分享内容 +2分',
         '积分不足',
@@ -167,7 +169,7 @@ async function handleExchange() {
 
   try {
     await ElMessageBox.confirm(
-      `确认使用 ${goods.value.exchange_score} 积分兑换「${goods.value.name}」吗？`,
+      `确认使用 ${goods.value.price_score} 积分兑换「${goods.value.goods_name}」吗？`,
       '兑换确认',
       { confirmButtonText: '确认兑换', cancelButtonText: '取消', type: 'warning' }
     )
@@ -176,17 +178,16 @@ async function handleExchange() {
   exchanging.value = true
   try {
     const before = userStore.scoreBalance
-    const res = await mallApi.exchangeGoods({ goods_id: goods.value.goods_id })
+    const res = await mallApi.exchangeGoods({ goodsId: goods.value.goods_id })
     if (res.code === 200) {
-      const after = res.data?.score_balance ?? userStore.scoreBalance - goods.value.exchange_score
+      const after = res.data?.score_balance ?? userStore.scoreBalance - (goods.value.price_score || 0)
       scoreDelta.value = Math.max(0, before - after)
       userStore.updateScoreBalance(after)
-      goods.value.has_exchanged = true
       goods.value.stock = Math.max(0, (goods.value.stock || 0) - 1)
       exchangeRecords.value.unshift({
-        exchange_id: Date.now(),
+        order_id: Date.now(),
         status: 1,
-        exchange_time: new Date().toISOString()
+        create_time: new Date().toISOString()
       })
       exchangeSuccess.value = true
       ElMessage.success('兑换成功，积分已更新')

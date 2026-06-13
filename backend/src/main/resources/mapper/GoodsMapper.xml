@@ -33,4 +33,59 @@
         WHERE goods_id = #{goodsId} AND stock > 0
     </update>
 
+    <update id="incrementStock">
+        UPDATE goods SET stock = stock + 1, update_time = NOW()
+        WHERE goods_id = #{goodsId} AND is_deleted = 0
+    </update>
+
+    <update id="deleteById">
+        UPDATE goods SET is_deleted = 1, update_time = NOW()
+        WHERE goods_id = #{goodsId}
+    </update>
+
+    <update id="updateGoods">
+        UPDATE goods
+        <set>
+            <if test="goodsName != null">goods_name = #{goodsName},</if>
+            <if test="category != null">category = #{category},</if>
+            <if test="imageUrls != null">image_urls = #{imageUrls},</if>
+            <if test="exchangeLimit != null">exchange_limit = #{exchangeLimit},</if>
+            <if test="priceScore != null">price_score = #{priceScore},</if>
+            <if test="stock != null">stock = #{stock},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="description != null">description = #{description},</if>
+            update_time = NOW()
+        </set>
+        WHERE goods_id = #{goodsId} AND is_deleted = 0
+    </update>
+
+    <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Goods">
+        SELECT * FROM goods
+        WHERE is_deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND goods_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+        ORDER BY create_time DESC, goods_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAllForAdmin" resultType="long">
+        SELECT COUNT(*) FROM goods
+        WHERE is_deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND goods_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </select>
+
+    <update id="updateStatus">
+        UPDATE goods SET status = #{status}, update_time = NOW()
+        WHERE goods_id = #{goodsId} AND is_deleted = 0
+    </update>
+
 </mapper>

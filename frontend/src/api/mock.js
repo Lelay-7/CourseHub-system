@@ -65,7 +65,7 @@ const courses = [
   course_type: item[3],
   credit: item[4],
   category_id: item[5],
-  student_count: item[6],
+  selection_count: item[6],
   avg_rating: item[7],
   schedule: item[8],
   location: item[9],
@@ -77,6 +77,8 @@ const courses = [
     { review_id: 2, user_name: '李欣', rating: 4, content: '作业有挑战，但反馈及时，能学到东西。', create_time: daysAgo(5) }
   ]
 }))
+
+const selectedCourseIds = new Set()
 
 const materials = [
   ['期末复习提纲与知识图谱', 1, '陈明', 1680, 0, 1],
@@ -223,7 +225,40 @@ export async function mockAdapter(config) {
     list = list.filter(item => !params.creditMin || item.credit >= Number(params.creditMin))
     list = list.filter(item => !params.teacherName || item.teacher_name === params.teacherName)
     list = filterByKeyword(list, params.keyword, ['course_name', 'course_code', 'teacher_name'])
+    const sortBy = ['selection_count', 'avg_rating', 'credit', 'create_time'].includes(params.sortBy)
+      ? params.sortBy : 'create_time'
+    const direction = params.sortOrder === 'asc' ? 1 : -1
+    list = [...list].sort((a, b) => (Number(a[sortBy] || 0) - Number(b[sortBy] || 0)) * direction)
     data = ok(paginate(list, params))
+  } else if (url === '/api/course/selected' && method === 'get') {
+    data = ok(courses.filter(item => selectedCourseIds.has(item.course_id)))
+  } else if (url === '/api/course/reviews/my' && method === 'get') {
+    data = ok(courses.slice(0, 1).map(course => ({
+      review_id: course.reviews[0].review_id,
+      course_id: course.course_id,
+      course_name: course.course_name,
+      course_code: course.course_code,
+      teacher_name: course.teacher_name,
+      rating: course.reviews[0].rating,
+      content: course.reviews[0].content,
+      is_anonymous: 0,
+      create_time: course.reviews[0].create_time
+    })))
+  } else if (/^\/api\/course\/\d+\/select$/.test(url) && method === 'post') {
+    const id = Number(url.split('/')[3])
+    const course = courses.find(item => item.course_id === id)
+    if (course && !selectedCourseIds.has(id)) {
+      selectedCourseIds.add(id)
+      course.selection_count += 1
+    }
+    data = ok()
+  } else if (/^\/api\/course\/\d+\/select$/.test(url) && method === 'delete') {
+    const id = Number(url.split('/')[3])
+    const course = courses.find(item => item.course_id === id)
+    if (course && selectedCourseIds.delete(id)) {
+      course.selection_count = Math.max(course.selection_count - 1, 0)
+    }
+    data = ok()
   } else if (/^\/api\/course\/\d+\/review/.test(url) && method === 'post') {
     const id = Number(url.split('/')[3])
     const course = courses.find(item => item.course_id === id)
@@ -246,7 +281,13 @@ export async function mockAdapter(config) {
   } else if (/^\/api\/course\/\d+/.test(url)) {
     const id = Number(url.split('/').pop())
     const course = courses.find(item => item.course_id === id)
-    data = ok(course ? { ...course, related_courses: courses.filter(item => item.course_id !== id).slice(0, 6) } : null)
+    data = ok(course ? {
+      course,
+      is_favorited: course.is_favorited,
+      is_selected: selectedCourseIds.has(id),
+      reviews: course.reviews || [],
+      related_courses: courses.filter(item => item.course_id !== id).slice(0, 6)
+    } : null)
   } else if (url === '/api/material/categories') {
     data = ok(categories)
   } else if (url === '/api/material/upload' && method === 'post') {
@@ -282,7 +323,24 @@ export async function mockAdapter(config) {
   } else if (/^\/api\/material\/\d+/.test(url)) {
     const id = Number(url.split('/').pop())
     data = ok(materials.find(item => item.material_id === id) || null)
-  } else if (url === '/api/contact/list' || url === '/api/contact/search') {
+  } else if (url === '/api/contact/list') {
+    const type = params?.type
+    const keyword = params?.keyword
+    let list = [...contacts]
+    if (type === 'teacher') list = list.filter(u => u.user_type === 2)
+    if (type === 'student') list = list.filter(u => u.user_type === 1)
+    if (keyword) {
+      const kw = keyword.toLowerCase()
+      list = list.filter(u =>
+        (u.real_name && u.real_name.toLowerCase().includes(kw)) ||
+        (u.department && u.department.toLowerCase().includes(kw)) ||
+        (u.title && u.title.toLowerCase().includes(kw)) ||
+        (u.bio && u.bio.toLowerCase().includes(kw)) ||
+        (u.student_id && u.student_id.toLowerCase().includes(kw))
+      )
+    }
+    data = ok(list)
+  } else if (url === '/api/contact/search') {
     const isTeacher = params.type !== 'student'
     let list = contacts.filter(item => isTeacher ? item.user_type === 2 : item.user_type === 1)
     list = filterByKeyword(list, params.keyword, ['real_name', 'student_id', 'department'])

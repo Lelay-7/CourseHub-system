@@ -12,10 +12,14 @@ public class Material {
     private Long courseId;
     private Long uploaderId;
     private String fileUrl;
+    private String storageKey;
+    private String originalFileName;
+    private String contentType;
     private Long fileSize;
     private Integer downloadScore;
     private Integer downloadCount;
     private String description;
+    private String rejectReason;
     private Integer status;
     private String keyword;
     private LocalDateTime createTime;

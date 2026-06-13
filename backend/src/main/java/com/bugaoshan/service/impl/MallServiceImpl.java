@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
+import java.util.UUID;
 
 @Service
 public class MallServiceImpl implements MallService {
@@ -40,6 +40,8 @@ public class MallServiceImpl implements MallService {
 
     @Override
     public Result getGoodsList(Long categoryId, Integer page, Integer pageSize) {
+        if (page == null) page = 1;
+        if (pageSize == null) pageSize = 10;
         int offset = (page - 1) * pageSize;
         List<Goods> list = goodsMapper.selectList(categoryId, offset, pageSize);
         long total = goodsMapper.countList(categoryId);
@@ -63,6 +65,11 @@ public class MallServiceImpl implements MallService {
         if (goods == null || goods.getStatus() != 1) {
             throw new BusinessException("商品不存在或已下架");
         }
+        Integer exchangeLimit = goods.getExchangeLimit();
+        if (exchangeLimit != null && exchangeLimit > 0
+                && orderMapper.countByUserIdAndGoodsId(userId, goodsId) >= exchangeLimit) {
+            throw new BusinessException("已达到该商品的兑换次数上限");
+        }
         if (goods.getStock() == null || goods.getStock() <= 0) {
             throw new BusinessException("库存不足");
         }
@@ -72,21 +79,16 @@ public class MallServiceImpl implements MallService {
             throw new BusinessException("积分不足");
         }
 
-        if (goods.getExchangeLimit() != null && goods.getExchangeLimit() > 0) {
-            long exchangedCount = orderMapper.countByUserId(userId, 1);
-            if (exchangedCount >= goods.getExchangeLimit()) {
-                throw new BusinessException("已达到兑换上限");
-            }
-        }
-
         int decremented = goodsMapper.decrementStock(goodsId);
         if (decremented == 0) {
             throw new BusinessException("库存不足");
         }
 
-        int newBalance = user.getScoreBalance() - goods.getPriceScore();
-        int newTotalScore = user.getTotalScore();
-        userMapper.updateScoreBalance(userId, newBalance, newTotalScore);
+        if (userMapper.deductScoreIfSufficient(userId, goods.getPriceScore()) != 1) {
+            throw new BusinessException("积分不足");
+        }
+        User updatedUser = userMapper.selectById(userId);
+        int newBalance = updatedUser.getScoreBalance();
 
         String orderNo = generateOrderNo();
         Order order = new Order();
@@ -95,7 +97,7 @@ public class MallServiceImpl implements MallService {
         order.setGoodsId(goodsId);
         order.setGoodsName(goods.getGoodsName());
         order.setScoreAmount(goods.getPriceScore());
-        order.setStatus(1);
+        order.setStatus(1); // 待发货
         order.setIsDeleted(0);
         order.setCreateTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
@@ -121,6 +123,8 @@ public class MallServiceImpl implements MallService {
 
     @Override
     public Result getExchangeList(Long userId, Integer page, Integer pageSize) {
+        if (page == null) page = 1;
+        if (pageSize == null) pageSize = 10;
         int offset = (page - 1) * pageSize;
         List<Order> list = orderMapper.selectByUserId(userId, null, offset, pageSize);
         long total = orderMapper.countByUserId(userId, null);
@@ -130,7 +134,8 @@ public class MallServiceImpl implements MallService {
 
     private String generateOrderNo() {
         String date = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String number = String.format("%03d", new Random().nextInt(1000));
-        return "BG" + date + number;
+        String suffix = UUID.randomUUID().toString().replace("-", "")
+                .substring(0, 12).toUpperCase();
+        return "BG" + date + suffix;
     }
 }

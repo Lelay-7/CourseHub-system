@@ -10,16 +10,58 @@
         <strong>{{ userStore.scoreBalance }} 积分</strong>
       </section>
 
-      <div class="home-search">
-        <el-input
-          v-model="keyword"
-          size="large"
-          placeholder="请输入关键词查找课程、资料、老师"
-          :prefix-icon="Search"
-          clearable
-          @keyup.enter="goSearch"
-        />
-        <el-button type="primary" size="large" @click="goSearch">搜索</el-button>
+      <!-- 轮播图 -->
+      <div v-if="banners.length > 0" class="home-banner">
+        <el-carousel :interval="4000" arrow="hover" height="200px">
+          <el-carousel-item v-for="b in banners" :key="b.banner_id">
+            <div
+              class="banner-slide"
+              :style="b.image_url ? { backgroundImage: `url(${b.image_url})` } : {}"
+              @click="handleBannerClick(b)"
+            >
+              <div class="banner-text">
+                <h3>{{ b.title }}</h3>
+              </div>
+            </div>
+          </el-carousel-item>
+        </el-carousel>
+      </div>
+
+      <div class="home-search-wrapper">
+        <div class="home-search">
+          <el-input
+            v-model="keyword"
+            size="large"
+            placeholder="搜索课程、资料、老师..."
+            :prefix-icon="Search"
+            clearable
+            @input="onSearchInput"
+            @keyup.enter="goSearch"
+            @focus="showDropdown = searchResults.length > 0"
+            @blur="scheduleHideDropdown"
+          />
+          <el-button type="primary" size="large" @click="goSearch">搜索</el-button>
+        </div>
+        <!-- 搜索下拉 -->
+        <div v-if="showDropdown && searchResults.length > 0" class="search-dropdown" @mousedown.prevent>
+          <template v-for="group in searchResults" :key="group.type">
+            <div class="drop-group-title" @click="goSearchType(group.type)">
+              {{ group.label }} <span style="font-weight:400;color:#bbb">→ 更多</span>
+            </div>
+            <div
+              v-for="item in group.items.slice(0, 5)"
+              :key="item.id"
+              class="drop-item"
+              @click="goItem(group.type, item.id)"
+            >
+              <span>{{ item.name }}</span>
+              <small>{{ item.desc }}</small>
+            </div>
+          </template>
+          <div v-if="searchResults.length >= 1" class="drop-footer" @click="goSearch">
+            查看全部结果（{{ searchResults.map(g => g.label).join('、') }}）→
+          </div>
+        </div>
       </div>
 
       <section class="home-promo">
@@ -76,16 +118,23 @@
       </section>
 
       <section class="home-section">
-        <SectionTitle title="同学动态" />
+        <SectionTitle title="同学动态">
+          <el-button text type="primary" @click="$router.push('/square')">查看更多</el-button>
+        </SectionTitle>
         <div class="activity-list">
-          <div v-for="item in activities" :key="item.text" class="activity-item">
-            <span>{{ item.name.slice(0, 1) }}</span>
+          <div v-for="post in hotPosts" :key="post.post_id" class="activity-item" @click="$router.push('/square')">
+            <span>{{ (post.nickname || '?').slice(0, 1) }}</span>
             <div>
-              <strong>{{ item.name }}</strong>
-              <p>{{ item.text }}</p>
+              <strong>{{ post.nickname || '匿名' }}</strong>
+              <p>{{ post.content }}</p>
+              <div class="post-mini-stats">
+                <span>👍 {{ post.likes || 0 }}</span>
+                <span>💬 {{ post.comments || 0 }}</span>
+              </div>
             </div>
           </div>
         </div>
+        <EmptyState v-if="hotPosts.length === 0" description="暂无动态，快去广场发帖吧" />
       </section>
     </PageContainer>
   </AppLayout>
@@ -107,15 +156,25 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import SectionTitle from '@/components/SectionTitle.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
 import * as courseApi from '@/api/course'
 import * as materialApi from '@/api/material'
+import * as homeApi from '@/api/home'
+import { getSquarePosts } from '@/api/square'
+import { searchContactRaw } from '@/api/contact'
 
 const router = useRouter()
 const userStore = useUserStore()
 const keyword = ref('')
 const hotCourses = ref([])
 const hotMaterials = ref([])
+const hotPosts = ref([])
+const banners = ref([])
+const searchResults = ref([])
+const showDropdown = ref(false)
+let searchTimer = null
+let hideTimer = null
 
 const featureEntries = [
   { label: '选课中心', desc: '筛选、对比、选择', path: '/course', icon: Reading, bg: 'linear-gradient(135deg, #f07462, #f8b25f)' },
@@ -125,28 +184,115 @@ const featureEntries = [
   { label: '积分商城', desc: '兑换学习权益', path: '/mall', icon: Present, bg: 'linear-gradient(135deg, #9b7cf4, #e87452)' }
 ]
 
-const activities = [
-  { name: '张义彬', text: '收藏了 Web 前端工程实践，并查看了对应实验指导书。' },
-  { name: '刘青', text: '在同学广场分享了数据库系统原理的复习建议。' },
-  { name: '李欣', text: '上传了软件工程答辩 PPT 范例，获得积分奖励。' }
-]
+
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  const q = keyword.value.trim()
+  if (!q) {
+    searchResults.value = []
+    showDropdown.value = false
+    return
+  }
+  searchTimer = setTimeout(() => doSearch(q), 260)
+}
+
+async function doSearch(q) {
+  try {
+    const [courseRes, materialRes, contactRes] = await Promise.all([
+      courseApi.getCourseList({ keyword: q, page: 1, pageSize: 5 }),
+      materialApi.getMaterialList({ keyword: q, page: 1, pageSize: 5 }),
+      searchContactRaw(q).catch(() => ({ data: [] }))
+    ])
+    const results = []
+    const courses = (courseRes.data?.list || courseRes.data?.records || [])
+    const materials = (materialRes.data?.list || materialRes.data?.records || [])
+    const contacts = (contactRes.data || [])
+    if (courses.length > 0) {
+      results.push({
+        type: 'course', label: '课程',
+        items: courses.map(c => ({ id: c.course_id, name: c.course_name, desc: `${c.teacher_name || ''} · ${c.credit}学分` }))
+      })
+    }
+    if (materials.length > 0) {
+      results.push({
+        type: 'material', label: '资料',
+        items: materials.map(m => ({ id: m.material_id, name: m.material_name, desc: `${m.uploader_name || ''} · ${m.download_count || 0}次下载` }))
+      })
+    }
+    if (contacts.length > 0) {
+      results.push({
+        type: 'contact', label: '教师/联系人',
+        items: contacts.map(c => ({ id: c.user_id, name: c.nickname || c.real_name, desc: `${c.title || c.department || ''}` }))
+      })
+    }
+    searchResults.value = results
+    showDropdown.value = results.length > 0
+  } catch { searchResults.value = [] }
+}
+
+function goItem(type, id) {
+  showDropdown.value = false
+  keyword.value = ''
+  if (type === 'course') router.push(`/course/${id}`)
+  else if (type === 'material') router.push(`/material/${id}`)
+  else if (type === 'contact') router.push(`/contact/${id}`)
+}
 
 function goSearch() {
   const q = keyword.value.trim()
-  if (!q) {
-    ElMessage.warning('请输入搜索关键词')
-    return
+  if (!q) { ElMessage.warning('请输入搜索关键词'); return }
+  // 先触发搜索
+  doSearch(q).then(() => {
+    if (searchResults.value.length === 0) {
+      ElMessage.info('未找到匹配结果')
+      return
+    }
+    showDropdown.value = false
+    const types = searchResults.value.map(g => g.type)
+    if (types.includes('course')) {
+      router.push({ path: '/course', query: { keyword: q } })
+    } else if (types.includes('material')) {
+      router.push({ path: '/material', query: { keyword: q } })
+    } else if (types.includes('contact')) {
+      router.push({ path: '/contact', query: { keyword: q } })
+    }
+  })
+}
+
+function goSearchType(type) {
+  showDropdown.value = false
+  const q = keyword.value.trim() || ''
+  const pathMap = { course: '/course', material: '/material', contact: '/contact' }
+  router.push({ path: pathMap[type] || '/course', query: q ? { keyword: q } : {} })
+}
+
+function scheduleHideDropdown() {
+  clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => { showDropdown.value = false }, 200)
+}
+
+function handleBannerClick(b) {
+  if (!b.link_url) return
+  if (b.link_url.startsWith('http')) {
+    window.location.href = b.link_url
+  } else {
+    router.push(b.link_url)
   }
-  router.push({ path: '/course', query: { keyword: q } })
 }
 
 async function fetchHomeData() {
-  const [courseRes, materialRes] = await Promise.all([
+  const [courseRes, materialRes, squareRes, bannerRes] = await Promise.all([
     courseApi.getCourseList({ page: 1, pageSize: 3, sortBy: 'rating' }),
-    materialApi.getMaterialList({ page: 1, pageSize: 3, sortBy: 'create_time' })
+    materialApi.getMaterialList({ page: 1, pageSize: 3, sortBy: 'create_time' }),
+    getSquarePosts().catch(() => ({ data: [] })),
+    homeApi.getBanners().catch(() => ({ data: [] }))
   ])
   if (courseRes.code === 200) hotCourses.value = courseRes.data?.list || courseRes.data?.records || []
   if (materialRes.code === 200) hotMaterials.value = materialRes.data?.list || materialRes.data?.records || []
+  const squareList = squareRes.data?.list || squareRes.data || []
+  const posts = (Array.isArray(squareList) ? squareList : []).sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 3)
+  hotPosts.value = posts
+  banners.value = (bannerRes.data || []).filter(b => b.status === 1)
 }
 
 onMounted(() => {
@@ -202,15 +348,42 @@ onMounted(() => {
   background: rgba(255, 250, 243, 0.92);
 }
 
+.home-banner { margin-bottom: var(--spacing-lg); border-radius: 18px; overflow: hidden; }
+.banner-slide {
+  width: 100%; height: 100%;
+  background: linear-gradient(135deg, #f07462, #f8b25f);
+  background-size: cover; background-position: center;
+  display: flex; align-items: flex-end; cursor: pointer;
+}
+.banner-text { padding: 20px 28px; width: 100%; background: linear-gradient(transparent, rgba(0,0,0,.4)); }
+.banner-text h3 { color: #fff; font-size: 20px; margin: 0; }
+
+.home-search-wrapper { position: relative; margin-bottom: var(--spacing-lg); }
 .home-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--spacing-md);
-  margin-bottom: var(--spacing-lg);
   padding: var(--spacing-md);
   border-radius: 26px;
   background: rgba(255, 250, 243, 0.96);
   box-shadow: var(--shadow-sm);
+}
+.search-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 100;
+  background: #fff; border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.12);
+  max-height: 420px; overflow-y: auto; padding: 8px 0;
+}
+.drop-group-title { padding: 8px 16px 4px; font-size: 12px; font-weight: 800; color: #999; text-transform: uppercase; cursor: pointer; }
+.drop-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 16px; cursor: pointer; transition: background .15s;
+}
+.drop-item:hover { background: #fef5ec; }
+.drop-item span { font-weight: 700; color: #333; }
+.drop-item small { color: #999; font-size: 12px; }
+.drop-footer {
+  padding: 10px 16px; text-align: center; color: var(--color-primary);
+  font-weight: 800; cursor: pointer; border-top: 1px solid #f0e4da;
 }
 
 .home-promo {
@@ -349,6 +522,8 @@ onMounted(() => {
   margin-top: 4px;
   color: var(--color-text-secondary);
 }
+.post-mini-stats { display: flex; gap: 12px; margin-top: 4px; font-size: 12px; color: #999; }
+.activity-item { cursor: pointer; }
 
 @media (max-width: 1000px) {
   .feature-grid,
@@ -356,6 +531,7 @@ onMounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .home-search-wrapper { margin-bottom: var(--spacing-md); }
   .home-search {
     grid-template-columns: 1fr;
   }

@@ -81,3 +81,18 @@ export function isAuthenticated() {
   const token = getAccessToken()
   return token && !isTokenExpired(token)
 }
+
+/**
+ * 获取当前用户类型（从 localStorage 的 user_info 解析）
+ * @returns {number} 1-学生 2-教师 3-管理员，默认 1
+ */
+export function getUserType() {
+  try {
+    const raw = localStorage.getItem('user_info')
+    if (raw) {
+      const info = JSON.parse(raw)
+      return info.userType || info.user_type || 1
+    }
+  } catch { /* ignore */ }
+  return 1
+}

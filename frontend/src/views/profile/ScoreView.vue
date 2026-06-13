@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="积分明细" :show-back="true" />
 
       <div class="score-summary card">
@@ -27,13 +27,13 @@
 
       <!-- 积分明细列表 -->
       <div v-if="scoreList.length > 0" class="score-list">
-        <div v-for="item in scoreList" :key="item.id" class="score-item card">
+        <div v-for="item in scoreList" :key="item.record_id" class="score-item card">
           <div class="score-item-left">
-            <span class="score-source">{{ item.source }}</span>
-            <span class="score-time">{{ formatTime(item.create_time) }}</span>
+            <span class="score-source">{{ item.source_desc || item.sourceDesc }}</span>
+            <span class="score-time">{{ formatTime(item.create_time || item.createTime) }}</span>
           </div>
-          <span class="score-amount" :class="item.amount >= 0 ? 'positive' : 'negative'">
-            {{ item.amount >= 0 ? '+' : '' }}{{ item.amount }}
+          <span class="score-amount" :class="(item.change_amount || item.changeAmount) >= 0 ? 'positive' : 'negative'">
+            {{ (item.change_amount || item.changeAmount) >= 0 ? '+' : '' }}{{ item.change_amount || item.changeAmount }}
           </span>
         </div>
       </div>
@@ -42,7 +42,18 @@
       <div v-if="loading" class="load-more">
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
       </div>
-    </div>
+
+      <div v-if="total > pageSize" class="score-pagination">
+        <el-pagination
+          background
+          layout="prev, pager, next"
+          :total="total"
+          :page-size="pageSize"
+          :current-page="page"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -50,6 +61,7 @@
 import { ref, onMounted } from 'vue'
 import { Loading } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useUserStore } from '@/stores/user'
@@ -59,6 +71,8 @@ const userStore = useUserStore()
 const scoreList = ref([])
 const loading = ref(false)
 const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 const noMore = ref(false)
 const selectedMonth = ref('')
 
@@ -80,18 +94,25 @@ async function fetchList(reset = false) {
   loading.value = true
   try {
     const res = await scoreApi.getScoreDetails({
-      page: page.value, pageSize: 20,
+      page: page.value, pageSize: pageSize.value,
       month: selectedMonth.value || undefined
     })
     if (res.code === 200) {
       const data = res.data || {}
       const list = data.list || data.records || []
+      total.value = data.total || 0
       if (reset) scoreList.value = list
       else scoreList.value.push(...list)
-      noMore.value = scoreList.value.length >= (data.total || 0)
+      noMore.value = scoreList.value.length >= total.value
     }
   } catch { /* handled */ }
   finally { loading.value = false }
+}
+
+function handlePageChange(p) {
+  page.value = p
+  fetchList(true)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function formatTime(time) {
@@ -124,4 +145,10 @@ onMounted(() => { fetchList(true) })
 .score-amount.negative { color: var(--color-danger); }
 
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
+
+.score-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-lg);
+}
 </style>

@@ -1,41 +1,53 @@
 server:
   port: 8080
+  tomcat:
+    max-http-form-post-size: ${FILE_MAX_REQUEST_SIZE:55MB}
 
 spring:
   application:
     name: bugaoshan-backend
+  servlet:
+    multipart:
+      max-file-size: ${FILE_MAX_SIZE:50MB}
+      max-request-size: ${FILE_MAX_REQUEST_SIZE:55MB}
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/bgss_xtt?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=5000
-    username: bgss_user
-    password: bgss123456
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/bgss_xtt?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&connectTimeout=5000&socketTimeout=5000}
+    username: ${DB_USERNAME:bgss_user}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   data:
     redis:
-      host: localhost
-      port: 6379
-      password: 495514
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
-mybatis:
+mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.bugaoshan.entity
   configuration:
     map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: AUTO
+      logic-delete-field: isDeleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 jwt:
-  secret: bgs-xtt-jwt-secret-key-2026-bugaoshan-course-helper
-  expiration: 86400000
-  refresh-expiration: 604800000
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
 file:
   upload:
-    max-size: 50MB
-    upload-path: ./uploads
+    upload-path: ${FILE_UPLOAD_PATH:./uploads}
 
 logging:
   level:
-    com.bugaoshan: DEBUG
+    com.bugaoshan: ${APP_LOG_LEVEL:INFO}
 
 sms:
-  mock: true
+  mock: ${SMS_MOCK:false}
+  mock-code: ${SMS_MOCK_CODE:}

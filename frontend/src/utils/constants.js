@@ -76,14 +76,14 @@ export const MATERIAL_STATUS = {
 
 /** 订单状态 */
 export const ORDER_STATUS = {
-  PENDING_PAY: 1,
-  PAID: 2,
+  PENDING: 1,
+  PROCESSING: 2,
   COMPLETED: 3,
   CANCELLED: 4
 }
 export const ORDER_STATUS_LABEL = {
-  [ORDER_STATUS.PENDING_PAY]: '待支付',
-  [ORDER_STATUS.PAID]: '已支付',
+  [ORDER_STATUS.PENDING]: '待处理',
+  [ORDER_STATUS.PROCESSING]: '处理中',
   [ORDER_STATUS.COMPLETED]: '已完成',
   [ORDER_STATUS.CANCELLED]: '已取消'
 }

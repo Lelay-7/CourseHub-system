@@ -1,5 +1,5 @@
 <template>
-  <article class="course-card-pro">
+  <article class="course-card-pro" :class="{ 'is-selected': isSelected, 'is-compared': isCompared }">
     <div class="course-card-pro__head">
       <StatusTag :tone="typeTone">{{ courseTypeLabel }}</StatusTag>
       <StatusTag :tone="statusTone">{{ statusLabel }}</StatusTag>
@@ -12,20 +12,22 @@
       <span><el-icon><User /></el-icon>{{ course.teacher_name || '未知教师' }}</span>
       <span><el-icon><Collection /></el-icon>{{ course.credit || 0 }} 学分</span>
       <span><el-icon><Clock /></el-icon>{{ course.schedule || '时间待定' }}</span>
-      <span><el-icon><UserFilled /></el-icon>{{ formatNumber(course.student_count) }} 人已选</span>
+      <span><el-icon><StarFilled /></el-icon>{{ course.avg_rating || '-' }} 分</span>
     </div>
 
     <div class="course-card-pro__links">
-      <button type="button" @click="$router.push(`/material?course=${course.course_id}`)">查看资料</button>
-      <button type="button" @click="$router.push(`/square?course=${course.course_id}`)">查看讨论</button>
-      <button type="button" @click="$router.push('/contact')">联系老师</button>
+      <button type="button" @click="$router.push('/material')">查看资料</button>
+      <button type="button" @click="$router.push('/square')">查看讨论</button>
+      <button type="button" @click="$router.push({ path: '/contact', query: { keyword: course.teacher_name || '' } })">联系老师</button>
     </div>
 
     <div class="course-card-pro__actions">
       <el-button plain @click="$router.push(`/course/${course.course_id}`)">查看详情</el-button>
-      <el-button plain @click="$emit('compare-toggle', course)">加入对比</el-button>
-      <el-button type="primary" :disabled="selectDisabled" @click="$emit('select-course', course)">
-        {{ statusLabel === '已选' ? '已选择' : '选择课程' }}
+      <el-button :type="isCompared ? 'warning' : 'default'" plain @click="$emit('compare-toggle', course)">
+        {{ isCompared ? '✓ 已对比' : '加入对比' }}
+      </el-button>
+      <el-button :type="isSelected ? 'success' : 'primary'" @click="$emit('select-course', course)">
+        {{ isSelected ? '✓ 已选择' : '选择课程' }}
       </el-button>
     </div>
   </article>
@@ -33,41 +35,25 @@
 
 <script setup>
 import { computed } from 'vue'
-import { User, UserFilled, Collection, Clock } from '@element-plus/icons-vue'
+import { User, StarFilled, Collection, Clock } from '@element-plus/icons-vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { COURSE_TYPE, COURSE_TYPE_LABEL } from '@/utils/constants'
 
 const props = defineProps({
   course: { type: Object, required: true },
-  keyword: { type: String, default: '' }
+  keyword: { type: String, default: '' },
+  isSelected: { type: Boolean, default: false },
+  isCompared: { type: Boolean, default: false }
 })
 
 defineEmits(['compare-toggle', 'select-course'])
 
-const descriptions = {
-  1: '围绕常用数据结构、复杂度分析和算法设计展开，适合需要打牢程序设计基础的同学。',
-  2: '以 Vue3、组件拆分和前端工程实践为主线，强调可维护界面和项目交付能力。',
-  3: '从关系模型、SQL 查询到索引优化，帮助你理解数据库系统在真实项目中的使用方式。',
-  4: '覆盖机器学习基本流程、模型评估和小型实践任务，适合作为人工智能方向入门课。',
-  5: '聚焦需求分析、项目计划、迭代管理和答辩表达，适合准备团队项目的同学。',
-  6: '讲解常见网络攻击、防护思路和实验验证，适合希望补齐安全意识的同学。',
-  7: '围绕移动端页面、接口联调和应用发布流程展开，强调完整应用开发体验。',
-  8: '结合数字内容生产、交互媒体和作品展示，适合跨专业拓展与创意实践。'
-}
-
-const statusList = ['可选', '已选', '名额紧张', '时间冲突', '已满']
-const statusLabel = computed(() => props.course.status || statusList[(props.course.course_id - 1) % statusList.length])
-const statusTone = computed(() => ({
-  可选: 'success',
-  已选: 'default',
-  名额紧张: 'warning',
-  时间冲突: 'danger',
-  已满: 'info'
-}[statusLabel.value] || 'default'))
-const selectDisabled = computed(() => ['已选', '时间冲突', '已满'].includes(statusLabel.value))
+const statusLabel = computed(() => props.course.status === 1 ? '可选' : '已结束')
+const statusTone = computed(() => statusLabel.value === '可选' ? 'success' : 'info')
+const selectDisabled = computed(() => statusLabel.value !== '可选')
 const courseTypeLabel = computed(() => COURSE_TYPE_LABEL[props.course.course_type] || '课程')
 const typeTone = computed(() => props.course.course_type === COURSE_TYPE.REQUIRED ? 'danger' : 'default')
-const courseDescription = computed(() => props.course.description || descriptions[props.course.course_id] || '课程信息已整理，可结合评价、资料和同学讨论进行选择。')
+const courseDescription = computed(() => props.course.description || '暂无课程介绍')
 const highlightedName = computed(() => highlightText(props.course.course_name || '', props.keyword))
 
 function escapeHtml(text) {
@@ -85,12 +71,6 @@ function highlightText(text, keyword) {
   const escaped = escapeHtml(text)
   const pattern = escapeHtml(keyword).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return escaped.replace(new RegExp(pattern, 'gi'), match => `<mark>${match}</mark>`)
-}
-
-function formatNumber(num) {
-  if (!num) return '0'
-  if (num >= 10000) return `${(num / 10000).toFixed(1)}万`
-  return String(num)
 }
 </script>
 
@@ -184,5 +164,13 @@ function formatNumber(num) {
 .course-card-pro__actions :deep(.el-button) {
   flex: 1 1 auto;
   min-width: 90px;
+}
+.course-card-pro.is-selected {
+  border-color: #67c23a;
+  box-shadow: 0 0 0 2px rgba(103,194,58,.15);
+}
+.course-card-pro.is-compared {
+  border-color: #e6a23c;
+  box-shadow: 0 0 0 2px rgba(230,162,60,.15);
 }
 </style>

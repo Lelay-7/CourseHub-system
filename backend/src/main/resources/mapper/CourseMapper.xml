@@ -3,14 +3,58 @@
 <mapper namespace="com.bugaoshan.mapper.CourseMapper">
 
     <select id="selectById" resultType="com.bugaoshan.entity.Course">
-        SELECT * FROM course WHERE course_id = #{courseId} AND is_deleted = 0
+        SELECT c.*, u.real_name AS teacher_name FROM course c
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.course_id = #{courseId} AND c.is_deleted = 0
     </select>
 
-    <select id="selectList" resultType="com.bugaoshan.entity.Course">
-        SELECT c.* FROM course c
-        <if test="teacherName != null and teacherName != ''">
-            LEFT JOIN user u ON c.teacher_id = u.user_id
+    <select id="selectByCourseCode" resultType="com.bugaoshan.entity.Course">
+        SELECT * FROM course WHERE course_code = #{courseCode} AND is_deleted = 0 LIMIT 1
+    </select>
+
+    <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Course">
+        SELECT c.*, u.real_name AS teacher_name
+        FROM course c
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.is_deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (
+                c.course_name LIKE CONCAT('%', #{keyword}, '%')
+                OR c.course_code LIKE CONCAT('%', #{keyword}, '%')
+                OR u.real_name LIKE CONCAT('%', #{keyword}, '%')
+            )
         </if>
+        ORDER BY c.create_time DESC, c.course_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAllForAdmin" resultType="long">
+        SELECT COUNT(*)
+        FROM course c
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.is_deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (
+                c.course_name LIKE CONCAT('%', #{keyword}, '%')
+                OR c.course_code LIKE CONCAT('%', #{keyword}, '%')
+                OR u.real_name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <select id="categoryExists" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM category
+        WHERE category_id = #{categoryId} AND status = 1 AND is_deleted = 0
+    </select>
+
+    <update id="updateStatus">
+        UPDATE course SET status = #{status}, update_time = NOW()
+        WHERE course_id = #{courseId} AND is_deleted = 0
+    </update>
+
+    <select id="selectList" resultType="com.bugaoshan.entity.Course">
+        SELECT c.*, u.real_name AS teacher_name FROM course c
+        LEFT JOIN user u ON c.teacher_id = u.user_id
         <where>
             c.is_deleted = 0 AND c.status = 1
             <if test="categoryId != null">
@@ -30,7 +74,39 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (c.course_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%'))
+                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.real_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="timeSlot != null and timeSlot != ''">
+                <choose>
+                    <when test="timeSlot == 'early'">
+                        AND (c.schedule LIKE '%周一%' OR c.schedule LIKE '%周二%')
+                    </when>
+                    <when test="timeSlot == 'middle'">
+                        AND (c.schedule LIKE '%周三%' OR c.schedule LIKE '%周四%')
+                    </when>
+                    <when test="timeSlot == 'late'">
+                        AND (c.schedule LIKE '%周五%' OR c.schedule LIKE '%周六%' OR c.schedule LIKE '%周日%')
+                    </when>
+                    <when test="timeSlot == 'morning'">
+                        AND (c.schedule LIKE '%上午%' OR c.schedule LIKE '%1-2%' OR c.schedule LIKE '%3-4%')
+                    </when>
+                    <when test="timeSlot == 'afternoon'">
+                        AND (c.schedule LIKE '%下午%' OR c.schedule LIKE '%5-6%' OR c.schedule LIKE '%7-8%')
+                    </when>
+                    <when test="timeSlot == 'evening'">
+                        AND (c.schedule LIKE '%晚上%' OR c.schedule LIKE '%晚%'
+                             OR c.schedule LIKE '%9-10%' OR c.schedule LIKE '%11-12%')
+                    </when>
+                    <when test="timeSlot == 'weekday'">
+                        AND (c.schedule LIKE '%周一%' OR c.schedule LIKE '%周二%'
+                             OR c.schedule LIKE '%周三%' OR c.schedule LIKE '%周四%'
+                             OR c.schedule LIKE '%周五%')
+                    </when>
+                    <when test="timeSlot == 'weekend'">
+                        AND (c.schedule LIKE '%周六%' OR c.schedule LIKE '%周日%')
+                    </when>
+                </choose>
             </if>
         </where>
         <choose>
@@ -50,9 +126,7 @@
 
     <select id="countList" resultType="long">
         SELECT COUNT(*) FROM course c
-        <if test="teacherName != null and teacherName != ''">
-            LEFT JOIN user u ON c.teacher_id = u.user_id
-        </if>
+        LEFT JOIN user u ON c.teacher_id = u.user_id
         <where>
             c.is_deleted = 0 AND c.status = 1
             <if test="categoryId != null">
@@ -72,14 +146,47 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (c.course_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%'))
+                     OR c.course_code LIKE CONCAT('%', #{keyword}, '%')
+                     OR u.real_name LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="timeSlot != null and timeSlot != ''">
+                <choose>
+                    <when test="timeSlot == 'early'">
+                        AND (c.schedule LIKE '%周一%' OR c.schedule LIKE '%周二%')
+                    </when>
+                    <when test="timeSlot == 'middle'">
+                        AND (c.schedule LIKE '%周三%' OR c.schedule LIKE '%周四%')
+                    </when>
+                    <when test="timeSlot == 'late'">
+                        AND (c.schedule LIKE '%周五%' OR c.schedule LIKE '%周六%' OR c.schedule LIKE '%周日%')
+                    </when>
+                    <when test="timeSlot == 'morning'">
+                        AND (c.schedule LIKE '%上午%' OR c.schedule LIKE '%1-2%' OR c.schedule LIKE '%3-4%')
+                    </when>
+                    <when test="timeSlot == 'afternoon'">
+                        AND (c.schedule LIKE '%下午%' OR c.schedule LIKE '%5-6%' OR c.schedule LIKE '%7-8%')
+                    </when>
+                    <when test="timeSlot == 'evening'">
+                        AND (c.schedule LIKE '%晚上%' OR c.schedule LIKE '%晚%'
+                             OR c.schedule LIKE '%9-10%' OR c.schedule LIKE '%11-12%')
+                    </when>
+                    <when test="timeSlot == 'weekday'">
+                        AND (c.schedule LIKE '%周一%' OR c.schedule LIKE '%周二%'
+                             OR c.schedule LIKE '%周三%' OR c.schedule LIKE '%周四%'
+                             OR c.schedule LIKE '%周五%')
+                    </when>
+                    <when test="timeSlot == 'weekend'">
+                        AND (c.schedule LIKE '%周六%' OR c.schedule LIKE '%周日%')
+                    </when>
+                </choose>
             </if>
         </where>
     </select>
 
     <select id="selectRelatedCourses" resultType="com.bugaoshan.entity.Course">
-        SELECT * FROM course
-        WHERE is_deleted = 0 AND status = 1 AND course_id != #{courseId}
+        SELECT c.*, u.real_name AS teacher_name FROM course c
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE c.is_deleted = 0 AND c.status = 1 AND c.course_id != #{courseId}
         ORDER BY avg_rating DESC, selection_count DESC
         LIMIT #{limit}
     </select>
@@ -91,6 +198,11 @@
 
     <update id="incrementSelectionCount">
         UPDATE course SET selection_count = selection_count + 1, update_time = NOW()
+        WHERE course_id = #{courseId}
+    </update>
+
+    <update id="decrementSelectionCountSafely">
+        UPDATE course SET selection_count = GREATEST(selection_count - 1, 0), update_time = NOW()
         WHERE course_id = #{courseId}
     </update>
 

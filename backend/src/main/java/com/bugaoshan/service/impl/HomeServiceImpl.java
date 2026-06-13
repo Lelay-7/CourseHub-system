@@ -40,6 +40,8 @@ public class HomeServiceImpl implements HomeService {
 
     @Override
     public Result getNewsList(String type, Integer page, Integer pageSize) {
+        if (page == null) page = 1;
+        if (pageSize == null) pageSize = 10;
         int offset = (page - 1) * pageSize;
         List<News> list = newsMapper.selectList(type, offset, pageSize);
         long total = newsMapper.countList(type);

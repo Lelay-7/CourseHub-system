@@ -13,6 +13,10 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
+    private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey secretKey;
     private final long expiration;
     private final long refreshExpiration;
@@ -31,6 +35,7 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .subject(userId.toString())
+                .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .claim("user_type", userType)
                 .issuedAt(now)
                 .expiration(expirationDate)
@@ -44,7 +49,7 @@ public class JwtUtil {
 
         return Jwts.builder()
                 .subject(userId.toString())
-                .claim("type", "refresh")
+                .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(secretKey)
@@ -59,6 +64,14 @@ public class JwtUtil {
     public Integer getUserTypeFromToken(String token) {
         Claims claims = parseToken(token);
         return claims.get("user_type", Integer.class);
+    }
+
+    public boolean isAccessToken(String token) {
+        return hasTokenType(token, ACCESS_TOKEN_TYPE);
+    }
+
+    public boolean isRefreshToken(String token) {
+        return hasTokenType(token, REFRESH_TOKEN_TYPE);
     }
 
     public boolean validateToken(String token) {
@@ -81,5 +94,13 @@ public class JwtUtil {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private boolean hasTokenType(String token, String expectedType) {
+        try {
+            return expectedType.equals(parseToken(token).get(TOKEN_TYPE_CLAIM, String.class));
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -4,6 +4,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.bugaoshan.entity.User;
+import com.bugaoshan.mapper.UserMapper;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,9 +26,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     );
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserMapper userMapper) {
         this.jwtUtil = jwtUtil;
+        this.userMapper = userMapper;
     }
 
     @Override
@@ -40,9 +44,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = extractToken(request);
 
-        if (StringUtils.hasText(token) && jwtUtil.validateToken(token) && !jwtUtil.isTokenExpired(token)) {
+        if (StringUtils.hasText(token) && jwtUtil.validateToken(token)
+                && jwtUtil.isAccessToken(token) && !jwtUtil.isTokenExpired(token)) {
             Long userId = jwtUtil.getUserIdFromToken(token);
-            Integer userType = jwtUtil.getUserTypeFromToken(token);
+            User user = userMapper.selectById(userId);
+            if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            Integer userType = user.getUserType();
 
             String role = switch (userType != null ? userType : 1) {
                 case 2 -> "ROLE_TEACHER";

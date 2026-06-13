@@ -1,5 +1,6 @@
 package com.bugaoshan.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.bugaoshan.entity.Course;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -9,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 @Mapper
-public interface CourseMapper {
+public interface CourseMapper extends BaseMapper<Course> {
 
     List<Course> selectList(@Param("categoryId") Long categoryId,
                             @Param("courseType") Integer courseType,
@@ -17,6 +18,7 @@ public interface CourseMapper {
                             @Param("creditMax") BigDecimal creditMax,
                             @Param("teacherName") String teacherName,
                             @Param("keyword") String keyword,
+                            @Param("timeSlot") String timeSlot,
                             @Param("sortBy") String sortBy,
                             @Param("sortOrder") String sortOrder,
                             @Param("offset") Integer offset,
@@ -27,15 +29,30 @@ public interface CourseMapper {
                    @Param("creditMin") BigDecimal creditMin,
                    @Param("creditMax") BigDecimal creditMax,
                    @Param("teacherName") String teacherName,
-                   @Param("keyword") String keyword);
+                   @Param("keyword") String keyword,
+                   @Param("timeSlot") String timeSlot);
 
     Course selectById(@Param("courseId") Long courseId);
+
+    Course selectByCourseCode(@Param("courseCode") String courseCode);
+
+    List<Course> selectAllForAdmin(@Param("keyword") String keyword,
+                                   @Param("offset") Integer offset,
+                                   @Param("limit") Integer limit);
+
+    long countAllForAdmin(@Param("keyword") String keyword);
+
+    boolean categoryExists(@Param("categoryId") Long categoryId);
+
+    int updateStatus(@Param("courseId") Long courseId, @Param("status") Integer status);
 
     List<Course> selectRelatedCourses(@Param("courseId") Long courseId, @Param("limit") Integer limit);
 
     int updateRating(@Param("courseId") Long courseId, @Param("avgRating") BigDecimal avgRating, @Param("ratingCount") Integer ratingCount);
 
     int incrementSelectionCount(@Param("courseId") Long courseId);
+
+    int decrementSelectionCountSafely(@Param("courseId") Long courseId);
 
     List<Map<String, Object>> selectCategories();
 }

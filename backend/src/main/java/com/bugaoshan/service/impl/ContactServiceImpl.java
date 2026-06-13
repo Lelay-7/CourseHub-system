@@ -130,6 +130,8 @@ public class ContactServiceImpl implements ContactService {
         map.put("title", user.getTitle());
         map.put("officeLocation", user.getOfficeLocation());
         map.put("officePhone", user.getOfficePhone());
+        map.put("phone", user.getPhone());
+        map.put("email", user.getEmail());
         map.put("totalScore", user.getTotalScore());
         return map;
     }

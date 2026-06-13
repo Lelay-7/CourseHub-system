@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="关于我们" :show-back="true" />
 
       <div class="about-card card">
@@ -34,7 +34,7 @@
           <p>© 2026 不高山选课通. All rights reserved.</p>
         </div>
       </div>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -42,6 +42,7 @@
 import { ElMessage } from 'element-plus'
 import { School, Message } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 
 const appVersion = import.meta.env.VITE_APP_VERSION || '3.0.0'

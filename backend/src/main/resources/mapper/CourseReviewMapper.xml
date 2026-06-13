@@ -9,6 +9,13 @@
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
+    <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.CourseReview">
+        SELECT * FROM course_review
+        WHERE is_deleted = 0
+        ORDER BY create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
     <select id="countByCourseId" resultType="int">
         SELECT COUNT(*) FROM course_review
         WHERE course_id = #{courseId} AND is_deleted = 0
@@ -20,8 +27,67 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="reviewId">
-        INSERT INTO course_review (course_id, user_id, rating, content, status, create_time, update_time, is_deleted)
-        VALUES (#{courseId}, #{userId}, #{rating}, #{content}, #{status}, #{createTime}, #{updateTime}, #{isDeleted})
+        INSERT INTO course_review (course_id, user_id, rating, content, is_anonymous, reward_granted,
+                                   status, create_time, update_time, is_deleted)
+        VALUES (#{courseId}, #{userId}, #{rating}, #{content}, #{isAnonymous}, #{rewardGranted},
+                #{status}, #{createTime}, #{updateTime}, #{isDeleted})
     </insert>
+
+    <select id="selectWithUserByCourseId" resultType="com.bugaoshan.dto.CourseReviewWithUser">
+        SELECT r.review_id, r.course_id,
+               CASE WHEN r.is_anonymous = 1 THEN NULL ELSE r.user_id END AS user_id,
+               r.rating, r.content, r.is_anonymous, r.status, r.create_time, r.update_time,
+               CASE WHEN r.is_anonymous = 1 THEN NULL ELSE u.nickname END AS user_name,
+               CASE WHEN r.is_anonymous = 1 THEN NULL ELSE u.avatar_url END AS avatar_url
+        FROM course_review r
+        LEFT JOIN user u ON r.user_id = u.user_id
+        WHERE r.course_id = #{courseId} AND r.is_deleted = 0
+        ORDER BY r.create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <update id="deleteById">
+        UPDATE course_review SET is_deleted = 1, update_time = NOW()
+        WHERE review_id = #{reviewId}
+    </update>
+
+    <select id="selectByUserIdAndCourseId" resultType="com.bugaoshan.entity.CourseReview">
+        SELECT * FROM course_review
+        WHERE user_id = #{userId} AND course_id = #{courseId}
+        ORDER BY create_time DESC LIMIT 1
+    </select>
+
+    <update id="reactivateReview">
+        UPDATE course_review
+        SET rating = #{rating}, content = #{content}, is_anonymous = #{isAnonymous},
+            is_deleted = 0, status = 1, update_time = #{updateTime}
+        WHERE review_id = #{reviewId}
+    </update>
+
+    <update id="claimReviewReward">
+        UPDATE course_review SET reward_granted = 1, update_time = NOW()
+        WHERE review_id = #{reviewId} AND reward_granted = 0
+    </update>
+
+    <update id="deleteByUserIdAndCourseId">
+        UPDATE course_review SET is_deleted = 1, update_time = NOW()
+        WHERE user_id = #{userId} AND course_id = #{courseId} AND is_deleted = 0
+    </update>
+
+    <select id="calcAvgAndCount" resultType="map">
+        SELECT COALESCE(AVG(rating), 0) AS avg_rating, COUNT(*) AS rating_count
+        FROM course_review WHERE course_id = #{courseId} AND is_deleted = 0
+    </select>
+
+    <select id="selectMyReviews" resultType="com.bugaoshan.dto.MyCourseReviewDTO">
+        SELECT r.review_id, r.course_id, c.course_name, c.course_code,
+               u.real_name AS teacher_name, r.rating, r.content,
+               r.is_anonymous, r.create_time
+        FROM course_review r
+        JOIN course c ON r.course_id = c.course_id AND c.is_deleted = 0
+        LEFT JOIN user u ON c.teacher_id = u.user_id
+        WHERE r.user_id = #{userId} AND r.is_deleted = 0
+        ORDER BY r.create_time DESC
+    </select>
 
 </mapper>

@@ -1,13 +1,12 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="我的订单" :show-back="true" />
 
       <!-- 状态筛选 -->
       <el-radio-group v-model="statusFilter" size="small" @change="fetchList(true)" class="status-filter">
         <el-radio-button value="">全部</el-radio-button>
-        <el-radio-button :value="1">待支付</el-radio-button>
-        <el-radio-button :value="2">已支付</el-radio-button>
+        <el-radio-button :value="1">待发货</el-radio-button>
         <el-radio-button :value="3">已完成</el-radio-button>
         <el-radio-button :value="4">已取消</el-radio-button>
       </el-radio-group>
@@ -22,7 +21,7 @@
           </div>
           <div class="order-body">
             <div class="order-subject">
-              <strong>{{ order.subject || order.description }}</strong>
+              <strong>{{ order.goods_name || '订单' }}</strong>
               <small>积分商城兑换</small>
             </div>
             <span class="order-amount">
@@ -48,7 +47,18 @@
       <div v-if="loading" class="load-more">
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
       </div>
-    </div>
+
+      <div v-if="total > pageSize" class="order-pagination">
+        <el-pagination
+          background
+          layout="prev, pager, next"
+          :total="total"
+          :page-size="pageSize"
+          :current-page="page"
+          @current-change="handlePageChange"
+        />
+      </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -58,6 +68,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, StarFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ORDER_STATUS_LABEL } from '@/utils/constants'
@@ -67,6 +78,8 @@ const router = useRouter()
 const orderList = ref([])
 const loading = ref(false)
 const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 const noMore = ref(false)
 const statusFilter = ref('')
 
@@ -81,15 +94,16 @@ async function fetchList(reset = false) {
   loading.value = true
   try {
     const res = await orderApi.getOrderList({
-      page: page.value, pageSize: 20,
+      page: page.value, pageSize: pageSize.value,
       status: statusFilter.value || undefined
     })
     if (res.code === 200) {
       const data = res.data || {}
       const list = data.list || data.records || []
+      total.value = data.total || 0
       if (reset) orderList.value = list
       else orderList.value.push(...list)
-      noMore.value = orderList.value.length >= (data.total || 0)
+      noMore.value = orderList.value.length >= total.value
     }
   } catch { /* handled */ }
   finally { loading.value = false }
@@ -105,11 +119,19 @@ async function handleCancel(order) {
     await orderApi.cancelOrder(order.order_id)
     ElMessage.success('订单已取消，积分已退回')
     order.status = 4
-  } catch { /* handled */ }
+  } catch {
+    ElMessage.error('取消失败，请稍后重试')
+  }
 }
 
 function goDetail(id) {
   router.push(`/profile/orders/${id}`)
+}
+
+function handlePageChange(p) {
+  page.value = p
+  fetchList(true)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function formatTime(time) {
@@ -153,6 +175,12 @@ onMounted(() => { fetchList(true) })
 .order-time { font-size: var(--font-size-xs); color: var(--color-text-placeholder); }
 
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
+
+.order-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-lg);
+}
 
 @media (max-width: 767px) {
   .status-filter {

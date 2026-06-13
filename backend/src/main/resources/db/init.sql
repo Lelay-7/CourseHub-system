@@ -15,10 +15,18 @@ USE bgss_xtt;
 -- 删除表（方便重新初始化）
 -- ============================================================================
 DROP TABLE IF EXISTS sms_code;
+DROP TABLE IF EXISTS material_report;
+DROP TABLE IF EXISTS material_download;
+DROP TABLE IF EXISTS square_like;
+DROP TABLE IF EXISTS square_comment;
+DROP TABLE IF EXISTS square_post;
+DROP TABLE IF EXISTS feedback;
+DROP TABLE IF EXISTS friend;
 DROP TABLE IF EXISTS contact_auth;
 DROP TABLE IF EXISTS score_record;
 DROP TABLE IF EXISTS `order`;
 DROP TABLE IF EXISTS favorite;
+DROP TABLE IF EXISTS course_selection;
 DROP TABLE IF EXISTS course_review;
 DROP TABLE IF EXISTS material;
 DROP TABLE IF EXISTS goods;
@@ -37,6 +45,7 @@ CREATE TABLE IF NOT EXISTS user (
     password_hash  VARCHAR(255) NOT NULL,
     nickname       VARCHAR(50)  NOT NULL,
     avatar_url     VARCHAR(500),
+    avatar_storage_key VARCHAR(255),
     phone          VARCHAR(20)  UNIQUE,
     email          VARCHAR(100),
     user_type      TINYINT      NOT NULL DEFAULT 1 COMMENT '1-学生 2-教师 3-管理员',
@@ -67,7 +76,7 @@ CREATE TABLE IF NOT EXISTS course (
     course_name     VARCHAR(100) NOT NULL,
     course_type     TINYINT      NOT NULL COMMENT '1-必修 2-选修 3-通识',
     credit          DECIMAL(3,1) NOT NULL,
-    teacher_id      BIGINT       NOT NULL,
+    teacher_id      BIGINT,
     semester        VARCHAR(20),
     schedule        VARCHAR(200),
     location        VARCHAR(100),
@@ -89,6 +98,24 @@ CREATE TABLE IF NOT EXISTS course (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
+-- 用户选课记录表
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS course_selection (
+    selection_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    course_id    BIGINT NOT NULL,
+    user_id      BIGINT NOT NULL,
+    status       TINYINT DEFAULT 1 COMMENT '1-已选 2-已退',
+    select_time  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    drop_time    DATETIME,
+    create_time  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted   TINYINT DEFAULT 0,
+    UNIQUE KEY uk_course_selection_user (course_id, user_id),
+    INDEX idx_course_selection_user_status (user_id, status),
+    INDEX idx_course_selection_course (course_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
 -- 课程评价表
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS course_review (
@@ -97,6 +124,8 @@ CREATE TABLE IF NOT EXISTS course_review (
     user_id     BIGINT       NOT NULL,
     rating      TINYINT      NOT NULL,
     content     VARCHAR(500),
+    is_anonymous TINYINT      DEFAULT 0,
+    reward_granted TINYINT    DEFAULT 0,
     status      TINYINT      DEFAULT 1,
     create_time DATETIME     DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -113,13 +142,17 @@ CREATE TABLE IF NOT EXISTS material (
     material_id    BIGINT AUTO_INCREMENT PRIMARY KEY,
     material_name  VARCHAR(200) NOT NULL,
     material_type  TINYINT      NOT NULL,
-    course_id      BIGINT       NOT NULL,
+    course_id      BIGINT,
     uploader_id    BIGINT       NOT NULL,
-    file_url       VARCHAR(500) NOT NULL,
+    file_url       VARCHAR(500),
+    storage_key    VARCHAR(255),
+    original_file_name VARCHAR(255),
+    content_type   VARCHAR(100),
     file_size      BIGINT,
     download_score INT          DEFAULT 0,
     download_count INT          DEFAULT 0,
     description    VARCHAR(500),
+    reject_reason  VARCHAR(500),
     keyword        VARCHAR(100),
     status         TINYINT      DEFAULT 1,
     create_time    DATETIME     DEFAULT CURRENT_TIMESTAMP,
@@ -128,6 +161,28 @@ CREATE TABLE IF NOT EXISTS material (
     INDEX idx_course (course_id),
     INDEX idx_uploader (uploader_id),
     INDEX idx_material_name (material_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS material_report (
+    report_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
+    material_id BIGINT NOT NULL,
+    reporter_id BIGINT NOT NULL,
+    reason      VARCHAR(500) NOT NULL,
+    status      TINYINT NOT NULL DEFAULT 0 COMMENT '0-待处理 1-已处理 2-已驳回',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_material_report_material (material_id),
+    INDEX idx_material_report_status (status),
+    INDEX idx_material_report_reporter (reporter_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS material_download (
+    download_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
+    material_id  BIGINT NOT NULL,
+    user_id      BIGINT NOT NULL,
+    score_cost   INT NOT NULL DEFAULT 0,
+    create_time  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_material_download_user (material_id, user_id),
+    INDEX idx_material_download_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -278,6 +333,66 @@ CREATE TABLE IF NOT EXISTS sms_code (
     INDEX idx_phone (phone)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS friend (
+    friend_id  BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id    BIGINT NOT NULL,
+    target_id  BIGINT NOT NULL,
+    status     TINYINT NOT NULL DEFAULT 0,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_friend_direction (user_id, target_id),
+    INDEX idx_friend_target_status (target_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS feedback (
+    feedback_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id     BIGINT NOT NULL,
+    type        VARCHAR(30) NOT NULL,
+    content     VARCHAR(1000) NOT NULL,
+    contact     VARCHAR(100),
+    status      TINYINT NOT NULL DEFAULT 0,
+    reply       VARCHAR(1000),
+    reply_time  DATETIME,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_feedback_user (user_id),
+    INDEX idx_feedback_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS square_post (
+    post_id       BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id       BIGINT NOT NULL,
+    content       VARCHAR(2000) NOT NULL,
+    course_name   VARCHAR(100),
+    material_name VARCHAR(200),
+    tags          VARCHAR(500),
+    status        TINYINT NOT NULL DEFAULT 1,
+    create_time   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted    TINYINT NOT NULL DEFAULT 0,
+    INDEX idx_square_post_status_time (status, create_time),
+    INDEX idx_square_post_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS square_comment (
+    comment_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    post_id    BIGINT NOT NULL,
+    user_id    BIGINT NOT NULL,
+    content    VARCHAR(1000) NOT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_deleted TINYINT NOT NULL DEFAULT 0,
+    INDEX idx_square_comment_post (post_id, is_deleted)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS square_like (
+    like_id    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    post_id    BIGINT NOT NULL,
+    user_id    BIGINT NOT NULL,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_square_like (post_id, user_id),
+    INDEX idx_square_like_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================================
 -- 种子数据
 -- ============================================================================
@@ -301,7 +416,9 @@ INSERT INTO `category` (`category_id`, `category_name`, `sort_order`) VALUES
 (1, '计算机基础', 1),
 (2, '软件开发', 2),
 (3, '数据智能', 3),
-(4, '通识拓展', 4);
+(4, '通识拓展', 4),
+(5, '工程实践', 5),
+(6, '网络安全', 6);
 
 -- 管理员 (user_id = 1)
 INSERT INTO user (username, password_hash, nickname, user_type, department, score_balance, total_score)
@@ -360,17 +477,77 @@ INSERT INTO course (course_id, course_code, course_name, course_type, credit, te
                     semester, schedule, location, cover_url, outline, selection_count,
                     avg_rating, rating_count, description, status, category_id) VALUES
 (1, 'CS203', '算法与数据结构', 1, 4.0, 2, '2025-2026-2', '周一 3-4 节',
- '信达楼 B302', NULL, 1, 468, 4.8, 1, '涵盖数组、链表、树、图等核心内容', 1, 1),
+ '信达楼 B302', NULL, NULL, 2, 4.5, 2, '涵盖数组、链表、树、图等核心内容', 1, 1),
 (2, 'SE318', 'Web 前端工程实践', 2, 3.0, 3, '2025-2026-2', '周三 5-6 节',
- '实验楼 A411', NULL, 2, 392, 4.7, 1, 'Vue3+TS现代前端开发实践', 1, 2),
+ '实验楼 A411', NULL, NULL, 1, 5.0, 1, 'Vue3+TS现代前端开发实践', 1, 2),
 (3, 'CS305', '数据库系统原理', 1, 4.0, 4, '2025-2026-2', '周二 1-2 节',
- '二教 204', NULL, 1, 356, 4.6, 1, 'SQL与NoSQL数据库原理', 1, 3),
+ '二教 204', NULL, NULL, 1, 4.0, 1, 'SQL与NoSQL数据库原理', 1, 3),
 (4, 'AI201', '机器学习导论', 2, 3.0, 2, '2025-2026-2', '周四 7-8 节',
- '信达楼 C106', NULL, 3, 281, 4.9, 1, '经典机器学习算法与实践', 1, 4),
+ '信达楼 C106', NULL, NULL, 0, NULL, 0, '经典机器学习算法与实践', 1, 4),
 (5, 'SE210', '软件工程与项目管理', 1, 3.0, 3, '2025-2026-2', '周五 3-4 节',
- '一教 305', NULL, 2, 318, 4.5, 1, '敏捷开发与项目管理实践', 1, 5),
-(6, 'CS260', '网络安全基础', 2, 2.0, 2, '2025-2026-2', '周二 9-10 节',
- '实验楼 B208', NULL, 1, 245, 4.4, 1, '网络攻防与安全防护技术', 1, 6);
+ '一教 305', NULL, NULL, 0, NULL, 0, '敏捷开发与项目管理实践', 1, 5),
+(6, 'CS260', '网络安全基础', 2, 2.0, 2, '2025-2026-2', '周六晚上 9-10 节',
+ '实验楼 B208', NULL, NULL, 0, NULL, 0, '网络攻防与安全防护技术', 1, 6),
+(7, 'GE101', '大学生职业发展', 3, 1.0, 4, '2025-2026-2', '周日晚上 11-12 节',
+ '线上课堂', NULL, NULL, 0, NULL, 0, '用于演示管理员查看已停用课程', 0, 4);
+
+-- 选课、退课与评价数据
+INSERT INTO course_selection
+    (selection_id, course_id, user_id, status, select_time, drop_time) VALUES
+(1, 1, 5, 1, '2026-03-01 09:00:00', NULL),
+(2, 1, 6, 1, '2026-03-01 09:05:00', NULL),
+(3, 2, 5, 1, '2026-03-02 10:00:00', NULL),
+(4, 3, 7, 1, '2026-03-03 11:00:00', NULL),
+(5, 4, 6, 2, '2026-03-04 12:00:00', '2026-03-06 08:30:00');
+
+INSERT INTO course_review
+    (review_id, course_id, user_id, rating, content, is_anonymous, reward_granted, status, create_time) VALUES
+(1, 1, 5, 5, '讲解清晰，练习题很有帮助。', 0, 1, 1, '2026-04-10 10:00:00'),
+(2, 1, 6, 4, '内容扎实，作业量适中。', 1, 1, 1, '2026-04-11 11:00:00'),
+(3, 2, 5, 5, '项目实践完整，适合入门。', 0, 1, 1, '2026-04-12 12:00:00'),
+(4, 3, 7, 4, '数据库设计部分很实用。', 0, 1, 1, '2026-04-13 13:00:00');
+
+-- 资料：0-待审核 1-已发布 2-已驳回 3-已下架
+INSERT INTO material
+    (material_id, material_name, material_type, course_id, uploader_id, file_url,
+     original_file_name, content_type, file_size, download_score, download_count,
+     description, reject_reason, keyword, status, create_time) VALUES
+(1, '算法期末复习提纲', 1, 1, 5, '/uploads/seed/algorithm-review.pdf',
+ 'algorithm-review.pdf', 'application/pdf', 245760, 0, 12,
+ '算法与数据结构核心知识点汇总', NULL, '算法 复习 数据结构', 1, '2026-04-01 09:00:00'),
+(2, 'Web 前端项目模板', 4, 2, 6, '/uploads/seed/web-project-template.pptx',
+ 'web-project-template.pptx', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+ 524288, 20, 8, '课程项目结构与答辩模板', NULL, 'Vue 前端 项目', 1, '2026-04-02 10:00:00'),
+(3, '数据库实验报告示例', 2, 3, 7, '/uploads/seed/database-lab.docx',
+ 'database-lab.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+ 188416, 0, 0, '等待管理员审核的资料', NULL, '数据库 实验', 0, '2026-04-03 11:00:00'),
+(4, '机器学习练习答案', 1, 4, 5, '/uploads/seed/ml-answer.pdf',
+ 'ml-answer.pdf', 'application/pdf', 156672, 10, 0,
+ '用于演示审核驳回状态', '内容缺少来源说明，请补充后重新提交。', '机器学习 答案', 2, '2026-04-04 12:00:00'),
+(5, '软件工程旧版讲义', 1, 5, 6, '/uploads/seed/se-legacy.pdf',
+ 'se-legacy.pdf', 'application/pdf', 204800, 0, 2,
+ '用于演示已下架状态', NULL, '软件工程 旧版', 3, '2026-04-05 13:00:00'),
+(6, '网络安全实验清单', 3, 6, 7, '/uploads/seed/security-labs.xlsx',
+ 'security-labs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+ 98304, 10, 5, '网络安全实验环境与检查项', NULL, '网络安全 实验', 1, '2026-04-06 14:00:00');
+
+INSERT INTO material_download
+    (download_id, material_id, user_id, score_cost, create_time) VALUES
+(1, 2, 5, 20, '2026-04-15 09:00:00'),
+(2, 1, 6, 0, '2026-04-15 09:10:00'),
+(3, 6, 5, 10, '2026-04-15 09:20:00');
+
+INSERT INTO material_report
+    (report_id, material_id, reporter_id, reason, status, create_time) VALUES
+(1, 2, 7, '资料中的一个外部链接已经失效。', 0, '2026-04-16 10:00:00'),
+(2, 1, 6, '已核查，内容没有问题。', 1, '2026-04-16 11:00:00');
+
+INSERT INTO favorite
+    (favorite_id, user_id, target_type, target_id, create_time) VALUES
+(1, 5, 1, 1, '2026-04-17 09:00:00'),
+(2, 5, 2, 2, '2026-04-17 09:05:00'),
+(3, 6, 1, 3, '2026-04-17 09:10:00'),
+(4, 7, 2, 1, '2026-04-17 09:15:00');
 
 -- Banner
 INSERT INTO banner (banner_id, title, image_url, link_url, sort_order, status) VALUES
@@ -382,13 +559,72 @@ INSERT INTO banner (banner_id, title, image_url, link_url, sort_order, status) V
 INSERT INTO goods (goods_id, goods_name, category, price_score, stock, exchange_limit, description, status) VALUES
 (1, '校园咖啡券', 1, 88, 32, 1, '兑换后可在校内合作咖啡店核销一杯指定饮品', 1),
 (2, '图书馆研修间预约券', 3, 120, 14, 1, '可优先预约2小时研修间，适合小组讨论', 1),
-(3, '云盘扩容5GB', 2, 160, 80, 1, '为学习资料空间扩容，有效期一学期', 1);
+(3, '云盘扩容5GB', 2, 160, 80, 1, '为学习资料空间扩容，有效期一学期', 1),
+(4, '校徽纪念徽章', 1, 60, 20, 1, '用于演示已停用商品', 0),
+(5, '活动限定笔记本', 1, 200, 0, 0, '用于演示库存和兑换限制', 1);
 
--- ============================================================================
--- 应用用户授权
--- ============================================================================
-CREATE USER IF NOT EXISTS 'bgss_user'@'localhost' IDENTIFIED BY 'bgss123456';
-CREATE USER IF NOT EXISTS 'bgss_user'@'127.0.0.1' IDENTIFIED BY 'bgss123456';
-GRANT ALL PRIVILEGES ON bgss_xtt.* TO 'bgss_user'@'localhost';
-GRANT ALL PRIVILEGES ON bgss_xtt.* TO 'bgss_user'@'127.0.0.1';
-FLUSH PRIVILEGES;
+INSERT INTO `order`
+    (order_id, order_no, user_id, goods_id, goods_name, score_amount, status,
+     remark, cancel_time, complete_time, create_time) VALUES
+(1, 'BG202604180001', 5, 1, '校园咖啡券', 88, 1,
+ '请发送电子兑换码', NULL, NULL, '2026-04-18 09:00:00'),
+(2, 'BG202604180002', 6, 2, '图书馆研修间预约券', 120, 3,
+ NULL, NULL, '2026-04-18 15:00:00', '2026-04-18 10:00:00'),
+(3, 'BG202604180003', 7, 3, '云盘扩容5GB', 160, 4,
+ '重复兑换', '2026-04-18 11:30:00', NULL, '2026-04-18 11:00:00');
+
+INSERT INTO score_record
+    (record_id, user_id, change_type, change_amount, balance_after, source_desc, related_id, create_time) VALUES
+(1, 5, 1, 10, 406, '提交课程评价奖励', 1, '2026-04-10 10:00:00'),
+(2, 5, 2, -20, 386, '下载积分资料', 2, '2026-04-15 09:00:00'),
+(3, 6, 2, -120, 920, '兑换图书馆研修间预约券', 2, '2026-04-18 10:00:00'),
+(4, 7, 1, 10, 775, '资料被下载奖励', 6, '2026-04-15 09:20:00');
+
+INSERT INTO news
+    (news_id, title, summary, content, category_id, view_count, status, publish_time, create_by) VALUES
+(1, '2025-2026 学年第二学期选课提醒',
+ '请同学们在规定时间内完成选课与退补选。',
+ '选课开放后请及时确认课程时间，避免时间冲突。', 2, 128, 1, '2026-02-20 09:00:00', 1),
+(2, '资料共享规范更新',
+ '上传资料时请注明来源并检查文件可用性。',
+ '涉及版权或隐私的信息不得上传，违规资料将被下架。', 3, 86, 1, '2026-03-01 10:00:00', 1),
+(3, '旧版通知示例',
+ '用于管理员查看停用资讯。',
+ '这是一条未发布的示例资讯。', 2, 0, 0, NULL, 1);
+
+INSERT INTO friend
+    (friend_id, user_id, target_id, status, create_time) VALUES
+(1, 5, 6, 1, '2026-04-19 09:00:00'),
+(2, 7, 5, 0, '2026-04-19 09:10:00');
+
+INSERT INTO feedback
+    (feedback_id, user_id, type, content, contact, status, reply, reply_time, create_time) VALUES
+(1, 5, '功能建议', '希望课程列表可以按上课时间筛选。', '2024051224@stu.example.edu', 1,
+ '已在本轮版本中增加时间筛选。', '2026-04-20 16:00:00', '2026-04-20 09:00:00'),
+(2, 6, '问题反馈', '资料列表需要区分免费和积分资料。', NULL, 0,
+ NULL, NULL, '2026-04-21 10:00:00');
+
+INSERT INTO square_post
+    (post_id, user_id, content, course_name, material_name, tags, status, create_time, is_deleted) VALUES
+(1, 5, '算法复习可以先按数据结构分类，再集中刷题。', '算法与数据结构', '算法期末复习提纲',
+ '算法,复习', 1, '2026-04-22 09:00:00', 0),
+(2, 6, '前端课程项目建议尽早确定组件规范。', 'Web 前端工程实践', NULL,
+ '前端,项目', 1, '2026-04-22 10:00:00', 0),
+(3, 7, '这是一条管理员可见的停用动态。', NULL, NULL,
+ '测试', 0, '2026-04-22 11:00:00', 0),
+(4, 5, '这是一条已删除动态。', NULL, NULL,
+ '测试', 1, '2026-04-22 12:00:00', 1);
+
+INSERT INTO square_comment
+    (comment_id, post_id, user_id, content, create_time, is_deleted) VALUES
+(1, 1, 6, '这个复习顺序很实用。', '2026-04-22 09:30:00', 0),
+(2, 1, 7, '可以再补充复杂度分析。', '2026-04-22 09:40:00', 0),
+(3, 2, 5, '同意，先统一目录结构会省很多时间。', '2026-04-22 10:30:00', 0);
+
+INSERT INTO square_like
+    (like_id, post_id, user_id, create_time) VALUES
+(1, 1, 6, '2026-04-22 09:20:00'),
+(2, 1, 7, '2026-04-22 09:25:00'),
+(3, 2, 5, '2026-04-22 10:20:00');
+
+-- Database users and grants are managed outside this schema through deployment tooling.

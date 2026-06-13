@@ -3,10 +3,10 @@
     <div class="goods-card-pro__icon">
       <el-icon :size="34"><component :is="icon" /></el-icon>
     </div>
-    <h3>{{ goods.name }}</h3>
+    <h3>{{ goods.goods_name }}</h3>
     <p>{{ goods.description || '适用于选课、资料下载和校园学习场景的积分权益。' }}</p>
     <div class="goods-card-pro__meta">
-      <strong>{{ goods.exchange_score }} 积分</strong>
+      <strong>{{ goods.price_score }} 积分</strong>
       <StatusTag :tone="goods.stock > 0 ? 'success' : 'info'">
         {{ goods.stock > 0 ? `库存 ${goods.stock}` : '已售罄' }}
       </StatusTag>
@@ -27,7 +27,7 @@ const props = defineProps({
 })
 
 const icons = [Tickets, Reading, Service, FolderOpened, Present, Document, Medal]
-const icon = computed(() => icons[(props.goods.goods_id - 1) % icons.length])
+const icon = computed(() => icons[props.goods.category - 1] || icons[0])
 </script>
 
 <style scoped>

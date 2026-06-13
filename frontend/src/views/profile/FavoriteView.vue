@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="我的收藏" :show-back="true" />
 
       <!-- Tab切换 -->
@@ -10,32 +10,30 @@
       </el-tabs>
 
       <!-- 课程收藏 -->
-      <div v-if="favType === 'course'" class="course-grid">
-        <div v-for="item in favList" :key="item.target_id" class="fav-card-wrapper">
-          <CourseCard :course="item" />
-          <el-button
-            class="remove-fav"
-            type="danger"
-            plain
-            size="small"
-            :icon="Delete"
-            @click="handleRemove(item)"
-          >
-            取消收藏
-          </el-button>
+      <div v-if="favType === 'course'" class="fav-list">
+        <div v-for="item in favList" :key="item.favoriteId" class="fav-row">
+          <div class="fav-info">
+            <strong>{{ item.courseName || '内容已失效' }}</strong>
+            <span>{{ item.courseCode || '-' }} · {{ item.credit ?? '-' }} 学分 · {{ item.avgRating ?? 0 }} 分</span>
+          </div>
+          <div class="fav-actions">
+            <el-button size="small" @click="$router.push(`/course/${item.targetId}`)">查看</el-button>
+            <el-button size="small" type="danger" plain :icon="Delete" @click="handleRemove(item)">取消收藏</el-button>
+          </div>
         </div>
       </div>
 
       <!-- 资料收藏 -->
-      <div v-else class="material-list">
-        <div v-for="item in favList" :key="item.target_id" class="fav-item">
-          <MaterialCard :material="item" />
-          <el-button
-            type="danger" plain size="small" :icon="Delete"
-            @click="handleRemove(item)"
-          >
-            取消收藏
-          </el-button>
+      <div v-else class="fav-list">
+        <div v-for="item in favList" :key="item.favoriteId" class="fav-row">
+          <div class="fav-info">
+            <strong>{{ item.materialName || '内容已失效' }}</strong>
+            <span>下载 {{ item.downloadCount || 0 }} 次</span>
+          </div>
+          <div class="fav-actions">
+            <el-button size="small" @click="$router.push(`/material/${item.targetId}`)">查看</el-button>
+            <el-button size="small" type="danger" plain :icon="Delete" @click="handleRemove(item)">取消收藏</el-button>
+          </div>
         </div>
       </div>
 
@@ -43,7 +41,7 @@
       <div v-if="loading" class="load-more">
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
       </div>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -52,9 +50,8 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Loading, Delete } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import CourseCard from '@/components/CourseCard.vue'
-import MaterialCard from '@/components/MaterialCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import * as favoriteApi from '@/api/favorite'
 
@@ -67,7 +64,8 @@ async function fetchList(reset = false) {
   try {
     const res = await favoriteApi.getFavoriteList({ type: favType.value })
     if (res.code === 200) {
-      favList.value = (res.data?.list || res.data?.records || res.data || [])
+      const data = res.data?.list || res.data?.records || res.data || []
+      favList.value = Array.isArray(data) ? data.filter(item => item?.targetId) : []
     }
   } catch { /* handled */ }
   finally { loading.value = false }
@@ -75,14 +73,9 @@ async function fetchList(reset = false) {
 
 async function handleRemove(item) {
   try {
-    await favoriteApi.removeFavorite({
-      type: favType.value,
-      target_id: item.target_id || item.course_id || item.material_id
-    })
-    favList.value = favList.value.filter(f =>
-      (f.target_id || f.course_id || f.material_id) !==
-      (item.target_id || item.course_id || item.material_id)
-    )
+    const targetId = item.targetId
+    await favoriteApi.removeFavorite({ type: favType.value, target_id: targetId })
+    await fetchList(true)
     ElMessage.success('已取消收藏')
   } catch { /* handled */ }
 }
@@ -91,16 +84,14 @@ onMounted(() => { fetchList(true) })
 </script>
 
 <style scoped>
-.course-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--spacing-md);
+.fav-list { display: grid; gap: 10px; }
+.fav-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-radius: 16px; background: var(--color-bg-card);
+  border: 1px solid rgba(154,66,45,.08);
 }
-.fav-card-wrapper { position: relative; }
-.remove-fav { margin-top: var(--spacing-sm); width: 100%; }
-
-.material-list { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-.fav-item { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-
+.fav-info strong { display: block; color: #333; }
+.fav-info span { font-size: 12px; color: #999; }
+.fav-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
 </style>

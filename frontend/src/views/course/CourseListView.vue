@@ -8,7 +8,7 @@
         <template #extra>
           <div class="course-stats">
             <span>共 {{ courseStore.total }} 门课程</span>
-            <span>已选 {{ selectedCourseIds.length }} 门</span>
+            <span>已选 {{ selectionStore.selectedIds.length }} 门</span>
             <span>当前积分 {{ userStore.scoreBalance }}</span>
           </div>
         </template>
@@ -55,27 +55,32 @@
 
       <div class="course-result-bar">
         <div>
-          <strong>共 {{ filteredCourses.length }} 门课程</strong>
+          <strong>共 {{ courseStore.total }} 门课程</strong>
           <span>支持课程资料、同学讨论和教师联系联动查看</span>
         </div>
         <div class="course-actions">
-          <el-button :type="compareCourses.length ? 'primary' : 'default'" plain @click="showCompareDrawer = true">
-            对比 {{ compareCourses.length }}/3
-          </el-button>
+          <el-badge :value="compareCourses.length" :hidden="compareCourses.length === 0">
+            <el-button :type="compareCourses.length ? 'warning' : 'default'" plain @click="showCompareDrawer = true">
+              课程对比
+            </el-button>
+          </el-badge>
           <el-radio-group v-model="filters.sortBy" size="small" @change="applyFilters">
-            <el-radio-button value="student_count">人数</el-radio-button>
-            <el-radio-button value="rating">评分</el-radio-button>
-            <el-radio-button value="schedule">时间</el-radio-button>
+            <el-radio-button value="selection_count">人数</el-radio-button>
+            <el-radio-button value="avg_rating">评分</el-radio-button>
+            <el-radio-button value="credit">学分</el-radio-button>
+            <el-radio-button value="create_time">最新</el-radio-button>
           </el-radio-group>
         </div>
       </div>
 
-      <div v-if="filteredCourses.length" class="course-grid-pro">
+      <div v-if="courseList.length" class="course-grid-pro">
         <CourseCard
-          v-for="course in filteredCourses"
+          v-for="course in courseList"
           :key="course.course_id"
           :course="course"
           :keyword="searchKeyword"
+          :is-selected="selectionStore.isSelected(course.course_id)"
+          :is-compared="compareCourses.some(c => c.course_id === course.course_id)"
           @compare-toggle="toggleCompare"
           @select-course="selectCourse"
         />
@@ -86,6 +91,14 @@
         <el-icon class="is-loading"><Loading /></el-icon>
         加载中...
       </div>
+      <el-pagination
+        v-if="courseStore.total > pageSize"
+        v-model:current-page="currentPage"
+        :page-size="pageSize"
+        :total="courseStore.total"
+        layout="prev, pager, next, total"
+        @current-change="handlePageChange"
+      />
 
       <el-drawer v-model="showCompareDrawer" title="课程对比" size="720px">
         <div v-if="compareCourses.length" class="compare-course-list">
@@ -97,12 +110,14 @@
         </div>
         <EmptyState v-else description="还没有加入对比的课程" />
       </el-drawer>
+
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Loading } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
@@ -113,15 +128,19 @@ import CourseCard from '@/components/CourseCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { useCourseStore } from '@/stores/course'
 import { useUserStore } from '@/stores/user'
+import { useSelectionStore } from '@/stores/selection'
 import * as courseApi from '@/api/course'
 
 const courseStore = useCourseStore()
 const userStore = useUserStore()
+const selectionStore = useSelectionStore()
+const route = useRoute()
 const courseList = ref([])
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = 12
 const searchKeyword = ref('')
 const compareCourses = ref([])
-const selectedCourseIds = ref([])
 const showCompareDrawer = ref(false)
 
 const filters = reactive({
@@ -130,43 +149,29 @@ const filters = reactive({
   teacherName: '',
   creditMin: null,
   timeSlot: '',
-  sortBy: 'student_count'
+  sortBy: 'selection_count'
 })
 
-const categoryTabs = [
+const categories = ref([])
+const categoryTabs = computed(() => [
   { label: '全部课程', value: null },
-  { label: '计算机基础', value: 1 },
-  { label: '软件开发', value: 2 },
-  { label: '数据智能', value: 3 },
-  { label: '通识拓展', value: 4 }
-]
+  ...categories.value.map(c => ({ label: c.category_name, value: c.category_id }))
+])
 
 const teacherOptions = computed(() => [...new Set(courseList.value.map(item => item.teacher_name).filter(Boolean))])
-
-const filteredCourses = computed(() => {
-  let list = [...courseList.value]
-  if (filters.timeSlot) {
-    const map = {
-      early: ['周一', '周二'],
-      middle: ['周三', '周四'],
-      late: ['周五']
-    }
-    list = list.filter(item => map[filters.timeSlot].some(text => String(item.schedule || '').includes(text)))
-  }
-  return list
-})
 
 async function fetchCourses() {
   loading.value = true
   try {
     const res = await courseApi.getCourseList({
-      page: 1,
-      pageSize: 30,
+      page: currentPage.value,
+      pageSize,
       categoryId: filters.categoryId || undefined,
       courseType: filters.courseType || undefined,
       teacherName: filters.teacherName || undefined,
       creditMin: filters.creditMin || undefined,
       keyword: searchKeyword.value || undefined,
+      timeSlot: filters.timeSlot || undefined,
       sortBy: filters.sortBy
     })
     if (res.code === 200) {
@@ -180,6 +185,7 @@ async function fetchCourses() {
 }
 
 function applyFilters() {
+  currentPage.value = 1
   fetchCourses()
 }
 
@@ -192,10 +198,18 @@ let searchTimer = null
 function onSearchInput(value) {
   if (value && value.length < 2) return
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchCourses, 260)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchCourses()
+  }, 260)
 }
 
 function handleSearch() {
+  currentPage.value = 1
+  fetchCourses()
+}
+
+function handlePageChange() {
   fetchCourses()
 }
 
@@ -217,14 +231,35 @@ function removeCompare(id) {
   compareCourses.value = compareCourses.value.filter(item => item.course_id !== id)
 }
 
-function selectCourse(course) {
-  if (!selectedCourseIds.value.includes(course.course_id)) {
-    selectedCourseIds.value.push(course.course_id)
-    ElMessage.success(`已选择 ${course.course_name}`)
-  }
+async function selectCourse(course) {
+  try {
+    if (selectionStore.isSelected(course.course_id)) {
+      await selectionStore.drop(course.course_id)
+      course.selection_count = Math.max(Number(course.selection_count || 0) - 1, 0)
+      ElMessage.success(`已取消 ${course.course_name}`)
+    } else {
+      await selectionStore.select(course.course_id)
+      course.selection_count = Number(course.selection_count || 0) + 1
+      ElMessage.success(`已选择 ${course.course_name}`)
+    }
+  } catch { /* handled */ }
 }
 
-onMounted(fetchCourses)
+async function fetchCategories() {
+  try {
+    const res = await courseApi.getCategories()
+    categories.value = res.data?.list || res.data || []
+  } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  if (route.query.keyword) {
+    searchKeyword.value = route.query.keyword
+  }
+  fetchCourses()
+  fetchCategories()
+  selectionStore.refresh().catch(() => {})
+})
 </script>
 
 <style scoped>

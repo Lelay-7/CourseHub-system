@@ -2,11 +2,17 @@ package com.bugaoshan.entity;
 
 import lombok.Data;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
 public class Course {
+    @TableId(type = IdType.AUTO)
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long courseId;
     private String courseCode;
     private String courseName;
@@ -24,6 +30,8 @@ public class Course {
     private String description;
     private Integer status;
     private Long categoryId;
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private String teacherName;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     private Integer isDeleted;

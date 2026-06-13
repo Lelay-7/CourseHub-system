@@ -15,11 +15,11 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="userId">
-        INSERT INTO user (username, password_hash, nickname, avatar_url, phone, email, user_type,
+        INSERT INTO user (username, password_hash, nickname, avatar_url, avatar_storage_key, phone, email, user_type,
                           real_name, student_no, department, class_name, title, office_location,
                           office_phone, score_balance, total_score, status, last_login_time,
                           create_time, update_time, is_deleted)
-        VALUES (#{username}, #{passwordHash}, #{nickname}, #{avatarUrl}, #{phone}, #{email}, #{userType},
+        VALUES (#{username}, #{passwordHash}, #{nickname}, #{avatarUrl}, #{avatarStorageKey}, #{phone}, #{email}, #{userType},
                 #{realName}, #{studentNo}, #{department}, #{className}, #{title}, #{officeLocation},
                 #{officePhone}, #{scoreBalance}, #{totalScore}, #{status}, #{lastLoginTime},
                 #{createTime}, #{updateTime}, #{isDeleted})
@@ -29,6 +29,7 @@
         UPDATE user
         SET nickname = #{nickname},
             avatar_url = #{avatarUrl},
+            avatar_storage_key = #{avatarStorageKey},
             phone = #{phone},
             email = #{email},
             user_type = #{userType},
@@ -50,22 +51,83 @@
         WHERE user_id = #{userId}
     </update>
 
+    <update id="deductScoreIfSufficient">
+        UPDATE user
+        SET score_balance = score_balance - #{amount}, update_time = NOW()
+        WHERE user_id = #{userId} AND status = 1 AND is_deleted = 0
+          AND score_balance &gt;= #{amount}
+    </update>
+
+    <update id="creditScore">
+        UPDATE user
+        SET score_balance = score_balance + #{amount}, update_time = NOW()
+        WHERE user_id = #{userId} AND status = 1 AND is_deleted = 0
+    </update>
+
+    <update id="earnScore">
+        UPDATE user
+        SET score_balance = score_balance + #{amount},
+            total_score = total_score + #{amount}, update_time = NOW()
+        WHERE user_id = #{userId} AND status = 1 AND is_deleted = 0
+    </update>
+
     <update id="updateAvatar">
-        UPDATE user SET avatar_url = #{avatarUrl}, update_time = NOW()
+        UPDATE user SET avatar_url = #{avatarUrl}, avatar_storage_key = #{avatarStorageKey}, update_time = NOW()
         WHERE user_id = #{userId}
     </update>
 
     <select id="selectByUserType" resultType="com.bugaoshan.entity.User">
         SELECT * FROM user
-        WHERE user_type = #{userType} AND is_deleted = 0 AND status = 1
+        WHERE user_type = #{userType} AND is_deleted = 0
         ORDER BY user_id DESC
     </select>
 
     <select id="selectTopScoreRank" resultType="com.bugaoshan.entity.User">
         SELECT * FROM user
-        WHERE is_deleted = 0 AND status = 1
+        WHERE is_deleted = 0
         ORDER BY total_score DESC
         LIMIT #{limit}
     </select>
+
+    <sql id="adminUserFilters">
+        is_deleted = 0
+        <if test="keyword != null and keyword != ''">
+            AND (
+                username LIKE CONCAT('%', #{keyword}, '%')
+                OR real_name LIKE CONCAT('%', #{keyword}, '%')
+                OR student_no LIKE CONCAT('%', #{keyword}, '%')
+                OR email LIKE CONCAT('%', #{keyword}, '%')
+                OR phone LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="userType != null">
+            AND user_type = #{userType}
+        </if>
+        <if test="status != null">
+            AND status = #{status}
+        </if>
+    </sql>
+
+    <select id="selectAdminPage" resultType="com.bugaoshan.entity.User">
+        SELECT user_id, username, nickname, avatar_url, phone, email, user_type,
+               real_name, student_no, department, class_name, title,
+               office_location, office_phone, score_balance, total_score,
+               status, last_login_time, create_time, update_time, is_deleted
+        FROM user
+        WHERE <include refid="adminUserFilters"/>
+        ORDER BY create_time DESC, user_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminPage" resultType="long">
+        SELECT COUNT(*)
+        FROM user
+        WHERE <include refid="adminUserFilters"/>
+    </select>
+
+    <update id="updateStatus">
+        UPDATE user SET status = #{status}, update_time = NOW()
+        WHERE user_id = #{userId} AND is_deleted = 0
+    </update>
 
 </mapper>

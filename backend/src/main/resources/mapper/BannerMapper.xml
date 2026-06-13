@@ -8,4 +8,15 @@
         ORDER BY sort_order ASC
     </select>
 
+    <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Banner">
+        SELECT * FROM banner
+        WHERE is_deleted = 0
+        ORDER BY sort_order ASC
+    </select>
+
+    <update id="deleteById">
+        UPDATE banner SET is_deleted = 1, update_time = NOW()
+        WHERE banner_id = #{bannerId}
+    </update>
+
 </mapper>

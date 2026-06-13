@@ -1,5 +1,6 @@
 package com.bugaoshan.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -17,4 +18,7 @@ public class CourseReviewDTO {
     @NotBlank(message = "评价内容不能为空")
     @Size(min = 1, max = 500, message = "评价内容长度需在1-500之间")
     private String content;
+
+    @JsonProperty("isAnonymous")
+    private Integer isAnonymous;
 }

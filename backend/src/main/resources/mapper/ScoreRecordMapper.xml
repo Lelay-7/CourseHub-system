@@ -5,12 +5,18 @@
     <select id="selectByUserId" resultType="com.bugaoshan.entity.ScoreRecord">
         SELECT * FROM score_record
         WHERE user_id = #{userId}
+        <if test="month != null and month != ''">
+            AND DATE_FORMAT(create_time, '%Y-%m') = #{month}
+        </if>
         ORDER BY create_time DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 
     <select id="countByUserId" resultType="long">
         SELECT COUNT(*) FROM score_record WHERE user_id = #{userId}
+        <if test="month != null and month != ''">
+            AND DATE_FORMAT(create_time, '%Y-%m') = #{month}
+        </if>
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="recordId">

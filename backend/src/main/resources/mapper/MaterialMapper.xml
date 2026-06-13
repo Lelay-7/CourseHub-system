@@ -20,6 +20,12 @@
                 AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
                      OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
             </if>
+            <if test="priceFilter == 'free'">
+                AND (m.download_score IS NULL OR m.download_score = 0)
+            </if>
+            <if test="priceFilter == 'score'">
+                AND m.download_score &gt; 0
+            </if>
         </where>
         <choose>
             <when test="sortBy == 'download_count'">ORDER BY m.download_count</when>
@@ -50,15 +56,23 @@
                 AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
                      OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
             </if>
+            <if test="priceFilter == 'free'">
+                AND (m.download_score IS NULL OR m.download_score = 0)
+            </if>
+            <if test="priceFilter == 'score'">
+                AND m.download_score &gt; 0
+            </if>
         </where>
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="materialId">
-        INSERT INTO material (material_name, material_type, course_id, uploader_id, file_url, file_size,
-                              download_score, download_count, description, status, keyword,
+        INSERT INTO material (material_name, material_type, course_id, uploader_id, file_url, storage_key,
+                              original_file_name, content_type, file_size,
+                              download_score, download_count, description, reject_reason, status, keyword,
                               create_time, update_time, is_deleted)
-        VALUES (#{materialName}, #{materialType}, #{courseId}, #{uploaderId}, #{fileUrl}, #{fileSize},
-                #{downloadScore}, #{downloadCount}, #{description}, #{status}, #{keyword},
+        VALUES (#{materialName}, #{materialType}, #{courseId}, #{uploaderId}, #{fileUrl}, #{storageKey},
+                #{originalFileName}, #{contentType}, #{fileSize},
+                #{downloadScore}, #{downloadCount}, #{description}, #{rejectReason}, #{status}, #{keyword},
                 #{createTime}, #{updateTime}, #{isDeleted})
     </insert>
 
@@ -72,9 +86,56 @@
         WHERE material_id = #{materialId}
     </update>
 
+    <update id="transitionStatus">
+        UPDATE material SET status = #{status}, update_time = NOW()
+        WHERE material_id = #{materialId} AND status = #{expectedStatus} AND is_deleted = 0
+    </update>
+
+    <update id="rejectPending">
+        UPDATE material
+        SET status = 2, reject_reason = #{rejectReason}, update_time = NOW()
+        WHERE material_id = #{materialId} AND status = 0 AND is_deleted = 0
+    </update>
+
+    <update id="resubmitRejected">
+        UPDATE material
+        SET status = 0, reject_reason = NULL, update_time = NOW()
+        WHERE material_id = #{materialId} AND status = 2 AND is_deleted = 0
+    </update>
+
     <select id="selectCategories" resultType="map">
-        SELECT DISTINCT material_type AS category_id, material_type AS category_name
+        SELECT DISTINCT material_type AS category_id,
+            CASE material_type
+                WHEN 1 THEN 'PDF' WHEN 2 THEN 'Word' WHEN 3 THEN 'Excel'
+                WHEN 4 THEN 'PPT' WHEN 5 THEN '图片' ELSE '其他'
+            END AS category_name
         FROM material WHERE is_deleted = 0
+    </select>
+
+    <select id="selectByUploaderId" resultType="com.bugaoshan.entity.Material">
+        SELECT * FROM material
+        WHERE uploader_id = #{uploaderId} AND is_deleted = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Material">
+        SELECT m.* FROM material m
+        <where>
+            m.is_deleted = 0
+            <if test="status != null">AND m.status = #{status}</if>
+        </where>
+        ORDER BY m.create_time DESC
+        <if test="offset != null and limit != null">
+            LIMIT #{limit} OFFSET #{offset}
+        </if>
+    </select>
+
+    <select id="countAllForAdmin" resultType="long">
+        SELECT COUNT(*) FROM material m
+        <where>
+            m.is_deleted = 0
+            <if test="status != null">AND m.status = #{status}</if>
+        </where>
     </select>
 
 </mapper>

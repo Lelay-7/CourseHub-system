@@ -1,5 +1,6 @@
 package com.bugaoshan.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -8,9 +9,11 @@ import java.time.LocalDateTime;
 public class User {
     private Long userId;
     private String username;
+    @JsonIgnore
     private String passwordHash;
     private String nickname;
     private String avatarUrl;
+    private String avatarStorageKey;
     private String phone;
     private String email;
     private Integer userType;

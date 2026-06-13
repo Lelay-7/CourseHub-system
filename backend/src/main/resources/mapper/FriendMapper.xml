@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.FriendMapper">
+
+    <select id="selectByUserAndTarget" resultType="com.bugaoshan.entity.Friend">
+        SELECT * FROM friend WHERE user_id = #{userId} AND target_id = #{targetId}
+    </select>
+
+    <select id="selectMyFriends" resultType="map">
+        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url,
+               u.department, u.class_name, u.title, u.user_type
+        FROM friend f
+        JOIN user u ON (f.target_id = u.user_id)
+        WHERE f.user_id = #{userId} AND f.status = 1
+        UNION
+        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url,
+               u.department, u.class_name, u.title, u.user_type
+        FROM friend f
+        JOIN user u ON (f.user_id = u.user_id)
+        WHERE f.target_id = #{userId} AND f.status = 1
+    </select>
+
+    <select id="selectPendingRequests" resultType="map">
+        SELECT f.friend_id, f.status, 'received' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url,
+               u.department, u.user_type, f.create_time
+        FROM friend f
+        JOIN user u ON f.user_id = u.user_id
+        WHERE f.target_id = #{userId} AND f.status = 0
+        UNION ALL
+        SELECT f.friend_id, f.status, 'sent' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url,
+               u.department, u.user_type, f.create_time
+        FROM friend f
+        JOIN user u ON f.target_id = u.user_id
+        WHERE f.user_id = #{userId} AND f.status = 0
+        ORDER BY create_time DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE friend SET status = #{status}, update_time = NOW()
+        WHERE friend_id = #{friendId} AND target_id = #{targetId}
+    </update>
+
+    <delete id="deleteByUserAndTarget">
+        DELETE FROM friend WHERE user_id = #{userId} AND target_id = #{targetId}
+    </delete>
+
+</mapper>

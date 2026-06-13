@@ -13,6 +13,7 @@ public class CourseReviewWithUser {
     private String avatarUrl;
     private Integer rating;
     private String content;
+    private Integer isAnonymous;
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

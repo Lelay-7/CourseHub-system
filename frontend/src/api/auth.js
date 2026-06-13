@@ -39,6 +39,8 @@ export function getUserInfo() {
 }
 
 /** 上传头像 */
-export function uploadAvatar(data) {
-  return request.post('/api/user/avatar', data)
+export function uploadAvatar(file) {
+  const form = new FormData()
+  form.append('file', file)
+  return request.post('/api/user/avatar', form)
 }

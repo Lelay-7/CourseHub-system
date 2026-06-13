@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.MaterialDownloadMapper">
+    <insert id="insertIgnore">
+        INSERT IGNORE INTO material_download (material_id, user_id, score_cost, create_time)
+        VALUES (#{materialId}, #{userId}, #{scoreCost}, NOW())
+    </insert>
+
+    <select id="selectByUserId" resultType="map">
+        SELECT d.*, m.material_name, m.file_url, m.content_type
+        FROM material_download d
+        LEFT JOIN material m ON d.material_id = m.material_id
+        WHERE d.user_id = #{userId}
+        ORDER BY d.create_time DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByUserId" resultType="long">
+        SELECT COUNT(*) FROM material_download WHERE user_id = #{userId}
+    </select>
+</mapper>

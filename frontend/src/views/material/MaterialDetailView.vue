@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="资料详情" :show-back="true">
         <template #extra>
           <el-button
@@ -37,19 +37,10 @@
             </div>
           </div>
 
-          <!-- 文件预览 -->
+          <!-- 文件访问必须经过授权下载接口。 -->
           <div class="preview-section">
             <h3>文件预览</h3>
-            <div v-if="isPreviewable" class="preview-container">
-              <img v-if="isImage" :src="material.file_url" class="preview-img" />
-              <iframe
-                v-else-if="isPdf"
-                :src="material.file_url"
-                class="preview-iframe"
-                frameborder="0"
-              />
-            </div>
-            <div v-else class="preview-unsupported">
+            <div class="preview-unsupported">
               <el-icon :size="48"><Warning /></el-icon>
               <p>{{ previewHint }}</p>
             </div>
@@ -63,8 +54,8 @@
               下载需消耗 <strong>{{ material.download_score }}</strong> 积分
             </span>
             <span class="download-score free" v-else>免费下载</span>
-            <el-button type="primary" :icon="Download" :loading="downloading" @click="handleDownload">
-              下载资料
+            <el-button type="primary" :icon="Download" :loading="downloading" :disabled="!hasFile" @click="handleDownload">
+              {{ hasFile ? '下载资料' : '暂无文件' }}
             </el-button>
           </div>
         </div>
@@ -92,7 +83,7 @@
           <el-button type="danger" @click="submitReport">提交举报</el-button>
         </template>
       </el-dialog>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -102,6 +93,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Share, Warning, Download } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -133,38 +125,29 @@ const typeColorMap = {
 
 const typeIcon = computed(() => typeIconMap[material.value.material_type] || 'Document')
 const typeColor = computed(() => typeColorMap[material.value.material_type] || '#909399')
-const isPdf = computed(() => material.value.material_type === MATERIAL_TYPE.PDF)
-const isImage = computed(() => material.value.material_type === MATERIAL_TYPE.IMAGE)
-const isPreviewable = computed(() => isPdf.value || isImage.value)
 const previewHint = computed(() => {
   const type = material.value.material_type
-  if (type === MATERIAL_TYPE.WORD || type === MATERIAL_TYPE.PPT) return '请下载后使用相应软件打开'
-  if (type === MATERIAL_TYPE.EXCEL) return '请下载后使用 Excel 打开'
-  if (type === MATERIAL_TYPE.ARCHIVE) return '请下载后解压查看'
-  return '暂不支持在线预览'
+  if (type === MATERIAL_TYPE.PDF || type === MATERIAL_TYPE.IMAGE) return '为保护资料权限，请下载后查看文件'
+  if (type === MATERIAL_TYPE.WORD || type === MATERIAL_TYPE.PPT) return '该文件不支持在线预览，请下载后使用相应软件打开'
+  if (type === MATERIAL_TYPE.EXCEL) return '该文件不支持在线预览，请下载后使用 Excel 打开'
+  if (type === MATERIAL_TYPE.ARCHIVE) return '该文件不支持在线预览，请下载后解压查看'
+  return '该文件不支持在线预览'
 })
 const scoreLabel = computed(() => material.value.download_score === 0 ? '免费' : `${material.value.download_score} 积分`)
 const scoreType = computed(() => material.value.download_score === 0 ? 'success' : 'warning')
+const hasFile = computed(() => !!(material.value?.storage_key || material.value?.file_url))
 
 async function fetchDetail() {
   loading.value = true
   try {
     const res = await materialApi.getMaterialDetail(route.params.id)
-    if (res.code === 200) material.value = res.data || {}
+    if (res.code === 200) material.value = { ...(res.data?.material || res.data || {}), is_favorited: res.data?.is_favorited }
   } catch { /* handled */ }
   finally { loading.value = false }
 }
 
 async function handleDownload() {
   const cost = Number(material.value.download_score || 0)
-  if (cost > userStore.scoreBalance) {
-    ElMessageBox.alert(
-      '当前积分不足。可以通过每日签到、学习课程、评价课程和分享资料获得积分。',
-      '积分不足',
-      { confirmButtonText: '知道了', type: 'warning' }
-    )
-    return
-  }
   if (cost > 0) {
     try {
       await ElMessageBox.confirm(
@@ -183,22 +166,15 @@ async function handleDownload() {
 
   downloading.value = true
   try {
-    const res = await materialApi.getDownloadUrl(route.params.id)
-    if (res.code === 200) {
-      const url = res.data?.download_url || res.data?.url
-      if (url) {
-        window.open(url, '_blank')
-        ElMessage.success('开始下载')
-        // 更新积分
-        if (res.data?.score_balance !== undefined) {
-          const before = userStore.scoreBalance
-          userStore.updateScoreBalance(res.data.score_balance)
-          if (cost > 0) {
-            ElMessage.info(`积分 ${before} → ${res.data.score_balance}`)
-          }
-        }
-      }
+    const response = await materialApi.downloadMaterialFile(route.params.id)
+    materialApi.saveBlobResponse(response, (material.value.material_name || 'download') + getExt())
+    const balance = response.headers?.['x-score-balance']
+    if (balance !== undefined) {
+      const before = userStore.scoreBalance
+      userStore.updateScoreBalance(Number(balance))
+      if (cost > 0 && before !== Number(balance)) ElMessage.info(`积分 ${before} → ${balance}`)
     }
+    ElMessage.success('开始下载')
   } catch { /* handled */ }
   finally { downloading.value = false }
 }
@@ -234,6 +210,16 @@ async function submitReport() {
       reportForm.detail = ''
     }
   } catch { /* handled */ }
+}
+
+function getExt() {
+  const type = material.value.material_type
+  if (type === 1) return '.pdf'
+  if (type === 2) return '.doc'
+  if (type === 3) return '.xls'
+  if (type === 4) return '.ppt'
+  if (type === 5) return '.png'
+  return ''
 }
 
 function formatTime(time) {

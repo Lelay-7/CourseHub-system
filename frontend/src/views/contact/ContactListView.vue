@@ -1,241 +1,194 @@
 <template>
   <AppLayout>
-    <PageContainer compact>
-      <PageHeader
-        title="师生通讯录"
-        subtitle="查看课程相关教师、同学和学院联系人。"
-      />
+    <PageContainer>
+      <PageHeader title="师生通讯录" subtitle="搜索添加好友，查看联系人名片" />
 
-      <Toolbar>
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索姓名、学号、工号、课程名"
-          :prefix-icon="Search"
-          clearable
-          @input="onSearchInput"
-        />
-        <el-select v-model="filters.department" placeholder="学院" clearable>
-          <el-option v-for="dept in departments" :key="dept" :label="dept" :value="dept" />
-        </el-select>
-        <el-select v-model="filters.title" placeholder="职称" clearable>
-          <el-option label="教授" value="教授" />
-          <el-option label="副教授" value="副教授" />
-          <el-option label="讲师" value="讲师" />
-        </el-select>
-        <el-select v-model="filters.course" placeholder="关联课程" clearable>
-          <el-option v-for="course in courseOptions" :key="course" :label="course" :value="course" />
-        </el-select>
-      </Toolbar>
-
-      <el-tabs v-model="contactType" class="contact-tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="教师通讯录" name="teacher" />
-        <el-tab-pane label="学生通讯录" name="student" />
+      <el-tabs v-model="tab" @tab-change="handleTabChange">
+        <el-tab-pane label="搜索用户" name="search" />
+        <el-tab-pane label="我的好友" name="friends" />
+        <el-tab-pane label="好友申请" name="pending">
+          <template #label>
+            好友申请
+            <el-badge v-if="pendingCount > 0" :value="pendingCount" style="margin-left:4px" />
+          </template>
+        </el-tab-pane>
       </el-tabs>
 
-      <div v-if="groupedContacts.length" class="contact-groups">
-        <section v-for="group in groupedContacts" :key="group.department" class="contact-group">
-          <SectionTitle :title="group.department || '其他学院'" />
-          <div class="contact-grid">
-            <article v-for="contact in group.list" :key="contact.userId || contact.user_id" class="contact-card">
-              <el-avatar :size="54" :src="contact.avatarUrl || contact.avatar_url">
-                <el-icon :size="24"><User /></el-icon>
-              </el-avatar>
-              <div class="contact-info">
-                <h3>{{ contact.realName || contact.real_name }}</h3>
-                <p v-if="contactType === 'teacher'">{{ contact.title || '教师' }} · {{ contact.department }}</p>
-                <p v-else>{{ contact.department }} · {{ contact.student_id || contact.class_name }}</p>
-                <div class="contact-course">
-                  {{ contactType === 'teacher' ? teacherCourse(contact) : studentCourse(contact) }}
-                </div>
-              </div>
-              <div class="contact-actions">
-                <el-button plain @click="$router.push(contactType === 'teacher' ? '/course' : '/course')">
-                  {{ contactType === 'teacher' ? '查看课程' : '查看共同课程' }}
-                </el-button>
-                <el-button type="primary" @click="$router.push(`/contact/${contact.userId || contact.user_id}`)">
-                  {{ contactType === 'teacher' ? '联系老师' : '联系同学' }}
-                </el-button>
-              </div>
-            </article>
-          </div>
-        </section>
+      <!-- 搜索 -->
+      <div v-if="tab === 'search'" v-loading="loading">
+        <el-input v-model="keyword" placeholder="输入昵称、姓名、院系自动搜索..." :prefix-icon="Search" clearable size="large" @input="onSearchInput" @clear="searchResults=[];searched=false" style="margin-bottom:16px" />
+        <div v-if="searchResults.length > 0" class="contact-grid">
+          <article v-for="u in searchResults" :key="u.user_id" class="contact-card">
+            <span class="card-avatar">{{ (u.nickname || '?').slice(0, 1) }}</span>
+            <div class="card-info">
+              <strong>{{ u.nickname || u.real_name || u.username }}</strong>
+              <span>{{ u.title || USER_TYPE_LABEL[u.user_type] || '未知' }} · {{ u.department }}</span>
+            </div>
+            <div class="card-action">
+              <el-button v-if="u.friend_status === 'none'" type="primary" size="small" @click="handleAddFriend(u.user_id)">添加好友</el-button>
+              <el-tag v-else-if="u.friend_status === 'pending'" type="warning">等待同意</el-tag>
+              <el-tag v-else-if="u.friend_status === 'pending_receive'" type="info">待你同意</el-tag>
+              <el-button v-else type="success" size="small" plain @click="$router.push(`/contact/${u.user_id}`)">查看名片</el-button>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-else-if="searched" description="未找到匹配用户" />
       </div>
 
-      <EmptyState v-else-if="!loading" :description="searchKeyword ? '未找到匹配联系人' : '暂无联系人'" />
-      <div v-if="loading" class="load-more">
-        <el-icon class="is-loading"><Loading /></el-icon>
-        加载中...
+      <!-- 我的好友 -->
+      <div v-if="tab === 'friends'" v-loading="loading">
+        <div v-if="friends.length > 0" class="contact-grid">
+          <article v-for="f in friends" :key="f.user_id" class="contact-card" @click="$router.push(`/contact/${f.user_id}`)">
+            <span class="card-avatar">{{ (f.nickname || '?').slice(0, 1) }}</span>
+            <div class="card-info">
+              <strong>{{ f.nickname || f.real_name }}</strong>
+              <span>{{ f.user_type === 2 ? (f.title || '教师') : '学生' }} · {{ f.department }}</span>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-else description="还没有好友，去搜索添加吧" />
+      </div>
+
+      <!-- 好友申请 -->
+      <div v-if="tab === 'pending'" v-loading="loading">
+        <div v-if="pendingList.length > 0" class="contact-grid">
+          <article v-for="p in pendingList" :key="p.friend_id + p.direction" class="contact-card">
+            <span class="card-avatar">{{ (p.nickname || '?').slice(0, 1) }}</span>
+            <div class="card-info">
+              <strong>{{ p.nickname || p.real_name }}</strong>
+              <span>{{ p.department || '' }}</span>
+              <el-tag size="small" :type="p.direction === 'sent' ? 'warning' : 'info'" style="margin-top:4px">
+                {{ p.direction === 'sent' ? '等待对方同意' : '待你处理' }}
+              </el-tag>
+            </div>
+            <div class="card-action" v-if="p.direction === 'received'">
+              <el-button type="primary" size="small" @click="handleAccept(p.friend_id)">同意</el-button>
+              <el-button size="small" @click="handleRemove(p.friend_id)">拒绝</el-button>
+            </div>
+            <div class="card-action" v-else>
+              <el-button size="small" type="danger" @click="handleRemove(p.friend_id)">撤回</el-button>
+            </div>
+          </article>
+        </div>
+        <EmptyState v-else description="暂无好友申请" />
       </div>
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { Search, Loading, User } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { Search } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import Toolbar from '@/components/Toolbar.vue'
-import SectionTitle from '@/components/SectionTitle.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import * as contactApi from '@/api/contact'
+import { USER_TYPE_LABEL } from '@/utils/constants'
+import request from '@/api/request'
 
-const contactType = ref('teacher')
-const searchKeyword = ref('')
-const contactList = ref([])
+const route = useRoute()
+const tab = ref(route.query.tab || 'search')
+const keyword = ref('')
 const loading = ref(false)
-const filters = reactive({
-  department: '',
-  title: '',
-  course: ''
-})
-
-const courseOptions = ['算法与数据结构', 'Web 前端工程实践', '数据库系统原理', '软件工程与项目管理']
-const departments = computed(() => [...new Set(contactList.value.map(item => item.department).filter(Boolean))])
-
-const filteredContacts = computed(() => {
-  const q = searchKeyword.value.trim().toLowerCase()
-  return contactList.value.filter(item => {
-    const text = `${item.realName || item.real_name} ${item.studentId || item.student_id || ''} ${item.department || ''} ${item.title || ''} ${teacherCourse(item)}`.toLowerCase()
-    return (!q || text.includes(q)) &&
-      (!filters.department || item.department === filters.department) &&
-      (!filters.title || item.title === filters.title) &&
-      (!filters.course || teacherCourse(item).includes(filters.course) || studentCourse(item).includes(filters.course))
-  })
-})
-
-const groupedContacts = computed(() => {
-  const map = {}
-  for (const contact of filteredContacts.value) {
-    const dept = contact.department || '其他学院'
-    if (!map[dept]) map[dept] = []
-    map[dept].push(contact)
-  }
-  return Object.entries(map).map(([department, list]) => ({ department, list }))
-})
-
-function teacherCourse(contact) {
-  const map = {
-    陈明: '算法与数据结构',
-    刘青: 'Web 前端工程实践',
-    王雪: '数据库系统原理'
-  }
-  return map[contact.real_name] || '课程待确认'
-}
-
-function studentCourse(contact) {
-  const map = {
-    李欣: '共同课程：数据库系统原理、Web 前端工程实践',
-    周可: '共同课程：算法与数据结构'
-  }
-  return map[contact.real_name] || '共同课程待确认'
-}
-
-async function fetchContacts() {
-  loading.value = true
-  try {
-    const res = await contactApi.getContactList({
-      type: contactType.value,
-      keyword: searchKeyword.value || undefined
-    })
-    if (res.code === 200) {
-      const data = res.data || {}
-      contactList.value = data.list || data.records || data || []
-    }
-  } finally {
-    loading.value = false
-  }
-}
-
-function handleTabChange() {
-  contactList.value = []
-  fetchContacts()
-}
+const searched = ref(false)
+const searchResults = ref([])
+const friends = ref([])
+const pendingList = ref([])
+const pendingCount = ref(0)
 
 let searchTimer = null
-function onSearchInput(value) {
-  if (value && value.length < 2) return
+function onSearchInput() {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchContacts, 260)
+  const q = keyword.value.trim()
+  if (!q) { searchResults.value = []; searched.value = false; return }
+  searchTimer = setTimeout(() => doSearch(q), 300)
 }
 
-onMounted(fetchContacts)
+async function doSearch(q) {
+  loading.value = true
+  searched.value = true
+  try {
+    const res = await request.get('/api/contact/search', { params: { keyword: q } })
+    searchResults.value = res.data?.list || res.data || []
+  } catch { searchResults.value = [] }
+  finally { loading.value = false }
+}
+
+async function loadFriends() {
+  loading.value = true
+  try {
+    const res = await request.get('/api/contact/my-friends')
+    friends.value = res.data?.list || res.data || []
+  } catch { friends.value = [] }
+  finally { loading.value = false }
+}
+
+async function loadPending() {
+  loading.value = true
+  try {
+    const res = await request.get('/api/contact/pending')
+    pendingList.value = res.data?.list || res.data || []
+    pendingCount.value = pendingList.value.length
+  } catch { pendingList.value = [] }
+  finally { loading.value = false }
+}
+
+async function handleAddFriend(targetId) {
+  try {
+    await request.post(`/api/contact/add/${targetId}`)
+    ElMessage.success('好友申请已发送')
+    if (keyword.value.trim()) doSearch(keyword.value.trim())
+  } catch { /* handled */ }
+}
+
+async function handleAccept(friendId) {
+  await request.post(`/api/contact/accept/${friendId}`)
+  ElMessage.success('已添加为好友')
+  loadFriends()
+  loadPending()
+}
+
+async function handleRemove(friendId) {
+  await request.delete(`/api/contact/remove/${friendId}`)
+  ElMessage.success('已处理')
+  loadFriends()
+  loadPending()
+}
+
+function handleTabChange(val) {
+  if (val === 'friends') loadFriends()
+  if (val === 'pending') loadPending()
+}
+
+onMounted(() => {
+  if (route.query.keyword) {
+    tab.value = 'search'
+    keyword.value = route.query.keyword
+    doSearch(keyword.value)
+  }
+  if (tab.value === 'friends') loadFriends()
+  if (tab.value === 'pending') loadPending()
+})
 </script>
 
 <style scoped>
-.contact-tabs {
-  margin-bottom: var(--spacing-lg);
-}
-
-.contact-tabs :deep(.el-tabs__active-bar) {
-  background: var(--color-primary);
-}
-
-.contact-tabs :deep(.el-tabs__item.is-active),
-.contact-tabs :deep(.el-tabs__item:hover) {
-  color: var(--color-primary);
-}
-
-.contact-groups {
-  display: grid;
-  gap: var(--spacing-lg);
-}
-
-.contact-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-md);
-}
-
+.contact-grid { display: grid; gap: 12px; }
 .contact-card {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  gap: var(--spacing-md);
-  padding: var(--spacing-lg);
-  border-radius: 24px;
-  background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
-  box-shadow: var(--shadow-sm);
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border-radius: 16px;
+  background: var(--color-bg-card); border: 1px solid rgba(154,66,45,.08);
+  cursor: pointer; transition: box-shadow .15s;
 }
-
-.contact-info {
-  min-width: 0;
+.contact-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+.card-avatar {
+  width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+  background: var(--color-primary); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-weight: 900;
 }
-
-.contact-info h3 {
-  margin: 0;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-lg);
-  font-weight: 900;
-}
-
-.contact-info p {
-  margin: 5px 0;
-  color: var(--color-text-secondary);
-}
-
-.contact-course {
-  color: var(--color-text-regular);
-  line-height: 1.6;
-}
-
-.contact-actions {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--spacing-sm);
-}
-
-.load-more {
-  text-align: center;
-  padding: var(--spacing-lg);
-  color: var(--color-text-secondary);
-}
-
-@media (max-width: 900px) {
-  .contact-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.card-info { flex: 1; min-width: 0; }
+.card-info strong { display: block; color: #333; }
+.card-info span { display: block; margin-top: 2px; font-size: 12px; color: #999; }
+.card-action { flex-shrink: 0; }
 </style>

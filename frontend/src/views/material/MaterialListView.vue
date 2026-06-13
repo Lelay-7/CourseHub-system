@@ -6,13 +6,16 @@
         subtitle="查找复习提纲、实验模板、课件和往年题。"
       >
         <template #extra>
-          <el-button type="primary" :icon="UploadFilled" @click="showUploadDialog = true">
-            上传资料
-          </el-button>
+          <el-radio-group v-model="listMode" size="small" style="margin-right:12px">
+            <el-radio-button value="all">全部资料</el-radio-button>
+            <el-radio-button value="my">我的上传</el-radio-button>
+          </el-radio-group>
+          <el-button :icon="Download" @click="$router.push('/profile/downloads')">我的下载</el-button>
+          <el-button type="primary" :icon="UploadFilled" @click="showUploadDialog = true">上传资料</el-button>
         </template>
       </PageHeader>
 
-      <Toolbar>
+      <Toolbar v-if="listMode === 'all'">
         <el-input
           v-model="searchKeyword"
           placeholder="搜索文件名、上传者、关键词"
@@ -21,7 +24,7 @@
           @input="onSearchInput"
         />
         <el-select v-model="filters.courseId" placeholder="关联课程" clearable filterable @change="applyFilters">
-          <el-option v-for="course in courseOptions" :key="course.category_id" :label="course.category_name" :value="course.category_id" />
+          <el-option v-for="c in courseOptions" :key="c.course_id" :label="c.course_name" :value="c.course_id" />
         </el-select>
         <el-select v-model="filters.materialType" placeholder="文件类型" clearable @change="applyFilters">
           <el-option v-for="(label, val) in MATERIAL_TYPE_LABEL" :key="val" :label="label" :value="Number(val)" />
@@ -42,18 +45,58 @@
         上传优质资料可获得积分，积分可用于下载资料和商城兑换。
       </div>
 
-      <div v-if="visibleMaterials.length" class="material-list-pro">
-        <MaterialCard
-          v-for="item in visibleMaterials"
-          :key="item.material_id"
-          :material="item"
-          :keyword="searchKeyword"
-          :course-name="courseName(item.course_id)"
-          @favorite="handleFavorite"
-          @download="downloadMaterial"
+      <!-- 全部资料 -->
+      <template v-if="listMode === 'all'">
+        <div v-if="materialList.length" class="material-list-pro">
+          <MaterialCard
+            v-for="item in materialList"
+            :key="item.material_id"
+            :material="item"
+            :keyword="searchKeyword"
+            :course-name="courseName(item.course_id)"
+            @favorite="handleFavorite"
+            @download="downloadMaterial"
+          />
+        </div>
+        <EmptyState v-else-if="!loading" description="暂无资料" />
+        <el-pagination
+          v-if="total > pageSize"
+          v-model:current-page="currentPage"
+          :page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next, total"
+          @current-change="handlePageChange"
         />
-      </div>
-      <EmptyState v-else-if="!loading" description="暂无资料" />
+      </template>
+
+      <!-- 我的上传 -->
+      <template v-else>
+        <el-table :data="myMaterials" border stripe v-loading="loading">
+          <el-table-column prop="material_name" label="资料名称" />
+          <el-table-column label="类型" width="80">
+            <template #default="{ row }">{{ MATERIAL_TYPE_LABEL[row.material_type] || '其他' }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="row.status === 1 ? 'success' : row.status === 2 ? 'danger' : row.status === 3 ? 'info' : 'warning'" size="small">
+                {{ row.status === 1 ? '已发布' : row.status === 2 ? '已驳回' : row.status === 3 ? '已下架' : '待审核' }}
+              </el-tag>
+              <div v-if="row.status === 2 && row.reject_reason" class="reject-reason">{{ row.reject_reason }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="download_count" label="下载" width="70" />
+          <el-table-column prop="create_time" label="上传时间" width="160">
+            <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button size="small" @click="$router.push(`/material/${row.material_id}`)">查看</el-button>
+              <el-button v-if="row.status === 2" size="small" type="warning" @click="handleResubmit(row.material_id)">重新提交</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <EmptyState v-if="!loading && myMaterials.length === 0" description="暂无上传记录" />
+      </template>
 
       <div v-if="loading" class="load-more">
         <el-icon class="is-loading"><Loading /></el-icon>
@@ -80,8 +123,8 @@
           </el-form-item>
           <div class="upload-grid">
             <el-form-item label="关联课程">
-              <el-select v-model="uploadForm.course_id" placeholder="请选择课程">
-                <el-option v-for="course in courseOptions" :key="course.category_id" :label="course.category_name" :value="course.category_id" />
+              <el-select v-model="uploadForm.course_id" placeholder="不关联亦可上传" clearable>
+                <el-option v-for="c in courseOptions" :key="c.course_id" :label="c.course_name" :value="c.course_id" />
               </el-select>
             </el-form-item>
             <el-form-item label="资料类型">
@@ -111,8 +154,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { Search, Loading, UploadFilled } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { Search, Loading, UploadFilled, Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
@@ -126,9 +170,15 @@ import * as materialApi from '@/api/material'
 import * as favoriteApi from '@/api/favorite'
 
 const userStore = useUserStore()
+const route = useRoute()
 const materialList = ref([])
+const myMaterials = ref([])
 const courseOptions = ref([])
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = 12
+const total = ref(0)
+const listMode = ref(route.query.tab === 'my' ? 'my' : 'all')
 const searchKeyword = ref('')
 const priceFilter = ref('all')
 const showUploadDialog = ref(false)
@@ -149,33 +199,34 @@ const uploadForm = reactive({
   keyword: ''
 })
 
-const visibleMaterials = computed(() => {
-  if (priceFilter.value === 'free') return materialList.value.filter(item => !item.download_score)
-  if (priceFilter.value === 'score') return materialList.value.filter(item => item.download_score > 0)
-  return materialList.value
-})
-
 function courseName(id) {
-  return courseOptions.value.find(item => item.category_id === Number(id))?.category_name || '关联课程'
+  return courseOptions.value.find(item => item.course_id === Number(id))?.course_name || ''
 }
 
-async function fetchCategories() {
-  const res = await materialApi.getCategories()
-  if (res.code === 200) courseOptions.value = res.data || []
+async function fetchCourses() {
+  try {
+    const res = await materialApi.getCourseOptions()
+    courseOptions.value = (res.data?.list || res.data || []).map(c => ({
+      course_id: c.course_id || c.courseId,
+      course_name: c.course_name || c.courseName
+    }))
+  } catch { courseOptions.value = [] }
 }
 
 async function fetchList() {
   loading.value = true
   try {
     const res = await materialApi.getMaterialList({
-      page: 1,
-      pageSize: 30,
+      page: currentPage.value,
+      pageSize,
       ...filters,
-      keyword: searchKeyword.value || undefined
+      keyword: searchKeyword.value || undefined,
+      priceFilter: priceFilter.value
     })
     if (res.code === 200) {
       const data = res.data || {}
       materialList.value = data.list || data.records || []
+      total.value = Number(data.total || 0)
     }
   } finally {
     loading.value = false
@@ -183,6 +234,7 @@ async function fetchList() {
 }
 
 function applyFilters() {
+  currentPage.value = 1
   fetchList()
 }
 
@@ -190,7 +242,14 @@ let searchTimer = null
 function onSearchInput(value) {
   if (value && value.length < 2) return
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(fetchList, 260)
+  searchTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchList()
+  }, 260)
+}
+
+function handlePageChange() {
+  fetchList()
 }
 
 async function handleFavorite(material) {
@@ -206,11 +265,11 @@ async function handleFavorite(material) {
 }
 
 async function downloadMaterial(material) {
-  const res = await materialApi.getDownloadUrl(material.material_id)
-  if (res.code === 200) {
-    if (res.data?.score_balance !== undefined) userStore.updateScoreBalance(res.data.score_balance)
-    ElMessage.success(`开始下载：${material.material_name}`)
-  }
+  const response = await materialApi.downloadMaterialFile(material.material_id)
+  materialApi.saveBlobResponse(response, material.material_name || 'download')
+  const balance = response.headers?.['x-score-balance']
+  if (balance !== undefined) userStore.updateScoreBalance(Number(balance))
+  ElMessage.success(`开始下载：${material.material_name}`)
 }
 
 function inferMaterialType(fileName = '') {
@@ -260,22 +319,16 @@ async function submitUpload() {
     ElMessage.warning('请填写资料名称')
     return
   }
-  if (!uploadForm.course_id) {
-    ElMessage.warning('请选择关联课程')
-    return
-  }
   uploadSubmitting.value = true
   try {
     const res = await materialApi.uploadMaterial({
       ...uploadForm,
       material_name: uploadForm.material_name.trim(),
-      file_name: selectedUploadFile.value.name,
-      file_url: URL.createObjectURL(selectedUploadFile.value)
+      file: selectedUploadFile.value
     })
     if (res.code === 200) {
-      if (res.data?.material) materialList.value.unshift(res.data.material)
       if (res.data?.score_balance !== undefined) userStore.updateScoreBalance(res.data.score_balance)
-      ElMessage.success('资料已上传，积分 +2')
+      ElMessage.success('资料已提交，待管理员审核通过后获得积分')
       showUploadDialog.value = false
       resetUploadForm()
     }
@@ -284,9 +337,40 @@ async function submitUpload() {
   }
 }
 
+async function fetchMyUploads() {
+  loading.value = true
+  try {
+    const res = await materialApi.getMyUploads()
+    myMaterials.value = res.data?.list || res.data || []
+  } finally { loading.value = false }
+}
+
+async function handleResubmit(id) {
+  try {
+    await materialApi.resubmitMaterial(id)
+    ElMessage.success('已重新提交审核')
+    fetchMyUploads()
+  } catch { /* handled */ }
+}
+
+function formatTime(time) {
+  if (!time) return ''
+  return new Date(time).toLocaleDateString('zh-CN')
+}
+
+watch(listMode, (mode) => {
+  currentPage.value = 1
+  if (mode === 'my') fetchMyUploads()
+  else fetchList()
+})
+
 onMounted(() => {
-  fetchCategories()
-  fetchList()
+  if (route.query.keyword) {
+    searchKeyword.value = route.query.keyword
+  }
+  fetchCourses()
+  if (listMode.value === 'my') fetchMyUploads()
+  else fetchList()
 })
 </script>
 
@@ -322,6 +406,7 @@ onMounted(() => {
   padding: var(--spacing-lg);
   color: var(--color-text-secondary);
 }
+.reject-reason { margin-top: 4px; color: var(--color-danger); font-size: var(--font-size-xs); }
 
 @media (max-width: 767px) {
   .upload-grid {

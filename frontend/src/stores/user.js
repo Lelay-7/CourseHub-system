@@ -3,24 +3,31 @@
  * 管理：用户信息、Token、积分余额、登录/登出
  */
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import {
   getAccessToken, getRefreshToken, saveTokens, clearTokens,
   isAuthenticated
 } from '@/utils/auth'
 import { getItem, setItem, removeItem } from '@/utils/storage'
 import * as authApi from '@/api/auth'
+import { useSelectionStore } from '@/stores/selection'
 
 export const useUserStore = defineStore('user', () => {
+  const selectionStore = useSelectionStore()
   // ========== State ==========
   const userInfo = ref(getItem('user_info', null))
   const accessToken = ref(getAccessToken() || '')
   const refreshToken = ref(getRefreshToken() || '')
   const scoreBalance = ref(0)
 
+  // Watch userInfo to keep selectionStore in sync after rehydration
+  watch(userInfo, (info) => {
+    selectionStore.setCurrentUser(info?.user_id ?? info?.userId ?? null)
+  }, { immediate: true })
+
   // ========== Getters ==========
   const isLoggedIn = computed(() => !!accessToken.value && isAuthenticated())
-  const userType = computed(() => userInfo.value?.user_type)
+  const userType = computed(() => userInfo.value?.user_type ?? userInfo.value?.userType)
   const isStudent = computed(() => userType.value === 1)
   const isTeacher = computed(() => userType.value === 2)
   const isAdmin = computed(() => userType.value === 3)
@@ -69,8 +76,9 @@ export const useUserStore = defineStore('user', () => {
       const res = await authApi.getUserInfo()
       if (res.code === 200) {
         userInfo.value = res.data
-        scoreBalance.value = res.data?.score_balance || 0
+        scoreBalance.value = res.data?.balance || res.data?.score_balance || 0
         setItem('user_info', res.data)
+        selectionStore.setCurrentUser(res.data?.user_id ?? res.data?.userId)
       }
     } catch (err) {
       console.error('[UserStore] fetchUserInfo error', err)
@@ -90,6 +98,7 @@ export const useUserStore = defineStore('user', () => {
     scoreBalance.value = 0
     clearTokens()
     removeItem('user_info')
+    selectionStore.setCurrentUser(null)
   }
 
   /** 更新用户信息 */
@@ -123,6 +132,6 @@ export const useUserStore = defineStore('user', () => {
   persist: {
     key: 'user-store',
     storage: localStorage,
-    paths: ['userInfo', 'accessToken', 'refreshToken']
+    paths: ['userInfo', 'accessToken', 'refreshToken', 'scoreBalance']
   }
 })

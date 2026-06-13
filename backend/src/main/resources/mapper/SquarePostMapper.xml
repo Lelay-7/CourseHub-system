@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.SquarePostMapper">
+
+    <select id="selectAllWithUser" resultType="com.bugaoshan.entity.SquarePost">
+        SELECT p.*, u.nickname
+        FROM square_post p
+        LEFT JOIN user u ON p.user_id = u.user_id
+        WHERE p.is_deleted = 0
+        <if test="status != null">AND p.status = #{status}</if>
+        ORDER BY p.create_time DESC
+        <if test="offset != null and limit != null">
+            LIMIT #{limit} OFFSET #{offset}
+        </if>
+    </select>
+
+    <select id="countAllWithUser" resultType="long">
+        SELECT COUNT(*) FROM square_post p
+        WHERE p.is_deleted = 0
+        <if test="status != null">AND p.status = #{status}</if>
+    </select>
+
+    <update id="deleteById">
+        UPDATE square_post SET is_deleted = 1, update_time = NOW()
+        WHERE post_id = #{postId}
+    </update>
+
+</mapper>

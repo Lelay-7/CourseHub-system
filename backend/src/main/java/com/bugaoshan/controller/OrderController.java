@@ -34,4 +34,10 @@ public class OrderController {
         Long userId = SecurityUtils.getCurrentUserId();
         return orderService.cancelOrder(id, userId);
     }
+
+    @DeleteMapping("/{id}")
+    public Result<?> delete(@PathVariable Long id) {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return orderService.deleteOrder(id, userId);
+    }
 }

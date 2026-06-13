@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content course-detail-page">
+    <PageContainer>
       <PageHeader title="课程详情" :show-back="true">
         <template #extra>
           <el-button
@@ -9,6 +9,13 @@
             @click="handleFavorite"
           >
             {{ course.is_favorited ? '已收藏' : '收藏' }}
+          </el-button>
+          <el-button
+            :type="selectionStore.isSelected(course.course_id) ? 'success' : 'primary'"
+            :loading="selectionSubmitting"
+            @click="toggleSelection"
+          >
+            {{ selectionStore.isSelected(course.course_id) ? '已选择，点击退选' : '选择课程' }}
           </el-button>
           <el-button type="primary" :icon="ChatDotRound" @click="showReviewDialog = true">
             写评价
@@ -97,11 +104,18 @@
           <div v-if="reviews.length > 0" class="review-list">
             <div v-for="review in reviews" :key="review.review_id" class="review-item">
               <div class="review-header flex-between">
-                <span class="review-user">{{ maskName(review.user_name) }}</span>
+                <span class="review-user">{{ review.is_anonymous ? '匿名用户' : (review.user_name || '未知用户') }}</span>
                 <StarRating :model-value="review.rating" :readonly="true" :size="14" />
               </div>
               <p class="review-content">{{ review.content }}</p>
-              <span class="review-time">{{ formatTime(review.create_time) }}</span>
+              <div class="review-footer flex-between">
+                <span class="review-time">{{ formatTime(review.create_time) }}</span>
+                <el-button
+                  v-if="review.user_id === userStore.userInfo?.user_id"
+                  text type="danger" size="small"
+                  @click="handleDeleteReview(review.review_id)"
+                >删除</el-button>
+              </div>
             </div>
           </div>
           <EmptyState v-else description="暂无评价" />
@@ -134,8 +148,11 @@
               :rows="5"
               maxlength="300"
               show-word-limit
-              placeholder="请写下真实学习体验，至少 20 字"
+              placeholder="请写下你的真实学习体验"
             />
+          </el-form-item>
+          <el-form-item>
+            <el-checkbox v-model="reviewForm.isAnonymous">匿名评价</el-checkbox>
           </el-form-item>
         </el-form>
         <template #footer>
@@ -145,17 +162,18 @@
           </el-button>
         </template>
       </el-dialog>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Share, ChatDotRound } from '@element-plus/icons-vue'
 import DOMPurify from 'dompurify'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import CourseCard from '@/components/CourseCard.vue'
 import StarRating from '@/components/StarRating.vue'
@@ -165,10 +183,12 @@ import ErrorState from '@/components/ErrorState.vue'
 import * as courseApi from '@/api/course'
 import * as favoriteApi from '@/api/favorite'
 import { useUserStore } from '@/stores/user'
+import { useSelectionStore } from '@/stores/selection'
 
 const route = useRoute()
 const courseId = computed(() => route.params.id)
 const userStore = useUserStore()
+const selectionStore = useSelectionStore()
 
 const course = ref({})
 const reviews = ref([])
@@ -176,7 +196,8 @@ const relatedCourses = ref([])
 const loading = ref(true)
 const showReviewDialog = ref(false)
 const reviewSubmitting = ref(false)
-const reviewForm = reactive({ rating: 5, content: '' })
+const selectionSubmitting = ref(false)
+const reviewForm = reactive({ rating: 5, content: '', isAnonymous: false })
 const detailAnchors = [
   { id: 'course-basic', label: '基本信息', icon: 'InfoFilled' },
   { id: 'course-outline', label: '课程大纲', icon: 'Tickets' },
@@ -202,12 +223,29 @@ async function fetchDetail() {
     ])
     if (detailRes.code === 200) {
       const data = detailRes.data || {}
-      course.value = data.course || data
+      course.value = { ...(data.course || data), is_favorited: data.is_favorited }
+      selectionStore.markSelected(course.value.course_id, Boolean(data.is_selected))
       reviews.value = data.reviews || []
       relatedCourses.value = (data.relatedCourses || data.related_courses || []).slice(0, 6)
     }
   } catch { /* handled */ }
   finally { loading.value = false }
+}
+
+async function toggleSelection() {
+  selectionSubmitting.value = true
+  try {
+    if (selectionStore.isSelected(course.value.course_id)) {
+      await selectionStore.drop(course.value.course_id)
+      course.value.selection_count = Math.max(Number(course.value.selection_count || 0) - 1, 0)
+      ElMessage.success('已退选该课程')
+    } else {
+      await selectionStore.select(course.value.course_id)
+      course.value.selection_count = Number(course.value.selection_count || 0) + 1
+      ElMessage.success('选课成功')
+    }
+  } catch { /* handled */ }
+  finally { selectionSubmitting.value = false }
 }
 
 async function handleFavorite() {
@@ -238,15 +276,16 @@ async function submitReview() {
     ElMessage.warning('请先选择评分')
     return
   }
-  if (reviewForm.content.trim().length < 20) {
-    ElMessage.warning('评价内容至少 20 字')
+  if (!reviewForm.content.trim()) {
+    ElMessage.warning('请输入评价内容')
     return
   }
   reviewSubmitting.value = true
   try {
     const res = await courseApi.submitCourseReview(courseId.value, {
       rating: reviewForm.rating,
-      content: reviewForm.content.trim()
+      content: reviewForm.content.trim(),
+      isAnonymous: reviewForm.isAnonymous ? 1 : 0
     })
     if (res.code === 200) {
       const review = res.data?.review
@@ -260,6 +299,16 @@ async function submitReview() {
     }
   } catch { /* handled */ }
   finally { reviewSubmitting.value = false }
+}
+
+async function handleDeleteReview(reviewId) {
+  try {
+    await ElMessageBox.confirm('确定删除你的评价？', '确认', { type: 'warning' })
+    await courseApi.deleteCourseReview(courseId.value)
+    ElMessage.success('评价已删除')
+    // 重新获取课程详情以更新avg_rating
+    fetchDetail()
+  } catch { /* cancelled */ }
 }
 
 function maskName(name) {

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.MaterialReportMapper">
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="reportId">
+        INSERT INTO material_report (material_id, reporter_id, reason, status, create_time)
+        VALUES (#{materialId}, #{reporterId}, #{reason}, 0, NOW())
+    </insert>
+
+    <select id="selectByMaterialId" resultType="com.bugaoshan.entity.MaterialReport">
+        SELECT * FROM material_report WHERE material_id = #{materialId} ORDER BY create_time DESC
+    </select>
+
+    <select id="selectAll" resultType="com.bugaoshan.entity.MaterialReport">
+        SELECT r.* FROM material_report r
+        JOIN material m ON r.material_id = m.material_id
+          AND m.is_deleted = 0 AND m.status = 1
+        ORDER BY r.create_time DESC
+        <if test="offset != null and limit != null">LIMIT #{limit} OFFSET #{offset}</if>
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM material_report r
+        JOIN material m ON r.material_id = m.material_id
+          AND m.is_deleted = 0 AND m.status = 1
+    </select>
+
+    <select id="existsPending" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM material_report
+        WHERE material_id = #{materialId} AND reporter_id = #{reporterId} AND status = 0
+    </select>
+
+    <update id="updateStatus">
+        UPDATE material_report SET status = #{status} WHERE report_id = #{reportId}
+    </update>
+
+</mapper>

@@ -196,7 +196,7 @@
             </el-form>
           </transition>
 
-          <div class="demo-note">
+          <div v-if="false" class="demo-note">
             演示环境可使用任意账号密码登录，系统会自动进入体验数据。
           </div>
         </article>
@@ -301,39 +301,39 @@ function redirectAfterAuth() {
 
 async function handlePasswordLogin() {
   if (!passwordFormRef.value) return
-  await passwordFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    await passwordFormRef.value.validate()
     loading.value = true
-    try {
-      await userStore.loginByPassword({
-        username: passwordForm.username,
-        password: passwordForm.password
-      })
-      ElMessage.success('登录成功')
-      redirectAfterAuth()
-    } finally {
-      loading.value = false
-    }
-  })
+    await userStore.loginByPassword({
+      username: passwordForm.username,
+      password: passwordForm.password
+    })
+    ElMessage.success('登录成功')
+    redirectAfterAuth()
+  } catch {
+    // 表单校验失败或登录失败，不做额外处理
+  } finally {
+    loading.value = false
+  }
 }
 
 async function handleRegister() {
   if (!registerFormRef.value) return
-  await registerFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  try {
+    await registerFormRef.value.validate()
     loading.value = true
-    try {
-      await userStore.register({
-        username: registerForm.username,
-        nickname: registerForm.nickname,
-        password: registerForm.password
-      })
-      ElMessage.success('注册成功')
-      redirectAfterAuth()
-    } finally {
-      loading.value = false
-    }
-  })
+    await userStore.register({
+      username: registerForm.username,
+      nickname: registerForm.nickname,
+      password: registerForm.password
+    })
+    ElMessage.success('注册成功')
+    redirectAfterAuth()
+  } catch {
+    // 表单校验失败或注册失败，不做额外处理
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

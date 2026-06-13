@@ -17,10 +17,10 @@ import { computed } from 'vue'
 import AppShell from './AppShell.vue'
 
 const cachedViews = computed(() => [
-  'CourseList',
-  'MaterialList',
-  'ContactList',
-  'MallList',
+  'CourseListView',
+  'MaterialListView',
+  'ContactListView',
+  'MallListView',
   'SquareView'
 ])
 </script>

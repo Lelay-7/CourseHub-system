@@ -4,5 +4,5 @@ import com.bugaoshan.common.Result;
 
 public interface ScoreService {
     Result getScoreBalance(Long userId);
-    Result getScoreDetails(Long userId, Integer page, Integer pageSize);
+    Result getScoreDetails(Long userId, Integer page, Integer pageSize, String month);
 }

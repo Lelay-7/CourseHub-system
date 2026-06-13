@@ -11,6 +11,8 @@ public class CourseReview {
     private Long userId;
     private Integer rating;
     private String content;
+    private Integer isAnonymous;
+    private Integer rewardGranted;
     private Integer status;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

@@ -20,5 +20,20 @@ public interface OrderMapper {
 
     int updateStatus(@Param("orderId") Long orderId, @Param("status") Integer status, @Param("cancelTime") LocalDateTime cancelTime, @Param("completeTime") LocalDateTime completeTime);
 
+    int updateStatusIfCurrent(@Param("orderId") Long orderId,
+                              @Param("expectedStatus") Integer expectedStatus,
+                              @Param("status") Integer status,
+                              @Param("cancelTime") LocalDateTime cancelTime,
+                              @Param("completeTime") LocalDateTime completeTime);
+
+    int completeIfProcessable(@Param("orderId") Long orderId);
+
+    int softDelete(@Param("orderId") Long orderId, @Param("userId") Long userId);
+
+    long countByUserIdAndGoodsId(@Param("userId") Long userId, @Param("goodsId") Long goodsId);
+
     long countPendingByUserId(@Param("userId") Long userId);
+
+    List<Order> selectAll(@Param("status") Integer status, @Param("offset") Integer offset, @Param("limit") Integer limit);
+    long countAll(@Param("status") Integer status);
 }

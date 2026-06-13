@@ -17,3 +17,8 @@ export function getOrderDetail(id) {
 export function cancelOrder(id) {
   return request.post(`/api/order/${id}/cancel`)
 }
+
+/** 删除已完成或已取消的订单记录 */
+export function deleteOrder(id) {
+  return request.delete(`/api/order/${id}`)
+}

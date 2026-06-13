@@ -34,10 +34,12 @@ public class ScoreServiceImpl implements ScoreService {
     }
 
     @Override
-    public Result getScoreDetails(Long userId, Integer page, Integer pageSize) {
+    public Result getScoreDetails(Long userId, Integer page, Integer pageSize, String month) {
+        if (page == null) page = 1;
+        if (pageSize == null) pageSize = 10;
         int offset = (page - 1) * pageSize;
-        List<ScoreRecord> list = scoreRecordMapper.selectByUserId(userId, offset, pageSize);
-        long total = scoreRecordMapper.countByUserId(userId);
+        List<ScoreRecord> list = scoreRecordMapper.selectByUserId(userId, offset, pageSize, month);
+        long total = scoreRecordMapper.countByUserId(userId, month);
         PageResult<ScoreRecord> pageResult = new PageResult<>(list, total);
         return Result.ok(pageResult);
     }

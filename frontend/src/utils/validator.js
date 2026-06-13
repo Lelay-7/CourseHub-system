@@ -11,7 +11,7 @@ export const validateNickname = (rule, value, callback) => {
     callback(new Error('昵称不能为空'))
   } else if (value.length < 2 || value.length > 20) {
     callback(new Error('昵称长度为2-20个字符'))
-  } else if (!/^[\w一-龥]+$/.test(value)) {
+  } else if (!/^[\w一-鿿]+$/.test(value)) {
     callback(new Error('昵称不能包含特殊字符'))
   } else {
     callback()

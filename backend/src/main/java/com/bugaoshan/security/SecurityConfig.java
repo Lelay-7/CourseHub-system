@@ -1,5 +1,6 @@
 package com.bugaoshan.security;
 
+import com.bugaoshan.mapper.UserMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -17,9 +18,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtUtil jwtUtil;
+    private final UserMapper userMapper;
 
-    public SecurityConfig(JwtUtil jwtUtil) {
+    public SecurityConfig(JwtUtil jwtUtil, UserMapper userMapper) {
         this.jwtUtil = jwtUtil;
+        this.userMapper = userMapper;
     }
 
     @Bean
@@ -28,9 +31,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // 公开接口
                         .requestMatchers("/api/auth/login", "/api/auth/login/sms", "/api/auth/sms/send",
                                 "/api/auth/register", "/api/auth/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/user/*/avatar").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 管理端接口 - 仅管理员
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // 其他业务接口 - 需要登录（学生/教师/管理员均可）
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
@@ -41,7 +49,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtUtil);
+        return new JwtAuthenticationFilter(jwtUtil, userMapper);
     }
 
     @Bean

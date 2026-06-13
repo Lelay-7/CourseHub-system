@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.SquareLikeMapper">
+
+    <select id="countByPostId" resultType="int">
+        SELECT COUNT(*) FROM square_like WHERE post_id = #{postId}
+    </select>
+
+    <select id="existsByPostIdAndUserId" resultType="boolean">
+        SELECT COUNT(*) > 0 FROM square_like
+        WHERE post_id = #{postId} AND user_id = #{userId}
+    </select>
+
+    <delete id="deleteByPostIdAndUserId">
+        DELETE FROM square_like WHERE post_id = #{postId} AND user_id = #{userId}
+    </delete>
+
+</mapper>

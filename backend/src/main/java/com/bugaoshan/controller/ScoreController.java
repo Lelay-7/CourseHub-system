@@ -23,8 +23,9 @@ public class ScoreController {
 
     @GetMapping("/details")
     public Result<?> details(@RequestParam(required = false, defaultValue = "1") Integer page,
-                             @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
+                             @RequestParam(required = false, defaultValue = "10") Integer pageSize,
+                             @RequestParam(required = false) String month) {
         Long userId = SecurityUtils.getCurrentUserId();
-        return scoreService.getScoreDetails(userId, page, pageSize);
+        return scoreService.getScoreDetails(userId, page, pageSize, month);
     }
 }

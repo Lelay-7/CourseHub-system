@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="设置" :show-back="true" />
 
       <!-- 消息通知 -->
@@ -64,7 +64,7 @@
       <el-button type="primary" style="width: 100%; margin-top: 16px" @click="saveSettings">
         保存设置
       </el-button>
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -72,8 +72,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { getCacheSizeFormatted, clearAll } from '@/utils/storage'
+import { getMyAuth, updateMyAuth } from '@/api/contact'
 
 const settings = reactive({
   courseNotify: true,
@@ -101,19 +103,39 @@ async function handleClearCache() {
   setTimeout(() => window.location.reload(), 1000)
 }
 
-function saveSettings() {
-  // 实际项目调用后端接口保存
+async function saveSettings() {
   localStorage.setItem('user_settings', JSON.stringify(settings))
-  ElMessage.success('设置已保存')
+  try {
+    await updateMyAuth({
+      phoneVisibility: settings.phoneVisibility,
+      emailVisibility: settings.emailVisibility
+    })
+    ElMessage.success('设置已保存')
+  } catch {
+    ElMessage.success('部分设置已保存（同步到服务器失败）')
+  }
 }
 
-onMounted(() => {
+onMounted(async () => {
   refreshCacheSize()
-  // 恢复保存的设置
+  // 从localStorage恢复通知设置
   const saved = localStorage.getItem('user_settings')
   if (saved) {
-    try { Object.assign(settings, JSON.parse(saved)) } catch {}
+    try {
+      const parsed = JSON.parse(saved)
+      settings.courseNotify = parsed.courseNotify ?? true
+      settings.activityNotify = parsed.activityNotify ?? true
+      settings.systemNotify = parsed.systemNotify ?? true
+    } catch {}
   }
+  // 从后端加载隐私设置
+  try {
+    const res = await getMyAuth()
+    if (res.code === 200 && res.data) {
+      settings.phoneVisibility = res.data.phoneVisibility ?? settings.phoneVisibility
+      settings.emailVisibility = res.data.emailVisibility ?? settings.emailVisibility
+    }
+  } catch { /* 使用localStorage中的值 */ }
 })
 </script>
 

@@ -13,7 +13,7 @@
       <Toolbar>
         <el-input
           v-model="keyword"
-          placeholder="搜索课程、老师、资料或关键词"
+          placeholder="搜索内容、标签、用户、课程名..."
           :prefix-icon="Search"
           clearable
         />
@@ -41,37 +41,74 @@
                 <strong>{{ post.name }}</strong>
                 <span>{{ post.time }}</span>
               </div>
-              <el-button text :icon="Star" @click="post.favorited = !post.favorited">
-                {{ post.favorited ? '已收藏' : '收藏' }}
-              </el-button>
+              <div class="post-actions">
+                <el-button v-if="post.userId === userStore.userInfo?.user_id" text type="danger" size="small" @click="handleDelete(post.id)">删除</el-button>
+              </div>
             </div>
             <p>{{ post.content }}</p>
-            <div class="post-relations">
-              <button type="button" @click="$router.push(post.coursePath)">课程：{{ post.course }}</button>
-              <button v-if="post.material" type="button" @click="$router.push('/material')">资料：{{ post.material }}</button>
+            <div class="post-relations" v-if="post.course || post.material">
+              <button v-if="post.course" type="button" @click="$router.push({ path: '/course', query: { keyword: post.course } })">课程：{{ post.course }}</button>
+              <button v-if="post.material" type="button" @click="$router.push({ path: '/material', query: { keyword: post.material } })">资料：{{ post.material }}</button>
             </div>
             <div class="post-foot">
               <div class="post-tags">
                 <StatusTag v-for="tag in post.tags" :key="tag">{{ tag }}</StatusTag>
               </div>
               <div class="post-stats">
-                <span>赞 {{ post.likes }}</span>
-                <span>评论 {{ post.comments }}</span>
+                <span class="like-btn" :class="{ liked: post.liked }" @click="handleLike(post)">
+                  {{ post.liked ? '❤️' : '🤍' }} 赞 {{ post.likes }}
+                </span>
+                <span class="comment-toggle" @click="toggleComments(post)">💬 评论 {{ post.comments }}</span>
+              </div>
+            </div>
+            <!-- 评论区 -->
+            <div v-if="post.showComments" class="comment-section">
+              <div v-for="c in post.commentList" :key="c.comment_id" class="comment-item">
+                <strong>{{ c.nickname }}</strong>
+                <span>{{ c.content }}</span>
+                <el-button
+                  v-if="c.user_id === userStore.userInfo?.user_id"
+                  text
+                  type="danger"
+                  size="small"
+                  @click="handleDeleteComment(post, c.comment_id)"
+                >删除</el-button>
+              </div>
+              <div class="comment-input">
+                <el-input v-model="post.commentText" size="small" maxlength="500" show-word-limit placeholder="写下你的评论..." @keyup.enter="submitComment(post)" />
+                <el-button size="small" type="primary" @click="submitComment(post)">发送</el-button>
               </div>
             </div>
           </div>
         </article>
       </div>
+      <EmptyState v-if="!loading && visiblePosts.length === 0" description="还没有帖子，发布第一条动态吧" />
 
       <el-dialog v-model="showDialog" title="发布动态" width="560px">
         <el-form label-position="top">
           <el-form-item label="动态内容">
-            <el-input v-model="postContent" type="textarea" :rows="5" maxlength="220" show-word-limit />
+            <el-input v-model="postContent" type="textarea" :rows="5" maxlength="220" show-word-limit placeholder="分享你的选课经验、资料线索或避坑提醒..." />
+          </el-form-item>
+          <el-form-item label="标签" class="tag-form-item">
+            <div class="tag-area">
+              <div class="tag-select">
+                <el-checkbox-group v-model="selectedTags">
+                  <el-checkbox v-for="t in tagOptions" :key="t" :label="t" :value="t" />
+                </el-checkbox-group>
+              </div>
+              <div class="tag-list" v-if="selectedTags.length > 0">
+                <el-tag v-for="t in selectedTags" :key="t" closable size="small" @close="selectedTags = selectedTags.filter(v => v !== t)">{{ t }}</el-tag>
+              </div>
+              <div class="custom-tag">
+                <el-input v-model="customTag" size="small" placeholder="自定义标签，回车添加" style="width:180px" @keyup.enter="addCustomTag" />
+                <el-button size="small" @click="addCustomTag">添加</el-button>
+              </div>
+            </div>
           </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="showDialog = false">取消</el-button>
-          <el-button type="primary" @click="submitPost">发布</el-button>
+          <el-button type="primary" :loading="posting" @click="submitPost">发布</el-button>
         </template>
       </el-dialog>
     </PageContainer>
@@ -79,21 +116,36 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search, Reading, FolderOpened, ChatDotRound, Star } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { getSquarePosts, createSquarePost, deleteSquarePost, getComments, addComment, deleteComment, toggleLike } from '@/api/square'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import Card from '@/components/Card.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
+const userStore = useUserStore()
 const showDialog = ref(false)
 const postContent = ref('')
+const selectedTags = ref([])
+const posting = ref(false)
 const keyword = ref('')
 const activeTab = ref('全部')
-const tabs = ['全部', '选课经验', '资料互助', '问答讨论', '避坑提醒']
+const tabs = ['全部', '选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点']
+const tagOptions = ['选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点', '复习', '数据库', '算法', '前端', '答辩', '团队项目', '给分高', '作业少', '点名多', '实验多', '课程设计']
+const customTag = ref('')
+function addCustomTag() {
+  const tag = customTag.value.trim()
+  if (tag && !selectedTags.value.includes(tag)) {
+    selectedTags.value.push(tag)
+  }
+  customTag.value = ''
+}
 
 const entries = [
   { title: '选课经验', desc: '教师风格、作业强度、考核方式', path: '/course', icon: Reading, bg: 'linear-gradient(135deg, #f07462, #f8b25f)' },
@@ -101,45 +153,125 @@ const entries = [
   { title: '问答讨论', desc: '课程冲突、学分规划、答疑提醒', path: '/contact', icon: ChatDotRound, bg: 'linear-gradient(135deg, #c98272, #e87452)' }
 ]
 
-const posts = ref([
-  { id: 1, type: '选课经验', name: '张义彬', time: '10 分钟前', course: '数据库系统原理', coursePath: '/course/3', material: 'SQL 练习题集', tags: ['数据库', '复习'], likes: 38, comments: 12, favorited: false, content: '数据库系统原理建议先看往年 SQL 题和规范化例题，王雪老师会强调索引设计和事务隔离。' },
-  { id: 2, type: '资料互助', name: '刘青', time: '1 小时前', course: 'Web 前端工程实践', coursePath: '/course/2', material: 'Vue3 组件设计实验指导书', tags: ['前端', '实验模板'], likes: 56, comments: 18, favorited: true, content: '前端工程实践适合做完整展示项目，组件拆分和交互说明要写清楚，资料区那份实验指导很有用。' },
-  { id: 3, type: '避坑提醒', name: '陈同学', time: '今天', course: '算法与数据结构', coursePath: '/course/1', material: '期末复习提纲', tags: ['算法', '避坑'], likes: 74, comments: 21, favorited: false, content: '算法课不要只背题，复杂度分析和边界条件经常会出小题，建议配合知识图谱复习。' },
-  { id: 4, type: '问答讨论', name: '李欣', time: '昨天', course: '软件工程与项目管理', coursePath: '/course/5', material: '', tags: ['答辩', '团队项目'], likes: 24, comments: 9, favorited: false, content: '软件工程答辩老师会追问需求变更和风险管理，最好在项目文档里提前写出迭代记录。' }
-])
+const posts = ref([])
+const loading = ref(false)
 
 const visiblePosts = computed(() => {
   const q = keyword.value.trim().toLowerCase()
   return posts.value.filter(post => {
-    const tabOk = activeTab.value === '全部' || post.type === activeTab.value
-    const text = `${post.content} ${post.course} ${post.material} ${post.tags.join(' ')}`.toLowerCase()
-    return tabOk && (!q || text.includes(q))
+    const tabOk = activeTab.value === '全部' || (post.tags || []).includes(activeTab.value)
+    if (!tabOk) return false
+    const text = `${post.name || ''} ${post.nickname || ''} ${post.content} ${post.course_name || ''} ${post.material_name || ''} ${(post.tags || []).join(' ')}`.toLowerCase()
+    return !q || text.includes(q)
   })
 })
 
-function submitPost() {
-  if (!postContent.value.trim()) {
-    ElMessage.warning('请先输入动态内容')
-    return
-  }
-  posts.value.unshift({
-    id: Date.now(),
-    type: '问答讨论',
-    name: '张义彬',
-    time: '刚刚',
-    course: 'Web 前端工程实践',
-    coursePath: '/course/2',
-    material: '',
-    tags: ['讨论'],
-    likes: 0,
-    comments: 0,
-    favorited: false,
-    content: postContent.value.trim()
-  })
-  postContent.value = ''
-  showDialog.value = false
-  ElMessage.success('发布成功，参与问答互动可获得积分')
+async function fetchPosts() {
+  loading.value = true
+  try {
+    const res = await getSquarePosts()
+    posts.value = (res.data?.list || []).map(p => ({
+      id: p.post_id,
+      userId: p.user_id,
+      name: p.nickname || '匿名',
+      time: formatTime(p.create_time),
+      content: p.content,
+      course: p.course_name || '',
+      material: p.material_name || '',
+      tags: p.tags ? p.tags.split(',') : [],
+      likes: p.likes || 0,
+      liked: p.liked || false,
+      comments: p.comments || 0,
+      showComments: false,
+      commentList: [],
+      commentText: ''
+    }))
+  } catch { /* ignore */ }
+  finally { loading.value = false }
 }
+
+async function submitPost() {
+  if (!postContent.value.trim()) { ElMessage.warning('请先输入动态内容'); return }
+  posting.value = true
+  try {
+    const tags = selectedTags.value.length > 0 ? selectedTags.value.join(',') : ''
+    await createSquarePost({ content: postContent.value.trim(), tags })
+    postContent.value = ''
+    selectedTags.value = []
+    customTag.value = ''
+    showDialog.value = false
+    ElMessage.success('发布成功')
+    fetchPosts()
+  } finally { posting.value = false }
+}
+
+async function handleLike(post) {
+  try {
+    const res = await toggleLike(post.id)
+    if (res.code === 200) {
+      post.liked = res.data?.liked ?? false
+      post.likes = res.data?.likes ?? 0
+    }
+  } catch { /* ignore */ }
+}
+
+async function toggleComments(post) {
+  post.showComments = !post.showComments
+  if (post.showComments) {
+    await loadComments(post)
+  }
+}
+
+async function loadComments(post) {
+  try {
+    const res = await getComments(post.id)
+    const data = res.data?.list || res.data || []
+    post.commentList = Array.isArray(data) ? data : []
+    post.comments = post.commentList.length
+  } catch {
+    post.commentList = []
+  }
+}
+
+async function submitComment(post) {
+  const text = post.commentText?.trim()
+  if (!text) return
+  try {
+    await addComment(post.id, { content: text })
+    post.commentText = ''
+    await loadComments(post)
+  } catch { /* ignore */ }
+}
+
+async function handleDeleteComment(post, commentId) {
+  try {
+    await deleteComment(commentId)
+    ElMessage.success('评论已删除')
+    await loadComments(post)
+  } catch { /* handled */ }
+}
+
+async function handleDelete(postId) {
+  try {
+    await ElMessageBox.confirm('确定删除该帖子？', '确认', { type: 'warning' })
+    await deleteSquarePost(postId)
+    ElMessage.success('已删除')
+    fetchPosts()
+  } catch { /* cancelled */ }
+}
+
+function formatTime(time) {
+  if (!time) return ''
+  const d = new Date(time)
+  const now = new Date()
+  const diff = now - d
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`
+  return d.toLocaleDateString('zh-CN')
+}
+
+onMounted(fetchPosts)
 </script>
 
 <style scoped>
@@ -263,7 +395,22 @@ function submitPost() {
 .post-stats {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
+  display: flex;
+  gap: 16px;
 }
+.like-btn, .comment-toggle { cursor: pointer; user-select: none; }
+.like-btn:hover, .comment-toggle:hover { color: var(--color-primary); }
+.like-btn.liked { color: #e74c3c; }
+.comment-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0e4da; }
+.comment-item { display: flex; gap: 8px; padding: 6px 0; font-size: 13px; }
+.comment-item strong { color: var(--color-text-primary); white-space: nowrap; }
+.comment-item span { color: var(--color-text-regular); }
+.comment-input { display: flex; gap: 8px; margin-top: 10px; }
+.tag-form-item :deep(.el-form-item__content) { display: flex; flex-direction: column; }
+.tag-area { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+.tag-select :deep(.el-checkbox-group) { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.custom-tag { display: flex; align-items: center; gap: 8px; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
 
 @media (max-width: 900px) {
   .square-entry-grid {

@@ -21,9 +21,28 @@ public interface UserMapper {
 
     int updateScoreBalance(@Param("userId") Long userId, @Param("scoreBalance") Integer scoreBalance, @Param("totalScore") Integer totalScore);
 
-    int updateAvatar(@Param("userId") Long userId, @Param("avatarUrl") String avatarUrl);
+    int deductScoreIfSufficient(@Param("userId") Long userId, @Param("amount") Integer amount);
+
+    int creditScore(@Param("userId") Long userId, @Param("amount") Integer amount);
+
+    int earnScore(@Param("userId") Long userId, @Param("amount") Integer amount);
+
+    int updateAvatar(@Param("userId") Long userId, @Param("avatarUrl") String avatarUrl,
+                     @Param("avatarStorageKey") String avatarStorageKey);
 
     List<User> selectByUserType(@Param("userType") Integer userType);
 
     List<User> selectTopScoreRank(@Param("limit") Integer limit);
+
+    List<User> selectAdminPage(@Param("keyword") String keyword,
+                               @Param("userType") Integer userType,
+                               @Param("status") Integer status,
+                               @Param("offset") Integer offset,
+                               @Param("limit") Integer limit);
+
+    long countAdminPage(@Param("keyword") String keyword,
+                        @Param("userType") Integer userType,
+                        @Param("status") Integer status);
+
+    int updateStatus(@Param("userId") Long userId, @Param("status") Integer status);
 }

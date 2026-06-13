@@ -6,6 +6,7 @@
           v-if="showBack"
           :icon="ArrowLeft"
           text
+          class="back-btn"
           @click="$router.back()"
         />
         <h1>{{ title }}</h1>
@@ -46,6 +47,10 @@ defineProps({
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+.back-btn {
+  flex-shrink: 0;
 }
 
 .page-header h1 {

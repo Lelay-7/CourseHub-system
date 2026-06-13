@@ -11,30 +11,43 @@ import com.bugaoshan.security.JwtUtil;
 import com.bugaoshan.service.AuthService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserMapper userMapper;
     private final SmsCodeMapper smsCodeMapper;
     private final JwtUtil jwtUtil;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redisTemplate;
 
     @Value("${sms.mock:false}")
     private boolean smsMock;
 
+    @Value("${sms.mock-code:}")
+    private String smsMockCode;
+
     public AuthServiceImpl(UserMapper userMapper, SmsCodeMapper smsCodeMapper,
-                           JwtUtil jwtUtil, BCryptPasswordEncoder passwordEncoder) {
+                           JwtUtil jwtUtil, BCryptPasswordEncoder passwordEncoder,
+                           StringRedisTemplate redisTemplate) {
         this.userMapper = userMapper;
         this.smsCodeMapper = smsCodeMapper;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -59,7 +72,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Result smsLogin(String phone, String code) {
         if (smsMock) {
-            if (phone.endsWith("678") && !"123456".equals(code)) {
+            if (smsMockCode == null || smsMockCode.isBlank() || !smsMockCode.equals(code)) {
                 throw new BusinessException("验证码错误或已过期");
             }
         } else {
@@ -97,7 +110,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result sendSmsCode(String phone) {
-        String code = String.format("%06d", new Random().nextInt(1000000));
+        if (smsMock && (smsMockCode == null || smsMockCode.isBlank())) {
+            throw new BusinessException("模拟短信验证码未配置");
+        }
+        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
+                "sms:send:" + phone, "1", Duration.ofSeconds(60));
+        if (!Boolean.TRUE.equals(acquired)) {
+            throw new BusinessException("验证码发送过于频繁，请稍后再试");
+        }
+        String code = smsMock ? smsMockCode : String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         SmsCode smsCode = new SmsCode();
         smsCode.setPhone(phone);
         smsCode.setCode(code);
@@ -107,7 +128,7 @@ public class AuthServiceImpl implements AuthService {
         smsCode.setCreateTime(LocalDateTime.now());
         smsCodeMapper.insert(smsCode);
 
-        System.out.println("[Mock SMS] 验证码发送至 " + phone + ": " + code);
+        log.debug("SMS code created for phone ending in {}", phone.substring(Math.max(0, phone.length() - 4)));
 
         Map<String, Object> data = new HashMap<>();
         data.put("sent", true);
@@ -151,13 +172,13 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result refreshToken(String refreshToken) {
-        if (!jwtUtil.validateToken(refreshToken)) {
+        if (!jwtUtil.validateToken(refreshToken) || !jwtUtil.isRefreshToken(refreshToken)) {
             throw new BusinessException("refreshToken无效或已过期");
         }
         Long userId = jwtUtil.getUserIdFromToken(refreshToken);
         User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new BusinessException("用户不存在");
+        if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+            throw new BusinessException("用户不存在或已被禁用");
         }
         Map<String, Object> data = generateTokens(userId, user.getUserType());
         return Result.ok(data);

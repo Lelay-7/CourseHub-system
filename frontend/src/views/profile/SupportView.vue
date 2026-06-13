@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="page-content support-page">
-      <PageHeader title="联系客服" />
+      <PageHeader title="联系客服" :show-back="true" />
 
       <div class="support-hero">
         <div>

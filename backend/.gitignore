@@ -7,3 +7,7 @@ target/
 .DS_Store
 uploads/
 *.pid
+dump.rdb
+.env
+.env.*
+!.env.example

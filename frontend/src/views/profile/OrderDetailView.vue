@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="page-content">
+    <PageContainer>
       <PageHeader title="订单详情" :show-back="true" />
 
       <div v-if="loading" class="detail-loading">
@@ -11,8 +11,8 @@
         <div class="detail-card card">
           <div class="order-status-bar">
             <el-steps :active="statusStep" align-center>
-              <el-step title="待支付" />
-              <el-step title="已支付" />
+              <el-step title="待处理" />
+              <el-step title="处理中" />
               <el-step title="已完成" />
             </el-steps>
           </div>
@@ -22,7 +22,7 @@
             <el-descriptions-item label="订单状态">
               <el-tag :type="statusTag">{{ ORDER_STATUS_LABEL[order.status] }}</el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="订单内容">{{ order.subject || order.description }}</el-descriptions-item>
+            <el-descriptions-item label="订单内容">{{ order.goods_name || '订单' }}</el-descriptions-item>
             <el-descriptions-item label="积分金额">
               <span class="order-amount">
                 <el-icon><StarFilled /></el-icon> {{ order.score_amount }} 积分
@@ -45,14 +45,14 @@
               plain
               @click="handleDelete"
             >
-              删除订单
+              删除记录
             </el-button>
           </div>
         </div>
       </template>
 
       <ErrorState v-else title="订单不存在" @retry="fetchDetail" />
-    </div>
+    </PageContainer>
   </AppLayout>
 </template>
 
@@ -62,6 +62,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { StarFilled } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
+import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
 import ErrorState from '@/components/ErrorState.vue'
@@ -110,12 +111,15 @@ async function handleCancel() {
 
 async function handleDelete() {
   try {
-    await ElMessageBox.confirm('确认删除该订单吗？删除后不可恢复', '操作确认', {
+    await ElMessageBox.confirm('确认删除该记录吗？删除后不可恢复', '操作确认', {
       confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning'
     })
   } catch { return }
-  ElMessage.success('订单已删除')
-  router.back()
+  try {
+    await orderApi.deleteOrder(order.value.order_id)
+    ElMessage.success('记录已删除')
+    router.back()
+  } catch { /* handled */ }
 }
 
 function formatTime(time) {

@@ -1,28 +1,56 @@
-# Dependencies
-frontend/node_modules/
-backend/target/
+# Dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+target/
+**/target/
+.vite/
+**/.vite/
 
 # IDE
 .idea/
 *.iml
 .vscode/
+.run/
 
-# Build
+# Compiled artifacts
 *.class
 *.jar
 *.war
 
-# Logs
+# Runtime files
+logs/
 *.log
+*-debug.log*
 *.pid
+dump.rdb
+**/dump.rdb
+temp/
+tmp/
+coverage/
+**/coverage/
 
 # Uploads
 uploads/
+**/uploads/
+uploads-acceptance/
+**/uploads-acceptance/
+
+# npm cache
+.npm-cache/
+**/.npm-cache/
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Environment
+.env
+.env.*
+!.env.example
+!**/.env.example
 .env.local
 .env.*.local
+application-local.yml
+application-dev-local.yml
