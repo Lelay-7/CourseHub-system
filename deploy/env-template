@@ -1,0 +1,32 @@
+# =============================================================================
+# 不高山选课通 — 生产环境变量模板
+# =============================================================================
+# 使用说明：
+#   1. 不要把本文件提交到 Git（.gitignore 已覆盖 .env / .env.local）。
+#   2. 部署时复制为服务器上的 .env 或 source 本文件。
+#   3. DB_PASSWORD 和 JWT_SECRET 必须在服务器上替换为真实值。
+#   4. 推荐单独创建 MySQL 用户 bgss_user 并只授权 bgss_xtt 数据库。
+#   5. JWT_SECRET 至少 32 字节随机字符串，推荐使用:
+#        openssl rand -base64 32
+# =============================================================================
+
+export SPRING_PROFILES_ACTIVE=prod
+
+# ---- MySQL ----
+export DB_URL="jdbc:mysql://127.0.0.1:3306/bgss_xtt?useUnicode=true&characterEncoding=utf8mb4&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true"
+export DB_USERNAME="bgss_user"
+export DB_PASSWORD="CHANGE_ME"
+
+# ---- Redis ----
+export REDIS_HOST="127.0.0.1"
+export REDIS_PORT="6379"
+export REDIS_PASSWORD=""
+
+# ---- JWT ----
+export JWT_SECRET="CHANGE_ME_AT_LEAST_32_BYTES_RANDOM_STRING"
+
+# ---- File Upload ----
+export FILE_UPLOAD_PATH="/opt/bugaoshan/backend/uploads"
+
+# ---- Logging ----
+export APP_LOG_LEVEL="INFO"
