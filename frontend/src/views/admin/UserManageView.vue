@@ -15,6 +15,7 @@
         <el-radio-button :value="2">教师</el-radio-button>
         <el-radio-button :value="3">管理员</el-radio-button>
       </el-radio-group>
+      <Card>
       <el-table :data="list" border stripe v-loading="loading">
         <el-table-column prop="user_id" label="ID" width="60" />
         <el-table-column prop="username" label="用户名" />
@@ -57,6 +58,7 @@
         :total="total"
         @current-change="handlePageChange"
       />
+      </Card>
     </PageContainer>
   </AppLayout>
 </template>
@@ -69,6 +71,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import Card from '@/components/Card.vue'
 
 const list = ref([])
 const loading = ref(false)

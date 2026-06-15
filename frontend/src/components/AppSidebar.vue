@@ -111,8 +111,8 @@ const activeMenu = computed(() => {
   flex-direction: column;
   align-items: center;
   background:
-    linear-gradient(180deg, rgba(255, 246, 234, 0.24), transparent 34%),
-    linear-gradient(180deg, #fa7f70 0%, #e7664a 100%);
+    linear-gradient(180deg, rgba(255, 246, 234, 0.32), transparent 38%),
+    linear-gradient(180deg, #e08873 0%, #d0735a 100%);
   box-shadow: 10px 0 24px rgba(125, 62, 38, 0.1);
 }
 

@@ -36,50 +36,26 @@
         </el-col>
       </el-row>
       <el-row :gutter="20" style="margin-top: 20px">
-        <el-col :span="8">
+        <el-col :span="24">
           <Card>
-            <template #header>快捷入口</template>
-            <el-menu :default-active="route.path" router>
-              <el-menu-item index="/admin/courses">
-                <el-icon><Reading /></el-icon> 课程管理
-              </el-menu-item>
-              <el-menu-item index="/admin/materials">
-                <el-icon><FolderOpened /></el-icon> 资料审核
-              </el-menu-item>
-              <el-menu-item index="/admin/reviews">
-                <el-icon><ChatDotRound /></el-icon> 评价管理
-              </el-menu-item>
-              <el-menu-item index="/admin/square">
-                <el-icon><EditPen /></el-icon> 广场管理
-              </el-menu-item>
-              <el-menu-item index="/admin/users">
-                <el-icon><User /></el-icon> 用户管理
-              </el-menu-item>
-              <el-menu-item index="/admin/goods">
-                <el-icon><ShoppingCart /></el-icon> 商品管理
-              </el-menu-item>
-              <el-menu-item index="/admin/orders">
-                <el-icon><Present /></el-icon> 订单管理
-              </el-menu-item>
-              <el-menu-item index="/admin/banners">
-                <el-icon><Setting /></el-icon> Banner管理
-              </el-menu-item>
-              <el-menu-item index="/admin/reports">
-                <el-icon><Warning /></el-icon> 举报管理
-              </el-menu-item>
-              <el-menu-item index="/profile/feedback">
-                <el-icon><EditPen /></el-icon> 反馈管理
-              </el-menu-item>
-            </el-menu>
+            <template #header>管理模块</template>
+            <div class="admin-shortcut-grid">
+              <button v-for="item in shortcutEntries" :key="item.path" type="button" class="admin-shortcut-card" @click="$router.push(item.path)">
+                <el-icon :size="20"><component :is="item.icon" /></el-icon>
+                <span>{{ item.label }}</span>
+              </button>
+            </div>
           </Card>
         </el-col>
-        <el-col :span="16">
+      </el-row>
+      <el-row :gutter="20" style="margin-top: 20px">
+        <el-col :span="24">
           <Card>
             <template #header>系统信息</template>
-            <el-descriptions :column="2" border>
+            <el-descriptions :column="3" border>
               <el-descriptions-item label="系统版本">V3.0.0</el-descriptions-item>
               <el-descriptions-item label="当前角色">管理员</el-descriptions-item>
-              <el-descriptions-item label="管理模块">课程 · 资料 · 评价 · 广场 · 用户 · 商品 · 订单 · Banner · 反馈 · 举报</el-descriptions-item>
+              <el-descriptions-item label="数据库">bgss_xtt (MySQL 8.0)</el-descriptions-item>
             </el-descriptions>
           </Card>
         </el-col>
@@ -100,6 +76,18 @@ import request from '@/api/request'
 
 const route = useRoute()
 const statsLoading = ref(false)
+const shortcutEntries = [
+  { path: '/admin/courses',   label: '课程管理', icon: Reading },
+  { path: '/admin/materials', label: '资料审核', icon: FolderOpened },
+  { path: '/admin/reviews',   label: '评价管理', icon: ChatDotRound },
+  { path: '/admin/square',    label: '广场管理', icon: EditPen },
+  { path: '/admin/users',     label: '用户管理', icon: User },
+  { path: '/admin/goods',     label: '商品管理', icon: ShoppingCart },
+  { path: '/admin/orders',    label: '订单管理', icon: Present },
+  { path: '/admin/banners',   label: 'Banner',    icon: Setting },
+  { path: '/admin/reports',   label: '举报管理', icon: Warning },
+  { path: '/profile/feedback',label: '反馈管理', icon: EditPen }
+]
 const stats = reactive({
   bannerCount: null,
   userCount: null,
@@ -140,5 +128,32 @@ onMounted(fetchDashboard)
   font-size: var(--font-size-xs, 12px);
   color: var(--color-text-secondary, #909399);
   margin-top: 4px;
+}
+
+.admin-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+.admin-shortcut-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 12px;
+  border: 1px solid var(--color-border, #ecd8c9);
+  border-radius: var(--radius-md, 18px);
+  background: var(--color-bg-soft, #fff0e4);
+  color: var(--color-text-primary, #3f342d);
+  font-size: var(--font-size-sm, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.admin-shortcut-card:hover {
+  background: var(--color-primary-light, #ffe2d1);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
 }
 </style>

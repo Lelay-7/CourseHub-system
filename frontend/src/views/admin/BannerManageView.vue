@@ -6,6 +6,7 @@
         <span></span>
         <el-button type="primary" @click="showDialog = true">新增 Banner</el-button>
       </div>
+      <Card>
       <el-table :data="list" border stripe v-loading="loading">
         <el-table-column prop="banner_id" label="ID" width="60" />
         <el-table-column prop="title" label="标题" />
@@ -20,6 +21,7 @@
         </el-table-column>
       </el-table>
       <EmptyState v-if="!loading && list.length === 0" description="暂无数据" />
+      </Card>
 
       <el-dialog v-model="showDialog" :title="editingId ? '编辑' : '新增'" width="400px">
         <el-form :model="form" label-width="80px">
@@ -45,6 +47,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import Card from '@/components/Card.vue'
 
 const list = ref([])
 const loading = ref(false)

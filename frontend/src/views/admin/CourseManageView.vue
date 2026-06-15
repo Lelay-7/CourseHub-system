@@ -6,6 +6,7 @@
         <el-input v-model="keyword" placeholder="搜索课程名称/代码" clearable @clear="fetchList" @keyup.enter="fetchList" style="width:300px" />
         <el-button type="primary" @click="showDialog = true">新增课程</el-button>
       </div>
+      <Card>
       <el-table :data="list" border stripe v-loading="loading">
         <el-table-column prop="course_id" label="ID" width="60" />
         <el-table-column prop="course_name" label="课程名称" />
@@ -30,6 +31,7 @@
         </el-table-column>
       </el-table>
       <EmptyState v-if="!loading && list.length === 0" description="暂无数据" />
+      </Card>
 
       <el-dialog v-model="showDialog" :title="editingId ? '编辑课程' : '新增课程'" width="500px">
         <el-form :model="form" label-width="80px">
@@ -68,6 +70,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import Card from '@/components/Card.vue'
 
 const list = ref([])
 const loading = ref(false)

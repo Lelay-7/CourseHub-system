@@ -9,6 +9,7 @@
         <el-radio-button :value="2">已驳回</el-radio-button>
         <el-radio-button :value="3">已下架</el-radio-button>
       </el-radio-group>
+      <Card>
       <el-table :data="list" border stripe v-loading="loading">
         <el-table-column prop="material_id" label="ID" width="60" />
         <el-table-column prop="material_name" label="资料名称" />
@@ -29,6 +30,7 @@
         </el-table-column>
       </el-table>
       <EmptyState v-if="!loading && list.length === 0" description="暂无数据" />
+      </Card>
 
       <el-dialog v-model="rejectDialog" title="驳回资料" width="400px">
         <el-input v-model="rejectReason" placeholder="填写驳回原因（选填）" type="textarea" :rows="3" />
@@ -49,6 +51,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import Card from '@/components/Card.vue'
 
 const list = ref([])
 const loading = ref(false)
