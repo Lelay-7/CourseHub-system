@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onActivated } from 'vue'
+import { computed, ref, watch, onMounted, onActivated } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -81,10 +81,17 @@ function handlePageChange(page) {
 
 const visibleGoods = computed(() => {
   let list = [...goodsList.value]
+  // 分类筛选
+  if (category.value != null) {
+    list = list.filter(g => g.category === category.value)
+  }
+  // 排序
   if (sortBy.value === 'score') list = list.sort((a, b) => (a.price_score ?? 0) - (b.price_score ?? 0))
   if (sortBy.value === 'new') list = list.sort((a, b) => b.goods_id - a.goods_id)
   return list
 })
+
+watch([category, sortBy], () => { currentPage.value = 1; fetchGoods() })
 
 onMounted(fetchGoods)
 onActivated(fetchGoods)

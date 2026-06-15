@@ -63,13 +63,18 @@ function expireSession(message = '登录已过期，请重新登录') {
 }
 
 service.interceptors.request.use(async config => {
+  // 归一化：当 baseURL='/api' 且 url 以 '/api/' 开头时，去掉 url 中的 '/api' 避免 /api/api
+  if (BASE_URL === '/api' && config.url && config.url.startsWith('/api/')) {
+    config.url = config.url.replace(/^\/api/, '')
+  }
+
   if (config.data instanceof FormData) {
     config.headers?.delete?.('Content-Type')
     delete config.headers?.['Content-Type']
   }
 
   let token = getAccessToken()
-  if (token && isTokenExpired(token) && config.url !== '/api/auth/refresh') {
+  if (token && isTokenExpired(token) && !String(config.url).endsWith('/api/auth/refresh') && config.url !== '/api/auth/refresh') {
     try {
       token = await ensureFreshAccessToken()
     } catch (error) {
