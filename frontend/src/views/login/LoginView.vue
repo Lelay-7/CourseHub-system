@@ -125,6 +125,7 @@
               class="auth-form"
               :model="passwordForm"
               :rules="passwordRules"
+              @submit.prevent
               @keyup.enter="handlePasswordLogin"
             >
               <el-form-item prop="username">
@@ -147,7 +148,7 @@
                   autocomplete="current-password"
                 />
               </el-form-item>
-              <el-button class="submit-btn" size="large" type="primary" :loading="loading" @click="handlePasswordLogin">
+              <el-button native-type="button" class="submit-btn" size="large" type="primary" :loading="loading" @click="handlePasswordLogin">
                 登录
               </el-button>
             </el-form>
@@ -159,6 +160,7 @@
               class="auth-form"
               :model="registerForm"
               :rules="registerRules"
+              @submit.prevent
               @keyup.enter="handleRegister"
             >
               <el-form-item prop="username">
@@ -190,7 +192,7 @@
                   autocomplete="new-password"
                 />
               </el-form-item>
-              <el-button class="submit-btn" size="large" type="primary" :loading="loading" @click="handleRegister">
+              <el-button native-type="button" class="submit-btn" size="large" type="primary" :loading="loading" @click="handleRegister">
                 创建账号
               </el-button>
             </el-form>
@@ -300,7 +302,10 @@ function redirectAfterAuth() {
 }
 
 async function handlePasswordLogin() {
-  if (!passwordFormRef.value) return
+  if (!passwordFormRef.value) {
+    loading.value = false
+    return
+  }
   try {
     await passwordFormRef.value.validate()
     loading.value = true
@@ -310,15 +315,25 @@ async function handlePasswordLogin() {
     })
     ElMessage.success('登录成功')
     redirectAfterAuth()
-  } catch {
-    // 表单校验失败或登录失败，不做额外处理
+  } catch (err) {
+    // request.js 拦截器已对 HTTP 异常 / 超时 / 业务错误做了 ElMessage.error
+    // 这里兜底处理拦截器未覆盖的异常（如 fetchUserInfo 返回空、load 阶段 JS error）
+    if (err) {
+      const fallback = typeof err === 'string' ? err : (err.message || '')
+      if (fallback && !fallback.includes('请求失败')) {
+        ElMessage.error(fallback)
+      }
+    }
   } finally {
     loading.value = false
   }
 }
 
 async function handleRegister() {
-  if (!registerFormRef.value) return
+  if (!registerFormRef.value) {
+    loading.value = false
+    return
+  }
   try {
     await registerFormRef.value.validate()
     loading.value = true
@@ -329,8 +344,14 @@ async function handleRegister() {
     })
     ElMessage.success('注册成功')
     redirectAfterAuth()
-  } catch {
-    // 表单校验失败或注册失败，不做额外处理
+  } catch (err) {
+    // 兜底处理拦截器未覆盖的异常
+    if (err) {
+      const fallback = typeof err === 'string' ? err : (err.message || '')
+      if (fallback && !fallback.includes('请求失败')) {
+        ElMessage.error(fallback)
+      }
+    }
   } finally {
     loading.value = false
   }

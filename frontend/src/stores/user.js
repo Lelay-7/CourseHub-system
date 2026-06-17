@@ -43,6 +43,15 @@ export const useUserStore = defineStore('user', () => {
       accessToken.value = at
       refreshToken.value = rt
       await fetchUserInfo()
+      // fetchUserInfo 内部有 try-catch 吞错，如果 userInfo 仍然为空说明获取失败
+      if (!userInfo.value) {
+        // Token 已写入，但用户信息缺失会导致后续页面异常
+        // 清除已写入的 Token 避免"半登录"状态
+        clearTokens()
+        accessToken.value = ''
+        refreshToken.value = ''
+        throw new Error('登录失败：无法获取用户信息，请稍后重试')
+      }
     }
   }
 
@@ -55,6 +64,12 @@ export const useUserStore = defineStore('user', () => {
       accessToken.value = at
       refreshToken.value = rt
       await fetchUserInfo()
+      if (!userInfo.value) {
+        clearTokens()
+        accessToken.value = ''
+        refreshToken.value = ''
+        throw new Error('登录失败：无法获取用户信息，请稍后重试')
+      }
     }
   }
 
@@ -67,6 +82,12 @@ export const useUserStore = defineStore('user', () => {
       accessToken.value = at
       refreshToken.value = rt
       await fetchUserInfo()
+      if (!userInfo.value) {
+        clearTokens()
+        accessToken.value = ''
+        refreshToken.value = ''
+        throw new Error('注册失败：无法获取用户信息，请稍后重试')
+      }
     }
   }
 
