@@ -22,4 +22,7 @@ public class SquarePost {
 
     @TableField(exist = false)
     private String nickname;
+
+    @TableField(exist = false)
+    private String avatarUrl;
 }

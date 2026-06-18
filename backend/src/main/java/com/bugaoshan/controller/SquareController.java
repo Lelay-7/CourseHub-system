@@ -49,6 +49,7 @@ public class SquareController {
             item.put("post_id", p.getPostId());
             item.put("user_id", p.getUserId());
             item.put("nickname", p.getNickname());
+            item.put("avatar_url", p.getAvatarUrl());
             item.put("content", p.getContent());
             item.put("course_name", p.getCourseName());
             item.put("material_name", p.getMaterialName());

@@ -3,7 +3,7 @@
 <mapper namespace="com.bugaoshan.mapper.SquarePostMapper">
 
     <select id="selectAllWithUser" resultType="com.bugaoshan.entity.SquarePost">
-        SELECT p.*, u.nickname
+        SELECT p.*, u.nickname, u.avatar_url
         FROM square_post p
         LEFT JOIN user u ON p.user_id = u.user_id
         WHERE p.is_deleted = 0

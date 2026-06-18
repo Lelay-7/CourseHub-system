@@ -36,7 +36,16 @@
 
       <div class="post-list">
         <article v-for="post in posts" :key="post.id" class="post-card">
-          <div class="post-avatar">{{ post.name.slice(0, 1) }}</div>
+          <div class="post-avatar">
+            <img
+              v-if="post.avatarUrl && !failedAvatars.has(post.id)"
+              :src="post.avatarUrl"
+              :alt="post.name"
+              class="avatar-img"
+              @error="failedAvatars.add(post.id)"
+            />
+            <span v-else>{{ post.name.slice(0, 1) }}</span>
+          </div>
           <div class="post-body">
             <div class="post-head">
               <div>
@@ -138,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search, Reading, FolderOpened, ChatDotRound, Star } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -183,6 +192,7 @@ const entries = [
 
 const posts = ref([])
 const loading = ref(false)
+const failedAvatars = reactive(new Set())
 const page = ref(1)
 const pageSize = 10
 const total = ref(0)
@@ -193,6 +203,7 @@ function formatPost(p) {
     id: p.post_id,
     userId: p.user_id,
     name: p.nickname || '匿名',
+    avatarUrl: p.avatar_url || p.avatarUrl || '',
     time: formatTime(p.create_time),
     content: p.content,
     course: p.course_name || '',
@@ -407,6 +418,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   font-weight: 900;
+  overflow: hidden;
+}
+.post-avatar .avatar-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 
 .post-head,
