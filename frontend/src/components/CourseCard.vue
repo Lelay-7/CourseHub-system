@@ -22,8 +22,8 @@
     </div>
 
     <div class="course-card-pro__actions">
-      <el-button plain @click="$router.push(`/course/${course.course_id}`)">查看详情</el-button>
-      <el-button :type="isCompared ? 'warning' : 'default'" plain @click="$emit('compare-toggle', course)">
+      <el-button plain @click="$router.push(`/course/${courseId}`)">查看详情</el-button>
+      <el-button v-if="showCompare" :type="isCompared ? 'warning' : 'default'" plain @click="$emit('compare-toggle', course)">
         {{ isCompared ? '✓ 已对比' : '加入对比' }}
       </el-button>
       <el-button :type="isSelected ? 'success' : 'primary'" @click="$emit('select-course', course)">
@@ -43,10 +43,14 @@ const props = defineProps({
   course: { type: Object, required: true },
   keyword: { type: String, default: '' },
   isSelected: { type: Boolean, default: false },
-  isCompared: { type: Boolean, default: false }
+  isCompared: { type: Boolean, default: false },
+  showCompare: { type: Boolean, default: true }
 })
 
 defineEmits(['compare-toggle', 'select-course'])
+
+// 兼容后端返回 courseId（驼峰）或 course_id（下划线）两种字段名
+const courseId = computed(() => props.course.course_id ?? props.course.courseId ?? props.course.id)
 
 const statusLabel = computed(() => props.course.status === 1 ? '可选' : '已结束')
 const statusTone = computed(() => statusLabel.value === '可选' ? 'success' : 'info')

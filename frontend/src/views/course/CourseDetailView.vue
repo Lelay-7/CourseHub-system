@@ -127,8 +127,11 @@
           <div class="course-grid">
             <CourseCard
               v-for="rc in relatedCourses"
-              :key="rc.course_id"
+              :key="getCourseId(rc)"
               :course="rc"
+              :is-selected="selectionStore.isSelected(getCourseId(rc))"
+              :show-compare="false"
+              @select-course="handleRelatedSelectCourse"
             />
           </div>
         </div>
@@ -167,7 +170,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Share, ChatDotRound } from '@element-plus/icons-vue'
@@ -328,7 +331,34 @@ function scrollToSection(id) {
   target.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
+// 兼容后端 courseId（驼峰）与 course_id（下划线）两种字段名
+function getCourseId(c) {
+  return c?.course_id ?? c?.courseId ?? c?.id
+}
+
+// 相关课程卡片上的"选择课程"按钮 → 接入真实选课接口
+async function handleRelatedSelectCourse(rc) {
+  const id = getCourseId(rc)
+  try {
+    if (selectionStore.isSelected(id)) {
+      await selectionStore.drop(id)
+      ElMessage.success('已退选该课程')
+    } else {
+      await selectionStore.select(id)
+      ElMessage.success('选课成功')
+    }
+  } catch {
+    // request.js 拦截器已展示错误提示
+  }
+}
+
 onMounted(fetchDetail)
+
+// 从课程 A 详情点击相关课程跳转到课程 B 时，Vue 复用同一组件，
+// onMounted 不会再触发，需要 watch route.params.id 重新拉数据
+watch(() => route.params.id, (newId) => {
+  if (newId) fetchDetail()
+})
 </script>
 
 <style scoped>
