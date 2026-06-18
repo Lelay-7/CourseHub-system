@@ -117,6 +117,16 @@
               </div>
             </div>
           </el-form-item>
+          <el-form-item label="关联课程（可选）">
+            <el-select v-model="linkedCourse" placeholder="选择课程" clearable filterable style="width:100%">
+              <el-option v-for="c in courseOptions" :key="c.course_id || c.courseId" :label="c.course_name || c.courseName" :value="c.course_name || c.courseName" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="关联资料（可选）">
+            <el-select v-model="linkedMaterial" placeholder="选择资料" clearable filterable style="width:100%">
+              <el-option v-for="m in materialOptions" :key="m.material_id || m.materialId" :label="m.material_name || m.materialName" :value="m.material_name || m.materialName" />
+            </el-select>
+          </el-form-item>
         </el-form>
         <template #footer>
           <el-button @click="showDialog = false">取消</el-button>
@@ -133,6 +143,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search, Reading, FolderOpened, ChatDotRound, Star } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getSquarePosts, createSquarePost, deleteSquarePost, getComments, addComment, deleteComment, toggleLike } from '@/api/square'
+import * as courseApi from '@/api/course'
+import * as materialApi from '@/api/material'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -151,6 +163,10 @@ const activeTab = ref('全部')
 const tabs = ['全部', '选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点']
 const tagOptions = ['选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点', '复习', '数据库', '算法', '前端', '答辩', '团队项目', '给分高', '作业少', '点名多', '实验多', '课程设计']
 const customTag = ref('')
+const linkedCourse = ref('')
+const linkedMaterial = ref('')
+const courseOptions = ref([])
+const materialOptions = ref([])
 function addCustomTag() {
   const tag = customTag.value.trim()
   if (tag && !selectedTags.value.includes(tag)) {
@@ -225,10 +241,15 @@ async function submitPost() {
   posting.value = true
   try {
     const tags = selectedTags.value.length > 0 ? selectedTags.value.join(',') : ''
-    await createSquarePost({ content: postContent.value.trim(), tags })
+    const data = { content: postContent.value.trim(), tags }
+    if (linkedCourse.value) data.courseName = linkedCourse.value
+    if (linkedMaterial.value) data.materialName = linkedMaterial.value
+    await createSquarePost(data)
     postContent.value = ''
     selectedTags.value = []
     customTag.value = ''
+    linkedCourse.value = ''
+    linkedMaterial.value = ''
     showDialog.value = false
     ElMessage.success('发布成功')
     fetchPosts()
@@ -301,7 +322,21 @@ function formatTime(time) {
   return d.toLocaleDateString('zh-CN')
 }
 
-onMounted(fetchPosts)
+async function loadAssociationOptions() {
+  try {
+    const [courseRes, materialRes] = await Promise.all([
+      courseApi.getCourseList({ page: 1, pageSize: 100 }),
+      materialApi.getMaterialList({ page: 1, pageSize: 100 })
+    ])
+    courseOptions.value = courseRes.data?.list || courseRes.data?.records || []
+    materialOptions.value = materialRes.data?.list || materialRes.data?.records || []
+  } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  fetchPosts()
+  loadAssociationOptions()
+})
 </script>
 
 <style scoped>
