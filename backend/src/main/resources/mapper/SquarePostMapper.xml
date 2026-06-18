@@ -8,6 +8,13 @@
         LEFT JOIN user u ON p.user_id = u.user_id
         WHERE p.is_deleted = 0
         <if test="status != null">AND p.status = #{status}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (p.content LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.tags LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.course_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.material_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
         ORDER BY p.create_time DESC
         <if test="offset != null and limit != null">
             LIMIT #{limit} OFFSET #{offset}
@@ -16,8 +23,16 @@
 
     <select id="countAllWithUser" resultType="long">
         SELECT COUNT(*) FROM square_post p
+        LEFT JOIN user u ON p.user_id = u.user_id
         WHERE p.is_deleted = 0
         <if test="status != null">AND p.status = #{status}</if>
+        <if test="keyword != null and keyword != ''">
+            AND (p.content LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.tags LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.course_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR p.material_name LIKE CONCAT('%', #{keyword}, '%')
+                 OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
     </select>
 
     <update id="deleteById">

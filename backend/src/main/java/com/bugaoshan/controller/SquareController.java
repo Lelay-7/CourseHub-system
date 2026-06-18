@@ -33,13 +33,14 @@ public class SquareController {
         this.likeMapper = likeMapper;
     }
 
-    /** 获取帖子列表（带评论数和点赞数） */
+    /** 获取帖子列表（带评论数和点赞数，支持 keyword 搜索和分页） */
     @GetMapping
     public Result<?> list(@RequestParam(defaultValue = "1") Integer page,
-                           @RequestParam(defaultValue = "20") Integer pageSize) {
+                           @RequestParam(defaultValue = "10") Integer pageSize,
+                           @RequestParam(required = false) String keyword) {
         int offset = (page - 1) * pageSize;
-        List<SquarePost> posts = squarePostMapper.selectAllWithUser(1, offset, pageSize);
-        long total = squarePostMapper.countAllWithUser(1);
+        List<SquarePost> posts = squarePostMapper.selectAllWithUser(1, keyword, offset, pageSize);
+        long total = squarePostMapper.countAllWithUser(1, keyword);
         Long userId = SecurityUtils.getCurrentUserId();
         List<Map<String, Object>> result = new ArrayList<>();
         for (SquarePost p : posts) {

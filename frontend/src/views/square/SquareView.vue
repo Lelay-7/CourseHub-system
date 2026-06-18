@@ -16,8 +16,10 @@
           placeholder="搜索内容、标签、用户、课程名..."
           :prefix-icon="Search"
           clearable
+          @input="onKeywordChange"
+          @clear="keyword = ''; page = 1; fetchPosts()"
         />
-        <el-radio-group v-model="activeTab" size="small">
+        <el-radio-group v-model="activeTab" size="small" @change="page = 1; fetchPosts()">
           <el-radio-button v-for="tab in tabs" :key="tab" :value="tab">{{ tab }}</el-radio-button>
         </el-radio-group>
       </Toolbar>
@@ -33,7 +35,7 @@
       </div>
 
       <div class="post-list">
-        <article v-for="post in visiblePosts" :key="post.id" class="post-card">
+        <article v-for="post in posts" :key="post.id" class="post-card">
           <div class="post-avatar">{{ post.name.slice(0, 1) }}</div>
           <div class="post-body">
             <div class="post-head">
@@ -82,7 +84,17 @@
           </div>
         </article>
       </div>
-      <EmptyState v-if="!loading && visiblePosts.length === 0" description="还没有帖子，发布第一条动态吧" />
+      <EmptyState v-if="!loading && posts.length === 0" description="还没有帖子，发布第一条动态吧" />
+      <el-pagination
+        v-if="total > pageSize"
+        background
+        layout="prev, pager, next"
+        :current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        style="margin-top: 20px; justify-content: center"
+        @current-change="handlePageChange"
+      />
 
       <el-dialog v-model="showDialog" title="发布动态" width="560px">
         <el-form label-position="top">
@@ -116,7 +128,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search, Reading, FolderOpened, ChatDotRound, Star } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -155,39 +167,56 @@ const entries = [
 
 const posts = ref([])
 const loading = ref(false)
+const page = ref(1)
+const pageSize = 10
+const total = ref(0)
+let searchTimer = null
 
-const visiblePosts = computed(() => {
-  const q = keyword.value.trim().toLowerCase()
-  return posts.value.filter(post => {
-    const tabOk = activeTab.value === '全部' || (post.tags || []).includes(activeTab.value)
-    if (!tabOk) return false
-    const text = `${post.name || ''} ${post.nickname || ''} ${post.content} ${post.course_name || ''} ${post.material_name || ''} ${(post.tags || []).join(' ')}`.toLowerCase()
-    return !q || text.includes(q)
-  })
-})
+function formatPost(p) {
+  return {
+    id: p.post_id,
+    userId: p.user_id,
+    name: p.nickname || '匿名',
+    time: formatTime(p.create_time),
+    content: p.content,
+    course: p.course_name || '',
+    material: p.material_name || '',
+    tags: p.tags ? p.tags.split(',') : [],
+    likes: p.likes || 0,
+    liked: p.liked || false,
+    comments: p.comments || 0,
+    showComments: false,
+    commentList: [],
+    commentText: ''
+  }
+}
 
 async function fetchPosts() {
   loading.value = true
   try {
-    const res = await getSquarePosts()
-    posts.value = (res.data?.list || []).map(p => ({
-      id: p.post_id,
-      userId: p.user_id,
-      name: p.nickname || '匿名',
-      time: formatTime(p.create_time),
-      content: p.content,
-      course: p.course_name || '',
-      material: p.material_name || '',
-      tags: p.tags ? p.tags.split(',') : [],
-      likes: p.likes || 0,
-      liked: p.liked || false,
-      comments: p.comments || 0,
-      showComments: false,
-      commentList: [],
-      commentText: ''
-    }))
+    const params = { page: page.value, pageSize }
+    const q = keyword.value.trim()
+    if (q) params.keyword = q
+    const res = await getSquarePosts(params)
+    const data = res.data || {}
+    posts.value = (data.list || []).map(formatPost)
+    total.value = data.total || 0
   } catch { /* ignore */ }
   finally { loading.value = false }
+}
+
+function onKeywordChange() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    page.value = 1
+    fetchPosts()
+  }, 300)
+}
+
+function handlePageChange(p) {
+  page.value = p
+  fetchPosts()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function submitPost() {
