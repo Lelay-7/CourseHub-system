@@ -197,6 +197,7 @@ async function fetchPosts() {
     const params = { page: page.value, pageSize }
     const q = keyword.value.trim()
     if (q) params.keyword = q
+    if (activeTab.value !== '全部') params.tag = activeTab.value
     const res = await getSquarePosts(params)
     const data = res.data || {}
     posts.value = (data.list || []).map(formatPost)

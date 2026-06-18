@@ -471,8 +471,8 @@ public class AdminController {
                                       @RequestParam(defaultValue = "1") Integer page,
                                       @RequestParam(defaultValue = "20") Integer pageSize) {
         int offset = (page - 1) * pageSize;
-        List<SquarePost> list = squarePostMapper.selectAllWithUser(status, null, offset, pageSize);
-        long total = squarePostMapper.countAllWithUser(status, null);
+        List<SquarePost> list = squarePostMapper.selectAllWithUser(status, null, null, offset, pageSize);
+        long total = squarePostMapper.countAllWithUser(status, null, null);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("list", list);
         result.put("total", total);

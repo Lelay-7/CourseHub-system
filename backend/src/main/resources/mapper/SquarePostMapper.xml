@@ -15,6 +15,9 @@
                  OR p.material_name LIKE CONCAT('%', #{keyword}, '%')
                  OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
         </if>
+        <if test="tag != null and tag != ''">
+            AND p.tags LIKE CONCAT('%', #{tag}, '%')
+        </if>
         ORDER BY p.create_time DESC
         <if test="offset != null and limit != null">
             LIMIT #{limit} OFFSET #{offset}
@@ -32,6 +35,9 @@
                  OR p.course_name LIKE CONCAT('%', #{keyword}, '%')
                  OR p.material_name LIKE CONCAT('%', #{keyword}, '%')
                  OR u.nickname LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="tag != null and tag != ''">
+            AND p.tags LIKE CONCAT('%', #{tag}, '%')
         </if>
     </select>
 
