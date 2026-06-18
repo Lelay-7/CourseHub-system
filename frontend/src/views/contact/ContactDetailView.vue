@@ -4,10 +4,19 @@
       <PageHeader title="联系人名片" :show-back="true" />
       <div v-if="loading" class="detail-loading"><LoadingSkeleton type="list" :rows="3" /></div>
 
-      <template v-else-if="contact.user_id">
+      <template v-else-if="contactId">
         <Card>
           <div class="card-header">
-            <span class="card-avatar">{{ (contact.nickname || contact.real_name || '?').slice(0, 1) }}</span>
+            <span class="card-avatar">
+              <img
+                v-if="contact.avatarUrl && !avatarError"
+                :src="contact.avatarUrl"
+                :alt="contact.nickname"
+                class="avatar-img"
+                @error="avatarError = true"
+              />
+              <span v-else>{{ avatarInitial }}</span>
+            </span>
             <div>
               <h2>{{ contact.nickname || contact.real_name || contact.username }}</h2>
               <p>{{ contact.title || USER_TYPE_LABEL[contact.user_type] || '未知' }} · {{ contact.department }}</p>
@@ -53,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User } from '@element-plus/icons-vue'
@@ -69,6 +78,15 @@ import ErrorState from '@/components/ErrorState.vue'
 const route = useRoute()
 const contact = ref({})
 const loading = ref(true)
+const avatarError = ref(false)
+
+// 兼容后端 userId（驼峰）与 user_id（下划线）
+function getUserId(u) {
+  return u?.user_id ?? u?.userId ?? u?.id
+}
+
+const contactId = computed(() => getUserId(contact.value))
+const avatarInitial = computed(() => (contact.value.nickname || contact.value.real_name || contact.value.username || '?').slice(0, 1))
 
 async function fetchDetail() {
   loading.value = true
@@ -80,7 +98,7 @@ async function fetchDetail() {
 
 async function handleAddFriend() {
   try {
-    await request.post(`/api/contact/add/${contact.value.user_id}`)
+    await request.post(`/api/contact/add/${contactId.value}`)
     ElMessage.success('操作成功')
     fetchDetail()
   } catch { /* handled */ }
@@ -106,6 +124,10 @@ onMounted(fetchDetail)
   background: var(--color-primary); color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 28px; font-weight: 900;
+  overflow: hidden;
+}
+.avatar-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .text-muted { color: #999; }
 .action-bar { display: flex; gap: 10px; margin-top: 16px; align-items: center; }

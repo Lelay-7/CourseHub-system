@@ -18,17 +18,26 @@
       <div v-if="tab === 'search'" v-loading="loading">
         <el-input v-model="keyword" placeholder="输入昵称、姓名、院系自动搜索..." :prefix-icon="Search" clearable size="large" @input="onSearchInput" @clear="searchResults=[];searched=false" style="margin-bottom:16px" />
         <div v-if="searchResults.length > 0" class="contact-grid">
-          <article v-for="u in searchResults" :key="u.user_id" class="contact-card">
-            <span class="card-avatar">{{ (u.nickname || '?').slice(0, 1) }}</span>
+          <article v-for="u in searchResults" :key="getUserId(u)" class="contact-card">
+            <span class="card-avatar">
+              <img
+                v-if="u.avatarUrl && !failedAvatars.has(getUserId(u))"
+                :src="u.avatarUrl"
+                :alt="u.nickname"
+                class="avatar-img"
+                @error="onAvatarError(u)"
+              />
+              <span v-else>{{ getInitial(u) }}</span>
+            </span>
             <div class="card-info">
               <strong>{{ u.nickname || u.real_name || u.username }}</strong>
               <span>{{ u.title || USER_TYPE_LABEL[u.user_type] || '未知' }} · {{ u.department }}</span>
             </div>
             <div class="card-action">
-              <el-button v-if="u.friend_status === 'none'" type="primary" size="small" @click="handleAddFriend(u.user_id)">添加好友</el-button>
+              <el-button v-if="u.friend_status === 'none'" type="primary" size="small" @click="handleAddFriend(getUserId(u))">添加好友</el-button>
               <el-tag v-else-if="u.friend_status === 'pending'" type="warning">等待同意</el-tag>
               <el-tag v-else-if="u.friend_status === 'pending_receive'" type="info">待你同意</el-tag>
-              <el-button v-else type="success" size="small" plain @click="$router.push(`/contact/${u.user_id}`)">查看名片</el-button>
+              <el-button v-else type="success" size="small" plain @click="$router.push(`/contact/${getUserId(u)}`)">查看名片</el-button>
             </div>
           </article>
         </div>
@@ -38,8 +47,17 @@
       <!-- 我的好友 -->
       <div v-if="tab === 'friends'" v-loading="loading">
         <div v-if="friends.length > 0" class="contact-grid">
-          <article v-for="f in friends" :key="f.user_id" class="contact-card" @click="$router.push(`/contact/${f.user_id}`)">
-            <span class="card-avatar">{{ (f.nickname || '?').slice(0, 1) }}</span>
+          <article v-for="f in friends" :key="getUserId(f)" class="contact-card" @click="$router.push(`/contact/${getUserId(f)}`)">
+            <span class="card-avatar">
+              <img
+                v-if="f.avatarUrl && !failedAvatars.has(getUserId(f))"
+                :src="f.avatarUrl"
+                :alt="f.nickname"
+                class="avatar-img"
+                @error="onAvatarError(f)"
+              />
+              <span v-else>{{ getInitial(f) }}</span>
+            </span>
             <div class="card-info">
               <strong>{{ f.nickname || f.real_name }}</strong>
               <span>{{ f.user_type === 2 ? (f.title || '教师') : '学生' }} · {{ f.department }}</span>
@@ -53,7 +71,16 @@
       <div v-if="tab === 'pending'" v-loading="loading">
         <div v-if="pendingList.length > 0" class="contact-grid">
           <article v-for="p in pendingList" :key="p.friend_id + p.direction" class="contact-card">
-            <span class="card-avatar">{{ (p.nickname || '?').slice(0, 1) }}</span>
+            <span class="card-avatar">
+              <img
+                v-if="p.avatarUrl && !failedAvatars.has(getUserId(p))"
+                :src="p.avatarUrl"
+                :alt="p.nickname"
+                class="avatar-img"
+                @error="onAvatarError(p)"
+              />
+              <span v-else>{{ getInitial(p) }}</span>
+            </span>
             <div class="card-info">
               <strong>{{ p.nickname || p.real_name }}</strong>
               <span>{{ p.department || '' }}</span>
@@ -77,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
@@ -99,6 +126,22 @@ const pendingList = ref([])
 const pendingCount = ref(0)
 
 let searchTimer = null
+
+// 兼容后端 userId（驼峰）与 mock/user_id（下划线）两种字段名
+function getUserId(u) {
+  return u?.user_id ?? u?.userId ?? u?.id
+}
+
+// 跟踪加载失败的头像，回退到文字首字母
+const failedAvatars = reactive(new Set())
+
+function getInitial(u) {
+  return (u.nickname || u.real_name || u.username || '?').slice(0, 1)
+}
+
+function onAvatarError(user) {
+  failedAvatars.add(getUserId(user))
+}
 function onSearchInput() {
   clearTimeout(searchTimer)
   const q = keyword.value.trim()
@@ -186,6 +229,10 @@ onMounted(() => {
   width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
   background: var(--color-primary); color: #fff;
   display: flex; align-items: center; justify-content: center; font-weight: 900;
+  overflow: hidden;
+}
+.avatar-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .card-info { flex: 1; min-width: 0; }
 .card-info strong { display: block; color: #333; }
