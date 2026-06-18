@@ -19,14 +19,21 @@
             </span>
             <div>
               <h2>{{ contact.nickname || contact.real_name || contact.username }}</h2>
-              <p>{{ contact.title || USER_TYPE_LABEL[contact.user_type] || '未知' }} · {{ contact.department }}</p>
+              <p>
+                <template v-if="contactUsername">{{ contactUsername }} · </template>
+                {{ contactRole || USER_TYPE_LABEL[contact.user_type] || '用户' }}
+                <template v-if="contact.department"> · {{ contact.department }}</template>
+              </p>
             </div>
           </div>
           <el-descriptions :column="2" border style="margin-top:16px">
+            <el-descriptions-item v-if="contactUsername" label="账号">{{ contactUsername }}</el-descriptions-item>
             <el-descriptions-item label="昵称">{{ contact.nickname || '-' }}</el-descriptions-item>
+            <el-descriptions-item v-if="contact.realName || contact.real_name" label="姓名">{{ contact.realName || contact.real_name }}</el-descriptions-item>
+            <el-descriptions-item label="角色">{{ contactRole || USER_TYPE_LABEL[contact.user_type] || '-' }}</el-descriptions-item>
             <el-descriptions-item label="院系">{{ contact.department || '-' }}</el-descriptions-item>
             <el-descriptions-item v-if="contact.title" label="职称">{{ contact.title }}</el-descriptions-item>
-            <el-descriptions-item v-if="contact.class_name" label="班级">{{ contact.class_name }}</el-descriptions-item>
+            <el-descriptions-item v-if="contact.className || contact.class_name" label="班级">{{ contact.className || contact.class_name }}</el-descriptions-item>
             <el-descriptions-item label="电话">
               <template v-if="contact.phone">{{ contact.phone }}</template>
               <span v-else class="text-muted">未提供</span>
@@ -85,8 +92,19 @@ function getUserId(u) {
   return u?.user_id ?? u?.userId ?? u?.id
 }
 
+function getRoleLabel(u) {
+  const t = u?.userType ?? u?.user_type
+  if (t === 3) return '管理员'
+  if (t === 2) return '教师'
+  if (t === 1) return '学生'
+  if (u?.title) return '教师'
+  return ''
+}
+
 const contactId = computed(() => getUserId(contact.value))
-const avatarInitial = computed(() => (contact.value.nickname || contact.value.real_name || contact.value.username || '?').slice(0, 1))
+const avatarInitial = computed(() => (contact.value.nickname || contact.value.realName || contact.value.real_name || contact.value.username || '?').slice(0, 1))
+const contactUsername = computed(() => contact.value.username ?? contact.value.studentNo ?? contact.value.student_no ?? '')
+const contactRole = computed(() => getRoleLabel(contact.value))
 
 async function fetchDetail() {
   loading.value = true

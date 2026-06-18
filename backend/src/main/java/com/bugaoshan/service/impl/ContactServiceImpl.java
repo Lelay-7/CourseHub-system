@@ -68,6 +68,7 @@ public class ContactServiceImpl implements ContactService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("userId", user.getUserId());
+        result.put("username", user.getUsername());
         result.put("nickname", user.getNickname());
         result.put("avatarUrl", user.getAvatarUrl());
         result.put("department", user.getDepartment());
@@ -100,10 +101,12 @@ public class ContactServiceImpl implements ContactService {
     private Map<String, Object> buildStudentMap(User user) {
         Map<String, Object> map = new HashMap<>();
         map.put("userId", user.getUserId());
+        map.put("username", user.getUsername());
         map.put("nickname", user.getNickname());
         map.put("avatarUrl", user.getAvatarUrl());
         map.put("department", user.getDepartment());
         map.put("className", user.getClassName());
+        map.put("userType", user.getUserType());
         map.put("totalScore", user.getTotalScore());
 
         ContactAuth auth = contactAuthMapper.selectByUserId(user.getUserId());
@@ -123,9 +126,11 @@ public class ContactServiceImpl implements ContactService {
     private Map<String, Object> toMap(User user) {
         Map<String, Object> map = new HashMap<>();
         map.put("userId", user.getUserId());
+        map.put("username", user.getUsername());
         map.put("nickname", user.getNickname());
         map.put("avatarUrl", user.getAvatarUrl());
         map.put("realName", user.getRealName());
+        map.put("userType", user.getUserType());
         map.put("department", user.getDepartment());
         map.put("title", user.getTitle());
         map.put("officeLocation", user.getOfficeLocation());

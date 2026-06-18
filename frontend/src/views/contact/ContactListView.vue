@@ -31,7 +31,8 @@
             </span>
             <div class="card-info">
               <strong>{{ u.nickname || u.real_name || u.username }}</strong>
-              <span>{{ u.title || USER_TYPE_LABEL[u.user_type] || '未知' }} · {{ u.department }}</span>
+              <span>{{ getIdentity(u) || getRoleLabel(u) || '用户' }}</span>
+              <span class="card-department">{{ u.department || u.title || '' }}</span>
             </div>
             <div class="card-action">
               <el-button v-if="u.friend_status === 'none'" type="primary" size="small" @click="handleAddFriend(getUserId(u))">添加好友</el-button>
@@ -60,7 +61,8 @@
             </span>
             <div class="card-info">
               <strong>{{ f.nickname || f.real_name }}</strong>
-              <span>{{ f.user_type === 2 ? (f.title || '教师') : '学生' }} · {{ f.department }}</span>
+              <span>{{ getIdentity(f) || getRoleLabel(f) || '用户' }}</span>
+              <span class="card-department">{{ f.department || f.title || '' }}</span>
             </div>
           </article>
         </div>
@@ -82,8 +84,9 @@
               <span v-else>{{ getInitial(p) }}</span>
             </span>
             <div class="card-info">
-              <strong>{{ p.nickname || p.real_name }}</strong>
-              <span>{{ p.department || '' }}</span>
+              <strong>{{ p.nickname || p.realName || p.real_name }}</strong>
+              <span>{{ getIdentity(p) || getRoleLabel(p) || '用户' }}</span>
+              <span class="card-department">{{ p.department || '' }}</span>
               <el-tag size="small" :type="p.direction === 'sent' ? 'warning' : 'info'" style="margin-top:4px">
                 {{ p.direction === 'sent' ? '等待对方同意' : '待你处理' }}
               </el-tag>
@@ -136,7 +139,34 @@ function getUserId(u) {
 const failedAvatars = reactive(new Set())
 
 function getInitial(u) {
-  return (u.nickname || u.real_name || u.username || '?').slice(0, 1)
+  return (u.nickname || u.realName || u.real_name || u.username || '?').slice(0, 1)
+}
+
+function getRoleLabel(u) {
+  const t = u.userType ?? u.user_type
+  if (t === 3) return '管理员'
+  if (t === 2) return '教师'
+  if (t === 1) return '学生'
+  // 从 title 字段推断教师身份
+  if (u.title) return '教师'
+  return ''
+}
+
+function getIdentity(u) {
+  const parts = []
+  const name = u.realName ?? u.real_name
+  const uname = u.username ?? u.userName
+  const sno = u.studentNo ?? u.student_no
+  const cls = u.className ?? u.class_name
+  // 账号 / 学号
+  if (uname) parts.push(uname)
+  else if (sno) parts.push(sno)
+  // 角色
+  const role = getRoleLabel(u)
+  if (role) parts.push(role)
+  // 班级（仅学生）
+  if (role === '学生' && cls) parts.push(cls)
+  return parts.join(' · ')
 }
 
 function onAvatarError(user) {
@@ -237,5 +267,6 @@ onMounted(() => {
 .card-info { flex: 1; min-width: 0; }
 .card-info strong { display: block; color: #333; }
 .card-info span { display: block; margin-top: 2px; font-size: 12px; color: #999; }
+.card-department { color: #bbb !important; font-size: 11px !important; }
 .card-action { flex-shrink: 0; }
 </style>
