@@ -16,7 +16,7 @@
 
       <!-- 搜索 -->
       <div v-if="tab === 'search'" v-loading="loading">
-        <el-input v-model="keyword" placeholder="输入昵称、姓名、院系自动搜索..." :prefix-icon="Search" clearable size="large" @input="onSearchInput" @clear="searchResults=[];searched=false" style="margin-bottom:16px" />
+        <el-input v-model="keyword" placeholder="搜索昵称、姓名、账号/学号、院系..." :prefix-icon="Search" clearable size="large" @input="onSearchInput" @clear="searchResults=[];searched=false" style="margin-bottom:16px" />
         <div v-if="searchResults.length > 0" class="contact-grid">
           <article v-for="u in searchResults" :key="getUserId(u)" class="contact-card">
             <span class="card-avatar">

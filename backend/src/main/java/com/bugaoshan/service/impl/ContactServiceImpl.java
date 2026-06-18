@@ -40,6 +40,7 @@ public class ContactServiceImpl implements ContactService {
                 if (user.getNickname() != null && user.getNickname().contains(keyword)) matches = true;
                 if (user.getRealName() != null && user.getRealName().contains(keyword)) matches = true;
                 if (user.getDepartment() != null && user.getDepartment().contains(keyword)) matches = true;
+                if (user.getUsername() != null && user.getUsername().contains(keyword)) matches = true;
                 if (!matches) continue;
             }
 
