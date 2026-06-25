@@ -7,13 +7,13 @@
     </select>
 
     <select id="selectMyFriends" resultType="map">
-        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url,
+        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url AS avatarUrl,
                u.department, u.class_name, u.title, u.user_type
         FROM friend f
         JOIN user u ON (f.target_id = u.user_id)
         WHERE f.user_id = #{userId} AND f.status = 1
         UNION
-        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url,
+        SELECT f.friend_id, f.status, u.user_id, u.nickname, u.real_name, u.avatar_url AS avatarUrl,
                u.department, u.class_name, u.title, u.user_type
         FROM friend f
         JOIN user u ON (f.user_id = u.user_id)
@@ -21,13 +21,13 @@
     </select>
 
     <select id="selectPendingRequests" resultType="map">
-        SELECT f.friend_id, f.status, 'received' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url,
+        SELECT f.friend_id, f.status, 'received' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url AS avatarUrl,
                u.department, u.user_type, f.create_time
         FROM friend f
         JOIN user u ON f.user_id = u.user_id
         WHERE f.target_id = #{userId} AND f.status = 0
         UNION ALL
-        SELECT f.friend_id, f.status, 'sent' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url,
+        SELECT f.friend_id, f.status, 'sent' AS direction, u.user_id, u.nickname, u.real_name, u.avatar_url AS avatarUrl,
                u.department, u.user_type, f.create_time
         FROM friend f
         JOIN user u ON f.target_id = u.user_id
