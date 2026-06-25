@@ -75,7 +75,7 @@ public class ContactController {
         m.put("user_id", u.getUserId());
         m.put("nickname", u.getNickname());
         m.put("real_name", u.getRealName());
-        m.put("avatar_url", u.getAvatarUrl());
+        m.put("avatarUrl", u.getAvatarUrl());
         m.put("user_type", u.getUserType());
         m.put("department", u.getDepartment());
         m.put("title", u.getTitle());
