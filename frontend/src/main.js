@@ -41,4 +41,23 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 // 权限指令 v-permission
 app.directive('permission', permissionDirective)
 
+// ---- 启动时清理过期 / 坏的登录态，避免进入"首页 401 → 踢回登录 → 守卫又放过"的循环 ----
+try {
+  const token = localStorage.getItem('access_token')
+  if (token) {
+    // 简单解析 JWT exp
+    const parts = token.split('.')
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1]))
+      if (payload.exp && payload.exp * 1000 < Date.now()) {
+        // Token 已过期，清理整个登录态
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        localStorage.removeItem('user_info')
+        localStorage.removeItem('user-store')
+      }
+    }
+  }
+} catch { /* ignore parse errors */ }
+
 app.mount('#app')

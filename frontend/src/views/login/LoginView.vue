@@ -302,6 +302,7 @@ function redirectAfterAuth() {
 }
 
 async function handlePasswordLogin() {
+  if (loading.value) return  // 防止重复点击
   if (!passwordFormRef.value) {
     loading.value = false
     return
@@ -330,6 +331,7 @@ async function handlePasswordLogin() {
 }
 
 async function handleRegister() {
+  if (loading.value) return  // 防止重复点击
   if (!registerFormRef.value) {
     loading.value = false
     return
