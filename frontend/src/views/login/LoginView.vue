@@ -317,14 +317,10 @@ async function handlePasswordLogin() {
     ElMessage.success('登录成功')
     redirectAfterAuth()
   } catch (err) {
-    // request.js 拦截器已对 HTTP 异常 / 超时 / 业务错误做了 ElMessage.error
-    // 这里兜底处理拦截器未覆盖的异常（如 fetchUserInfo 返回空、load 阶段 JS error）
-    if (err) {
-      const fallback = typeof err === 'string' ? err : (err.message || '')
-      if (fallback && !fallback.includes('请求失败')) {
-        ElMessage.error(fallback)
-      }
-    }
+    // request.js 拦截器已统一处理所有 HTTP 异常 / 超时 / 业务错误的 ElMessage
+    // 此处不再重复弹提示，仅靠拦截器的错误消息即可
+    // 对于 user.js 内部抛出的异常（如 fetchUserInfo 返回空），拦截器不会覆盖，
+    // 但这类错误发生时用户看到按钮恢复 + 留在登录页已足够，不需要额外 toast
   } finally {
     loading.value = false
   }
@@ -347,13 +343,7 @@ async function handleRegister() {
     ElMessage.success('注册成功')
     redirectAfterAuth()
   } catch (err) {
-    // 兜底处理拦截器未覆盖的异常
-    if (err) {
-      const fallback = typeof err === 'string' ? err : (err.message || '')
-      if (fallback && !fallback.includes('请求失败')) {
-        ElMessage.error(fallback)
-      }
-    }
+    // 拦截器已统一处理错误提示，不重复弹
   } finally {
     loading.value = false
   }
