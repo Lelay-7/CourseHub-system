@@ -6,12 +6,12 @@
       <!-- 学生/教师：我的反馈 -->
       <Card v-if="!userStore.isAdmin && myFeedbacks.length > 0" style="padding:20px;margin-bottom:16px">
         <h3 style="margin:0 0 12px">我的反馈</h3>
-        <div v-for="fb in myFeedbacks" :key="fb.feedback_id" style="padding:10px 0;border-bottom:1px solid #f0e4da">
+        <div v-for="fb in myFeedbacks" :key="fb.feedback_id" style="padding:10px 0;border-bottom:1px solid var(--color-border-light)">
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span><strong>{{ fb.type }}</strong> · {{ fb.content }}</span>
             <el-tag :type="fb.status === 1 ? 'success' : 'warning'" size="small">{{ fb.status === 1 ? '已回复' : '待处理' }}</el-tag>
           </div>
-          <div v-if="fb.status === 1 && fb.reply" style="margin-top:6px;padding:8px 12px;background:#f0faf5;border-radius:8px;color:#333">
+          <div v-if="fb.status === 1 && fb.reply" style="margin-top:6px;padding:8px 12px;background:var(--color-success-light);border-radius:8px;color:var(--color-text-primary)">
             💬 管理员回复：{{ fb.reply }}
           </div>
         </div>
@@ -60,7 +60,7 @@
           <el-table-column label="回复" min-width="180">
             <template #default="{ row }">
               <template v-if="row.status === 1">
-                <span style="color:#666">{{ row.reply }}</span>
+                <span style="color:var(--color-text-regular)">{{ row.reply }}</span>
               </template>
               <template v-else>
                 <el-input v-model="replyTexts[row.feedback_id]" placeholder="输入回复..." size="small" style="width:160px" />

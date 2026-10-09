@@ -13,8 +13,8 @@
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-md);
   border-radius: 26px;
-  background: rgba(255, 250, 243, 0.94);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  background: color-mix(in srgb, var(--color-bg-card) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
 }
 
@@ -31,7 +31,7 @@
 }
 
 .toolbar :deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
   border-color: var(--color-primary);
   box-shadow: -1px 0 0 0 var(--color-primary);

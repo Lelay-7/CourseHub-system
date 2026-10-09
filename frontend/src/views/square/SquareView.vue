@@ -185,9 +185,9 @@ function addCustomTag() {
 }
 
 const entries = [
-  { title: '选课经验', desc: '教师风格、作业强度、考核方式', path: '/course', icon: Reading, bg: 'linear-gradient(135deg, #f07462, #f8b25f)' },
-  { title: '资料互助', desc: '复习资料、实验模板、往年题', path: '/material', icon: FolderOpened, bg: 'linear-gradient(135deg, #f4b24f, #e87452)' },
-  { title: '问答讨论', desc: '课程冲突、学分规划、答疑提醒', path: '/contact', icon: ChatDotRound, bg: 'linear-gradient(135deg, #c98272, #e87452)' }
+  { title: '选课经验', desc: '教师风格、作业强度、考核方式', path: '/course', icon: Reading, bg: 'linear-gradient(135deg, var(--color-primary), var(--color-accent))' },
+  { title: '资料互助', desc: '复习资料、实验模板、往年题', path: '/material', icon: FolderOpened, bg: 'linear-gradient(135deg, var(--color-accent), var(--color-primary))' },
+  { title: '问答讨论', desc: '课程冲突、学分规划、答疑提醒', path: '/contact', icon: ChatDotRound, bg: 'linear-gradient(135deg, var(--color-primary-hover), var(--color-primary))' }
 ]
 
 const posts = ref([])
@@ -370,7 +370,7 @@ onMounted(() => {
   width: 54px;
   height: 54px;
   border-radius: 18px;
-  color: #fff;
+  color: var(--color-on-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -404,7 +404,7 @@ onMounted(() => {
   padding: var(--spacing-lg);
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
 }
 
@@ -412,7 +412,7 @@ onMounted(() => {
   width: 52px;
   height: 52px;
   border-radius: 18px;
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
   display: flex;
   align-items: center;
@@ -458,7 +458,7 @@ onMounted(() => {
 
 .post-relations button {
   border: 0;
-  color: #4c91d8;
+  color: var(--color-primary);
   background: transparent;
   cursor: pointer;
   font-weight: 800;
@@ -480,8 +480,8 @@ onMounted(() => {
 }
 .like-btn, .comment-toggle { cursor: pointer; user-select: none; }
 .like-btn:hover, .comment-toggle:hover { color: var(--color-primary); }
-.like-btn.liked { color: #e74c3c; }
-.comment-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0e4da; }
+.like-btn.liked { color: var(--color-danger); }
+.comment-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-light); }
 .comment-item { display: flex; gap: 8px; padding: 6px 0; font-size: 13px; }
 .comment-item strong { color: var(--color-text-primary); white-space: nowrap; }
 .comment-item span { color: var(--color-text-regular); }

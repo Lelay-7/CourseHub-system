@@ -1,28 +1,112 @@
-:root {
+:root,
+:root[data-theme] {
+  color-scheme: light;
   /* ========== 主色系 ========== */
-  --color-primary: #e87452;
-  --color-primary-light: #ffe2d1;
-  --color-primary-dark: #9a422d;
-  --color-accent: #f4b24f;
-  --color-accent-light: #fff0cf;
+  --color-primary: #183244;
+  --color-primary-hover: #284d64;
+  --color-on-primary: #ffffff;
+  --color-primary-light: #e8eff4;
+  --color-primary-dark: #183244;
+  --color-accent: #526e83;
+  --color-accent-light: #e8eff4;
+  --color-focus: rgba(24, 50, 68, 0.16);
 
   /* ========== 辅助色 ========== */
-  --color-success: #86a96f;
-  --color-warning: #d89334;
-  --color-danger: #c95f50;
-  --color-info: #8b7b6f;
+  --color-success: #42765b;
+  --color-success-light: #eaf3ee;
+  --color-warning: #916320;
+  --color-warning-light: #f8f1e4;
+  --color-danger: #b54f55;
+  --color-danger-light: #faecee;
+  --color-info: #6c7782;
 
   /* ========== 中性色 ========== */
-  --color-text-primary: #3f342d;
-  --color-text-regular: #6d5f54;
-  --color-text-secondary: #9a897b;
-  --color-text-placeholder: #c7b6a8;
-  --color-border: #ecd8c9;
-  --color-border-light: #f5e7da;
-  --color-bg-page: #f7dfcf;
-  --color-bg-card: #fffaf3;
-  --color-bg-soft: #fff0e4;
+  --color-text-primary: #1c2b36;
+  --color-text-regular: #46545f;
+  --color-text-secondary: #6e7a84;
+  --color-text-placeholder: #87929c;
+  --color-border: #d7dfe5;
+  --color-border-light: #e6ebef;
+  --color-bg-page: #fafbfc;
+  --color-bg-card: #ffffff;
+  --color-bg-soft: #f0f3f6;
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
+  --color-preview-bg: #eef2f5;
+  --color-preview-node: #dce5ec;
+  --color-preview-line: #7890a3;
+
+  /* 同步 Element Plus，弹窗和下拉菜单挂到 body 后也使用同一主题。 */
+  --el-color-primary: var(--color-primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--color-primary) 70%, var(--color-bg-card));
+  --el-color-primary-light-5: color-mix(in srgb, var(--color-primary) 50%, var(--color-bg-card));
+  --el-color-primary-light-7: color-mix(in srgb, var(--color-primary) 30%, var(--color-bg-card));
+  --el-color-primary-light-8: color-mix(in srgb, var(--color-primary) 20%, var(--color-bg-card));
+  --el-color-primary-light-9: var(--color-primary-light);
+  --el-color-primary-dark-2: var(--color-primary-hover);
+  --el-color-success: var(--color-success);
+  --el-color-success-light-3: color-mix(in srgb, var(--color-success) 70%, var(--color-bg-card));
+  --el-color-success-light-5: color-mix(in srgb, var(--color-success) 50%, var(--color-bg-card));
+  --el-color-success-light-7: color-mix(in srgb, var(--color-success) 30%, var(--color-bg-card));
+  --el-color-success-light-8: color-mix(in srgb, var(--color-success) 20%, var(--color-bg-card));
+  --el-color-success-light-9: var(--color-success-light);
+  --el-color-success-dark-2: var(--color-success);
+  --el-color-warning: var(--color-warning);
+  --el-color-warning-light-3: color-mix(in srgb, var(--color-warning) 70%, var(--color-bg-card));
+  --el-color-warning-light-5: color-mix(in srgb, var(--color-warning) 50%, var(--color-bg-card));
+  --el-color-warning-light-7: color-mix(in srgb, var(--color-warning) 30%, var(--color-bg-card));
+  --el-color-warning-light-8: color-mix(in srgb, var(--color-warning) 20%, var(--color-bg-card));
+  --el-color-warning-light-9: var(--color-warning-light);
+  --el-color-warning-dark-2: var(--color-warning);
+  --el-color-danger: var(--color-danger);
+  --el-color-danger-light-3: color-mix(in srgb, var(--color-danger) 70%, var(--color-bg-card));
+  --el-color-danger-light-5: color-mix(in srgb, var(--color-danger) 50%, var(--color-bg-card));
+  --el-color-danger-light-7: color-mix(in srgb, var(--color-danger) 30%, var(--color-bg-card));
+  --el-color-danger-light-8: color-mix(in srgb, var(--color-danger) 20%, var(--color-bg-card));
+  --el-color-danger-light-9: var(--color-danger-light);
+  --el-color-danger-dark-2: var(--color-danger);
+  --el-color-error: var(--color-danger);
+  --el-color-error-light-3: var(--el-color-danger-light-3);
+  --el-color-error-light-5: var(--el-color-danger-light-5);
+  --el-color-error-light-7: var(--el-color-danger-light-7);
+  --el-color-error-light-8: var(--el-color-danger-light-8);
+  --el-color-error-light-9: var(--color-danger-light);
+  --el-color-error-dark-2: var(--color-danger);
+  --el-color-info: var(--color-info);
+  --el-color-info-light-3: color-mix(in srgb, var(--color-info) 70%, var(--color-bg-card));
+  --el-color-info-light-5: color-mix(in srgb, var(--color-info) 50%, var(--color-bg-card));
+  --el-color-info-light-7: color-mix(in srgb, var(--color-info) 30%, var(--color-bg-card));
+  --el-color-info-light-8: color-mix(in srgb, var(--color-info) 20%, var(--color-bg-card));
+  --el-color-info-light-9: var(--color-bg-soft);
+  --el-color-info-dark-2: var(--color-info);
+  --el-text-color-primary: var(--color-text-primary);
+  --el-text-color-regular: var(--color-text-regular);
+  --el-text-color-secondary: var(--color-text-secondary);
+  --el-text-color-placeholder: var(--color-text-placeholder);
+  --el-text-color-disabled: var(--color-text-placeholder);
+  --el-bg-color: var(--color-bg-card);
+  --el-bg-color-page: var(--color-bg-page);
+  --el-bg-color-overlay: var(--color-bg-card);
+  --el-fill-color: var(--color-bg-soft);
+  --el-fill-color-light: var(--color-bg-soft);
+  --el-fill-color-lighter: var(--color-bg-page);
+  --el-fill-color-extra-light: var(--color-bg-page);
+  --el-fill-color-dark: var(--color-border-light);
+  --el-fill-color-darker: var(--color-border);
+  --el-fill-color-blank: var(--color-bg-card);
+  --el-border-color: var(--color-border);
+  --el-border-color-light: var(--color-border-light);
+  --el-border-color-lighter: var(--color-border-light);
+  --el-border-color-extra-light: var(--color-border-light);
+  --el-border-color-dark: var(--color-border);
+  --el-border-color-darker: var(--color-text-placeholder);
+  --el-disabled-bg-color: var(--color-bg-soft);
+  --el-disabled-text-color: var(--color-text-placeholder);
+  --el-disabled-border-color: var(--color-border-light);
+  --el-mask-color: color-mix(in srgb, var(--color-bg-card) 85%, transparent);
+  --el-mask-color-extra-light: color-mix(in srgb, var(--color-bg-card) 85%, transparent);
+  --el-overlay-color: var(--color-bg-overlay);
+  --el-overlay-color-light: var(--color-bg-overlay);
+  --el-overlay-color-lighter: var(--color-bg-overlay);
 
   /* ========== 字体 ========== */
   --font-size-xs: 12px;
@@ -49,9 +133,13 @@
   --radius-round: 50%;
 
   /* ========== 阴影 ========== */
-  --shadow-sm: 0 6px 18px rgba(106, 70, 43, 0.08);
-  --shadow-md: 0 14px 34px rgba(106, 70, 43, 0.12);
-  --shadow-lg: 0 24px 54px rgba(106, 70, 43, 0.16);
+  --shadow-sm: 0 4px 18px rgba(24, 50, 68, 0.04);
+  --shadow-md: 0 12px 30px rgba(24, 50, 68, 0.08);
+  --shadow-lg: 0 20px 48px rgba(24, 50, 68, 0.12);
+  --el-box-shadow: var(--shadow-md);
+  --el-box-shadow-light: var(--shadow-sm);
+  --el-box-shadow-lighter: var(--shadow-sm);
+  --el-box-shadow-dark: var(--shadow-lg);
 
   /* ========== 布局 ========== */
   --sidebar-width: 72px;
@@ -71,4 +159,65 @@
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
   --transition-slow: 0.5s ease;
+}
+
+:root[data-theme='wine'] {
+  --color-primary: #6a2635;
+  --color-primary-hover: #87364a;
+  --color-on-primary: #ffffff;
+  --color-primary-light: #f1e7e9;
+  --color-primary-dark: #6a2635;
+  --color-accent: #8c5962;
+  --color-accent-light: #f1e7e9;
+  --color-focus: rgba(106, 38, 53, 0.16);
+  --color-text-primary: #352c2d;
+  --color-text-regular: #615456;
+  --color-text-secondary: #817477;
+  --color-text-placeholder: #95898b;
+  --color-border: #ded8d5;
+  --color-border-light: #eae5e1;
+  --color-bg-page: #f8f6f2;
+  --color-bg-card: #fdfcf9;
+  --color-bg-soft: #f0ece8;
+  --color-preview-bg: #eeece8;
+  --color-preview-node: #e0d9d5;
+  --color-preview-line: #96767c;
+  --shadow-sm: 0 4px 18px rgba(70, 37, 43, 0.04);
+  --shadow-md: 0 12px 30px rgba(70, 37, 43, 0.08);
+  --shadow-lg: 0 20px 48px rgba(70, 37, 43, 0.12);
+}
+
+:root[data-theme='black'] {
+  color-scheme: dark;
+  --color-primary: #e3e7eb;
+  --color-primary-hover: #ffffff;
+  --color-on-primary: #15181c;
+  --color-primary-light: #2a3038;
+  --color-primary-dark: #e3e7eb;
+  --color-accent: #b3beca;
+  --color-accent-light: #282e36;
+  --color-focus: rgba(227, 231, 235, 0.16);
+  --color-success: #87b89d;
+  --color-success-light: #22372d;
+  --color-warning: #d9b977;
+  --color-warning-light: #3b3221;
+  --color-danger: #e7969c;
+  --color-danger-light: #3d262c;
+  --color-info: #a2acb8;
+  --color-text-primary: #eef0f3;
+  --color-text-regular: #c5cbd2;
+  --color-text-secondary: #a0a9b5;
+  --color-text-placeholder: #828d9b;
+  --color-border: #373e48;
+  --color-border-light: #2b313a;
+  --color-bg-page: #101216;
+  --color-bg-card: #171a1f;
+  --color-bg-soft: #232830;
+  --color-bg-overlay: rgba(0, 0, 0, 0.72);
+  --color-preview-bg: #1b1f25;
+  --color-preview-node: #303741;
+  --color-preview-line: #8b97a6;
+  --shadow-sm: 0 4px 18px rgba(0, 0, 0, 0.14);
+  --shadow-md: 0 12px 30px rgba(0, 0, 0, 0.22);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.32);
 }

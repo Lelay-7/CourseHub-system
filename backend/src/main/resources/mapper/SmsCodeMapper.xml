@@ -15,7 +15,8 @@
     </select>
 
     <update id="markUsed">
-        UPDATE sms_code SET is_used = 1 WHERE sms_id = #{smsId}
+        UPDATE sms_code SET is_used = 1
+        WHERE sms_id = #{smsId} AND is_used = 0 AND expire_time &gt; NOW()
     </update>
 
 </mapper>

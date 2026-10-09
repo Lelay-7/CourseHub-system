@@ -5,7 +5,7 @@
 
       <div class="about-card card">
         <div class="about-header">
-          <el-icon :size="64" color="#409EFF"><School /></el-icon>
+          <el-icon :size="64" color="var(--color-primary)"><School /></el-icon>
           <h2>不高山选课通</h2>
           <el-tag>V{{ appVersion }}</el-tag>
         </div>
@@ -13,7 +13,7 @@
         <el-descriptions :column="1" border class="about-info">
           <el-descriptions-item label="项目名称">不高山选课通</el-descriptions-item>
           <el-descriptions-item label="简介">
-            一款基于Web技术的高校学习服务应用，旨在为学生和教师提供便捷的课程信息浏览、学习资料共享、师生通讯录查询和积分激励机制。
+            一款基于Web技术的高校学习服务应用，旨在为学生和教师提供便捷的课程信息浏览、学习资料共享、通讯录查询和积分激励机制。
           </el-descriptions-item>
           <el-descriptions-item label="技术栈">
             Vue 3 + Element Plus + Pinia + Vue Router + Axios + Vite

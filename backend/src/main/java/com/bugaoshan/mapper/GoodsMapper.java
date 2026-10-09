@@ -16,6 +16,8 @@ public interface GoodsMapper extends BaseMapper<Goods> {
 
     Goods selectById(@Param("goodsId") Long goodsId);
 
+    Goods selectByIdForUpdate(@Param("goodsId") Long goodsId);
+
     int decrementStock(@Param("goodsId") Long goodsId);
 
     int incrementStock(@Param("goodsId") Long goodsId);

@@ -215,7 +215,7 @@ onMounted(fetchDetail)
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-md);
   color: var(--color-primary-dark);
-  background: linear-gradient(135deg, var(--color-bg-soft), #fffdf8);
+  background: linear-gradient(135deg, var(--color-bg-soft), var(--color-bg-card));
 }
 
 .success-banner .el-icon {

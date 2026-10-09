@@ -133,7 +133,7 @@
                   v-model.trim="passwordForm.username"
                   size="large"
                   :prefix-icon="User"
-                  placeholder="请输入用户名"
+                  placeholder="请输入登录账号"
                   autocomplete="username"
                 />
               </el-form-item>
@@ -168,7 +168,7 @@
                   v-model.trim="registerForm.username"
                   size="large"
                   :prefix-icon="User"
-                  placeholder="设置用户名"
+                  placeholder="设置登录账号（3–20个字符）"
                   autocomplete="username"
                 />
               </el-form-item>
@@ -177,7 +177,7 @@
                   v-model.trim="registerForm.nickname"
                   size="large"
                   :prefix-icon="User"
-                  placeholder="设置昵称"
+                  placeholder="设置昵称（显示名称）"
                   autocomplete="nickname"
                 />
               </el-form-item>
@@ -198,8 +198,8 @@
             </el-form>
           </transition>
 
-          <div v-if="false" class="demo-note">
-            演示环境可使用任意账号密码登录，系统会自动进入体验数据。
+          <div v-if="isDemo" class="demo-note">
+            当前为演示预览，使用体验数据。
           </div>
         </article>
       </section>
@@ -226,6 +226,7 @@ import { formRules } from '@/utils/validator'
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const isDemo = import.meta.env.VITE_USE_MOCK === 'true'
 
 const loginMode = ref('login')
 const loading = ref(false)
@@ -241,7 +242,7 @@ const passwordForm = reactive({
   password: ''
 })
 const passwordRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
   password: formRules.password
 }
 
@@ -252,7 +253,10 @@ const registerForm = reactive({
   password: ''
 })
 const registerRules = {
-  username: [{ required: true, message: '请设置用户名', trigger: 'blur' }],
+  username: [
+    { required: true, message: '请设置登录账号', trigger: 'blur' },
+    { min: 3, max: 20, message: '登录账号长度为3–20个字符', trigger: 'blur' }
+  ],
   nickname: formRules.nickname,
   password: formRules.password
 }
@@ -317,10 +321,7 @@ async function handlePasswordLogin() {
     ElMessage.success('登录成功')
     redirectAfterAuth()
   } catch (err) {
-    // request.js 拦截器已统一处理所有 HTTP 异常 / 超时 / 业务错误的 ElMessage
-    // 此处不再重复弹提示，仅靠拦截器的错误消息即可
-    // 对于 user.js 内部抛出的异常（如 fetchUserInfo 返回空），拦截器不会覆盖，
-    // 但这类错误发生时用户看到按钮恢复 + 留在登录页已足够，不需要额外 toast
+    if (err instanceof Error && !err.userNotified) ElMessage.error(err.message)
   } finally {
     loading.value = false
   }
@@ -343,7 +344,7 @@ async function handleRegister() {
     ElMessage.success('注册成功')
     redirectAfterAuth()
   } catch (err) {
-    // 拦截器已统一处理错误提示，不重复弹
+    if (err instanceof Error && !err.userNotified) ElMessage.error(err.message)
   } finally {
     loading.value = false
   }
@@ -355,11 +356,11 @@ async function handleRegister() {
   position: relative;
   min-height: 100vh;
   overflow: hidden;
-  color: #302520;
+  color: var(--color-text-primary);
   background:
-    radial-gradient(circle at 20% 16%, rgba(255, 130, 105, 0.2), transparent 28%),
-    radial-gradient(circle at 84% 72%, rgba(247, 178, 101, 0.22), transparent 30%),
-    linear-gradient(135deg, #fff3e8 0%, #f9dfcf 48%, #fff7ed 100%);
+    radial-gradient(circle at 20% 16%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 28%),
+    radial-gradient(circle at 84% 72%, color-mix(in srgb, var(--color-primary) 22%, transparent), transparent 30%),
+    linear-gradient(135deg, var(--color-bg-page) 0%, var(--color-bg-soft) 48%, var(--color-bg-page) 100%);
 }
 
 .ambient-layer {
@@ -381,7 +382,7 @@ async function handleRegister() {
   height: 360px;
   left: -90px;
   top: -86px;
-  background: rgba(244, 111, 91, 0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .bg-halo--two {
@@ -389,7 +390,7 @@ async function handleRegister() {
   height: 280px;
   right: 8%;
   top: 12%;
-  background: rgba(255, 207, 129, 0.18);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .bg-halo--three {
@@ -397,7 +398,7 @@ async function handleRegister() {
   height: 420px;
   left: 36%;
   bottom: -210px;
-  background: rgba(255, 143, 112, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .soft-dot {
@@ -405,7 +406,7 @@ async function handleRegister() {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(181, 92, 70, 0.28);
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent);
   animation: dotFloat 8s ease-in-out infinite;
 }
 
@@ -419,7 +420,7 @@ async function handleRegister() {
 }
 
 .campus-sketch path {
-  stroke: #5a4035;
+  stroke: var(--color-primary);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -434,7 +435,7 @@ async function handleRegister() {
 }
 
 .flow-path {
-  stroke: rgba(226, 101, 80, 0.18);
+  stroke: color-mix(in srgb, var(--color-primary) 18%, transparent);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 10 22;
@@ -442,12 +443,12 @@ async function handleRegister() {
 }
 
 .flow-path--two {
-  stroke: rgba(181, 105, 163, 0.13);
+  stroke: color-mix(in srgb, var(--color-primary) 13%, transparent);
   animation-duration: 14s;
 }
 
 .flow-path--three {
-  stroke: rgba(240, 165, 86, 0.14);
+  stroke: color-mix(in srgb, var(--color-primary) 14%, transparent);
   animation-duration: 16s;
 }
 
@@ -482,7 +483,7 @@ async function handleRegister() {
 
 .brand-kicker {
   margin: 0 0 16px;
-  color: #c86b4f;
+  color: var(--color-primary);
   font-size: 14px;
   font-weight: 800;
   letter-spacing: 0;
@@ -494,12 +495,12 @@ async function handleRegister() {
   font-size: clamp(44px, 5vw, 72px);
   line-height: 1.06;
   font-weight: 900;
-  color: #2e2420;
+  color: var(--color-text-primary);
 }
 
 .brand-subtitle {
   margin: 18px 0 0;
-  color: #8d7368;
+  color: var(--color-text-regular);
   font-size: 20px;
   font-weight: 700;
 }
@@ -508,13 +509,13 @@ async function handleRegister() {
   display: inline-flex;
   margin: 22px 0 0;
   padding: 12px 20px;
-  color: #9f4e3b;
+  color: var(--color-primary);
   font-size: 18px;
   font-weight: 800;
-  background: rgba(255, 251, 245, 0.6);
-  border: 1px solid rgba(224, 135, 105, 0.16);
+  background: color-mix(in srgb, var(--color-bg-card) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
   border-radius: 999px;
-  box-shadow: 0 18px 46px rgba(156, 90, 67, 0.09);
+  box-shadow: 0 18px 46px color-mix(in srgb, var(--color-primary) 9%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -533,8 +534,8 @@ async function handleRegister() {
   inset: 40px 70px;
   border-radius: 999px;
   background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.62), transparent 54%),
-    radial-gradient(circle at 68% 36%, rgba(238, 118, 91, 0.13), transparent 36%);
+    radial-gradient(circle, color-mix(in srgb, var(--color-bg-card) 62%, transparent), transparent 54%),
+    radial-gradient(circle at 68% 36%, color-mix(in srgb, var(--color-primary) 13%, transparent), transparent 36%);
   filter: blur(4px);
 }
 
@@ -546,7 +547,7 @@ async function handleRegister() {
 }
 
 .eco-link {
-  stroke: rgba(171, 89, 67, 0.18);
+  stroke: color-mix(in srgb, var(--color-primary) 18%, transparent);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 7 16;
@@ -555,7 +556,7 @@ async function handleRegister() {
 
 .eco-link--two,
 .eco-link--four {
-  stroke: rgba(202, 109, 93, 0.14);
+  stroke: color-mix(in srgb, var(--color-primary) 14%, transparent);
   animation-duration: 13s;
 }
 
@@ -568,11 +569,11 @@ async function handleRegister() {
   place-items: center;
   width: 138px;
   height: 138px;
-  color: #9e4e3b;
-  background: rgba(255, 251, 246, 0.82);
-  border: 1px solid rgba(229, 139, 105, 0.18);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-bg-card) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
   border-radius: 50%;
-  box-shadow: 0 24px 70px rgba(146, 82, 62, 0.12);
+  box-shadow: 0 24px 70px color-mix(in srgb, var(--color-primary) 12%, transparent);
   transform: translate(-50%, -50%);
   backdrop-filter: blur(18px);
 }
@@ -588,7 +589,7 @@ async function handleRegister() {
 
 .entry-node small {
   margin-top: -12px;
-  color: #a8897d;
+  color: var(--color-text-secondary);
   font-size: 12px;
   font-weight: 700;
 }
@@ -596,7 +597,7 @@ async function handleRegister() {
 .entry-pulse {
   position: absolute;
   inset: -12px;
-  border: 1px solid rgba(220, 112, 89, 0.16);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
   border-radius: 50%;
   animation: pulseRing 4.8s ease-out infinite;
 }
@@ -636,10 +637,10 @@ async function handleRegister() {
   width: 184px;
   min-height: 88px;
   padding: 16px;
-  background: rgba(255, 251, 245, 0.72);
-  border: 1px solid rgba(222, 137, 103, 0.16);
+  background: color-mix(in srgb, var(--color-bg-card) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
   border-radius: 18px;
-  box-shadow: 0 18px 48px rgba(130, 78, 55, 0.11);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--color-primary) 11%, transparent);
   backdrop-filter: blur(18px);
 }
 
@@ -664,9 +665,9 @@ async function handleRegister() {
   place-items: center;
   width: 48px;
   height: 48px;
-  color: #fff;
+  color: var(--color-on-primary);
   border-radius: 16px;
-  box-shadow: 0 14px 30px rgba(217, 111, 83, 0.18);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .eco-icon .el-icon {
@@ -674,31 +675,31 @@ async function handleRegister() {
 }
 
 .eco-icon--course {
-  background: linear-gradient(135deg, #ff7d6a, #f4a35d);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
 }
 
 .eco-icon--material {
-  background: linear-gradient(135deg, #68cdb7, #76aee8);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-primary-hover));
 }
 
 .eco-icon--discuss {
-  background: linear-gradient(135deg, #f69a7d, #d888bd);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
 .eco-icon--points {
-  background: linear-gradient(135deg, #f3b552, #f07462);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
 }
 
 .eco-card strong {
   display: block;
-  color: #352721;
+  color: var(--color-text-primary);
   font-size: 18px;
   font-weight: 900;
 }
 
 .eco-card p {
   margin: 6px 0 0;
-  color: #8d756b;
+  color: var(--color-text-regular);
   font-size: 13px;
   font-weight: 700;
 }
@@ -717,8 +718,8 @@ async function handleRegister() {
   height: 520px;
   border-radius: 44px;
   background:
-    radial-gradient(circle at 45% 25%, rgba(255, 162, 116, 0.26), transparent 40%),
-    linear-gradient(145deg, rgba(255, 118, 98, 0.16), rgba(255, 211, 150, 0.12));
+    radial-gradient(circle at 45% 25%, color-mix(in srgb, var(--color-primary) 26%, transparent), transparent 40%),
+    linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 16%, transparent), color-mix(in srgb, var(--color-primary) 12%, transparent));
   filter: blur(28px);
   transition: transform 260ms ease-out;
 }
@@ -727,10 +728,10 @@ async function handleRegister() {
   position: relative;
   width: min(414px, 100%);
   padding: 34px;
-  background: rgba(255, 251, 245, 0.94);
-  border: 1px solid rgba(221, 139, 105, 0.18);
+  background: color-mix(in srgb, var(--color-bg-card) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
   border-radius: 30px;
-  box-shadow: 0 28px 80px rgba(126, 76, 54, 0.16);
+  box-shadow: 0 28px 80px color-mix(in srgb, var(--color-primary) 16%, transparent);
   backdrop-filter: blur(22px);
   animation: cardIn 560ms ease-out both;
 }
@@ -747,10 +748,10 @@ async function handleRegister() {
   place-items: center;
   width: 52px;
   height: 52px;
-  color: #fff;
-  background: linear-gradient(135deg, #ff7b68, #f3a25f);
+  color: var(--color-on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   border-radius: 18px;
-  box-shadow: 0 16px 34px rgba(234, 102, 79, 0.24);
+  box-shadow: 0 16px 34px color-mix(in srgb, var(--color-primary) 24%, transparent);
 }
 
 .card-mark .el-icon {
@@ -759,14 +760,14 @@ async function handleRegister() {
 
 .login-card__head p {
   margin: 0 0 4px;
-  color: #a08276;
+  color: var(--color-text-secondary);
   font-size: 13px;
   font-weight: 800;
 }
 
 .login-card__head h2 {
   margin: 0;
-  color: #2f241f;
+  color: var(--color-text-primary);
   font-size: 28px;
   font-weight: 900;
 }
@@ -778,8 +779,8 @@ async function handleRegister() {
   height: 46px;
   padding: 4px;
   margin-bottom: 22px;
-  background: rgba(251, 236, 224, 0.8);
-  border: 1px solid rgba(222, 143, 105, 0.16);
+  background: color-mix(in srgb, var(--color-bg-card) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
   border-radius: 999px;
 }
 
@@ -787,7 +788,7 @@ async function handleRegister() {
   position: relative;
   z-index: 1;
   border: 0;
-  color: #9b7d71;
+  color: var(--color-text-secondary);
   font-size: 15px;
   font-weight: 900;
   background: transparent;
@@ -797,7 +798,7 @@ async function handleRegister() {
 }
 
 .mode-tabs button.active {
-  color: #fff;
+  color: var(--color-on-primary);
 }
 
 .mode-tabs__slider {
@@ -806,9 +807,9 @@ async function handleRegister() {
   left: 4px;
   width: calc(50% - 4px);
   height: calc(100% - 8px);
-  background: linear-gradient(135deg, #ff7b68, #ef654f);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
   border-radius: 999px;
-  box-shadow: 0 12px 24px rgba(230, 98, 78, 0.24);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--color-primary) 24%, transparent);
   transition: transform 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
 }
 
@@ -828,31 +829,31 @@ async function handleRegister() {
 .auth-form :deep(.el-input__wrapper) {
   height: 48px;
   padding: 0 16px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(222, 143, 105, 0.14);
+  background: color-mix(in srgb, var(--color-bg-card) 72%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 14%, transparent);
   border-radius: 16px;
   box-shadow: none;
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .auth-form :deep(.el-input__wrapper:hover) {
-  background: rgba(255, 255, 255, 0.88);
-  border-color: rgba(234, 116, 86, 0.28);
+  background: color-mix(in srgb, var(--color-bg-card) 88%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
 }
 
 .auth-form :deep(.el-input__wrapper.is-focus) {
-  background: #fff;
-  border-color: rgba(234, 103, 80, 0.66);
-  box-shadow: 0 0 0 4px rgba(234, 103, 80, 0.12);
+  background: var(--color-bg-card);
+  border-color: color-mix(in srgb, var(--color-primary) 66%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .auth-form :deep(.el-input__inner) {
-  color: #342722;
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 
 .auth-form :deep(.el-input__inner::placeholder) {
-  color: #b9a79f;
+  color: var(--color-text-placeholder);
   font-weight: 600;
 }
 
@@ -864,25 +865,25 @@ async function handleRegister() {
   border-radius: 16px;
   font-size: 16px;
   font-weight: 900;
-  background: linear-gradient(135deg, #ff7a68, #ef624c);
-  box-shadow: 0 18px 38px rgba(232, 97, 75, 0.24);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--color-primary) 24%, transparent);
   transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
 }
 
 .submit-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 22px 46px rgba(232, 97, 75, 0.3);
+  box-shadow: 0 22px 46px color-mix(in srgb, var(--color-primary) 30%, transparent);
   filter: saturate(1.05);
 }
 
 .demo-note {
   margin-top: 18px;
   padding: 12px 14px;
-  color: rgba(125, 100, 90, 0.62);
+  color: color-mix(in srgb, var(--color-primary) 62%, transparent);
   font-size: 12px;
   line-height: 1.7;
-  background: rgba(255, 250, 244, 0.42);
-  border: 1px dashed rgba(217, 136, 106, 0.18);
+  background: color-mix(in srgb, var(--color-bg-card) 42%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-primary) 18%, transparent);
   border-radius: 14px;
 }
 

@@ -1,57 +1,46 @@
 package com.bugaoshan.service.impl;
 
 import com.bugaoshan.common.BusinessException;
+import com.bugaoshan.common.ContactCardPolicy;
 import com.bugaoshan.common.Result;
-import com.bugaoshan.entity.ContactAuth;
+import com.bugaoshan.common.SecurityUtils;
+import com.bugaoshan.entity.Friend;
 import com.bugaoshan.entity.User;
 import com.bugaoshan.mapper.ContactAuthMapper;
+import com.bugaoshan.mapper.FriendMapper;
 import com.bugaoshan.mapper.UserMapper;
 import com.bugaoshan.service.ContactService;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Service
 public class ContactServiceImpl implements ContactService {
-
     private final UserMapper userMapper;
     private final ContactAuthMapper contactAuthMapper;
+    private final FriendMapper friendMapper;
 
-    public ContactServiceImpl(UserMapper userMapper, ContactAuthMapper contactAuthMapper) {
+    public ContactServiceImpl(UserMapper userMapper, ContactAuthMapper contactAuthMapper, FriendMapper friendMapper) {
         this.userMapper = userMapper;
         this.contactAuthMapper = contactAuthMapper;
+        this.friendMapper = friendMapper;
     }
 
     @Override
     public Result getContactList(String type, String keyword) {
-        Integer userType = "teacher".equals(type) ? 2 : 1;
-        List<User> users = userMapper.selectByUserType(userType);
-
+        Long viewerId = SecurityUtils.getCurrentUserId();
+        List<Integer> roles = "teacher".equals(type) ? List.of(2)
+                : "student".equals(type) ? List.of(1) : List.of(1, 2, 3);
         List<Map<String, Object>> list = new ArrayList<>();
-        for (User user : users) {
-            if (user.getPasswordHash() != null) {
-                user.setPasswordHash(null);
-            }
-            if (keyword != null && !keyword.isEmpty()) {
-                boolean matches = false;
-                if (user.getNickname() != null && user.getNickname().contains(keyword)) matches = true;
-                if (user.getRealName() != null && user.getRealName().contains(keyword)) matches = true;
-                if (user.getDepartment() != null && user.getDepartment().contains(keyword)) matches = true;
-                if (user.getUsername() != null && user.getUsername().contains(keyword)) matches = true;
-                if (!matches) continue;
-            }
-
-            if (userType == 1) {
-                Map<String, Object> map = buildStudentMap(user);
-                list.add(map);
-            } else {
-                list.add(toMap(user));
+        for (int role : roles) {
+            for (User user : userMapper.selectByUserType(role)) {
+                if (viewerId.equals(user.getUserId())) continue;
+                Map<String, Object> card = buildCard(user, viewerId);
+                if (ContactCardPolicy.matches(card, keyword)) list.add(card);
             }
         }
-
         return Result.ok(list);
     }
 
@@ -63,89 +52,22 @@ public class ContactServiceImpl implements ContactService {
     @Override
     public Result getContactDetail(Long userId) {
         User user = userMapper.selectById(userId);
-        if (user == null) {
-            throw new BusinessException("用户不存在");
-        }
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("userId", user.getUserId());
-        result.put("username", user.getUsername());
-        result.put("nickname", user.getNickname());
-        result.put("avatarUrl", user.getAvatarUrl());
-        result.put("department", user.getDepartment());
-        result.put("className", user.getClassName());
-        result.put("userType", user.getUserType());
-        result.put("totalScore", user.getTotalScore());
-
-        if (user.getUserType() == 2) {
-            result.put("realName", user.getRealName());
-            result.put("title", user.getTitle());
-            result.put("officeLocation", user.getOfficeLocation());
-            result.put("officePhone", user.getOfficePhone());
-        } else {
-            ContactAuth auth = contactAuthMapper.selectByUserId(userId);
-            if (auth != null && auth.getContactVisible() != null && auth.getContactVisible() == 1) {
-                result.put("realName", user.getRealName());
-                result.put("studentNo", user.getStudentNo());
-                if (auth.getPhoneVisible() != null && auth.getPhoneVisible() == 1) {
-                    result.put("phone", desensitizePhone(user.getPhone()));
-                }
-                if (auth.getEmailVisible() != null && auth.getEmailVisible() == 1) {
-                    result.put("email", user.getEmail());
-                }
-            }
-        }
-
-        return Result.ok(result);
+        if (user == null) throw new BusinessException("用户不存在");
+        return Result.ok(buildCard(user, SecurityUtils.getCurrentUserId()));
     }
 
-    private Map<String, Object> buildStudentMap(User user) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("userId", user.getUserId());
-        map.put("username", user.getUsername());
-        map.put("nickname", user.getNickname());
-        map.put("avatarUrl", user.getAvatarUrl());
-        map.put("department", user.getDepartment());
-        map.put("className", user.getClassName());
-        map.put("userType", user.getUserType());
-        map.put("totalScore", user.getTotalScore());
-
-        ContactAuth auth = contactAuthMapper.selectByUserId(user.getUserId());
-        if (auth != null && auth.getContactVisible() != null && auth.getContactVisible() == 1) {
-            map.put("realName", user.getRealName());
-            map.put("studentNo", user.getStudentNo());
-            if (auth.getPhoneVisible() != null && auth.getPhoneVisible() == 1) {
-                map.put("phone", desensitizePhone(user.getPhone()));
-            }
-            if (auth.getEmailVisible() != null && auth.getEmailVisible() == 1) {
-                map.put("email", user.getEmail());
-            }
-        }
-        return map;
+    private Map<String, Object> buildCard(User user, Long viewerId) {
+        if (viewerId.equals(user.getUserId())) return ContactCardPolicy.build(user, viewerId, null, "self");
+        Friend outgoing = friendMapper.selectByUserAndTarget(viewerId, user.getUserId());
+        Friend incoming = friendMapper.selectByUserAndTarget(user.getUserId(), viewerId);
+        String status = "none";
+        if (isStatus(outgoing, 1) || isStatus(incoming, 1)) status = "accepted";
+        else if (isStatus(outgoing, 0)) status = "pending";
+        else if (isStatus(incoming, 0)) status = "pending_receive";
+        return ContactCardPolicy.build(user, viewerId, contactAuthMapper.selectByUserId(user.getUserId()), status);
     }
 
-    private Map<String, Object> toMap(User user) {
-        Map<String, Object> map = new HashMap<>();
-        map.put("userId", user.getUserId());
-        map.put("username", user.getUsername());
-        map.put("nickname", user.getNickname());
-        map.put("avatarUrl", user.getAvatarUrl());
-        map.put("realName", user.getRealName());
-        map.put("userType", user.getUserType());
-        map.put("department", user.getDepartment());
-        map.put("title", user.getTitle());
-        map.put("officeLocation", user.getOfficeLocation());
-        map.put("officePhone", user.getOfficePhone());
-        map.put("phone", user.getPhone());
-        map.put("email", user.getEmail());
-        map.put("totalScore", user.getTotalScore());
-        return map;
-    }
-
-    private String desensitizePhone(String phone) {
-        if (phone == null || phone.length() < 7) {
-            return phone;
-        }
-        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    private boolean isStatus(Friend friend, int status) {
+        return friend != null && Integer.valueOf(status).equals(friend.getStatus());
     }
 }

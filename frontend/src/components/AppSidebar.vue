@@ -55,7 +55,7 @@ const studentMenus = [
   { path: '/course', label: '选课中心', icon: Reading },
   { path: '/square', label: '同学广场', icon: ChatDotRound },
   { path: '/material', label: '学习资料', icon: FolderOpened },
-  { path: '/contact', label: '师生通讯录', icon: UserFilled },
+  { path: '/contact', label: '通讯录', icon: UserFilled },
   { path: '/mall', label: '积分商城', icon: ShoppingCart },
   { path: '/profile', label: '个人中心', icon: User }
 ]
@@ -110,10 +110,9 @@ const activeMenu = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background:
-    linear-gradient(180deg, rgba(255, 246, 234, 0.24), transparent 34%),
-    linear-gradient(180deg, #fa7f70 0%, #e7664a 100%);
-  box-shadow: 10px 0 24px rgba(125, 62, 38, 0.1);
+  background: var(--color-bg-card);
+  border-right: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
 }
 
 .sidebar-logo {
@@ -122,7 +121,7 @@ const activeMenu = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fffaf3;
+  color: var(--color-primary);
 }
 
 .sidebar-menu {
@@ -140,7 +139,7 @@ const activeMenu = computed(() => {
   height: 48px;
   border: 0;
   border-radius: 18px;
-  color: rgba(255, 250, 243, 0.86);
+  color: var(--color-text-secondary);
   background: transparent;
   display: inline-flex;
   align-items: center;
@@ -150,19 +149,19 @@ const activeMenu = computed(() => {
 }
 
 .sidebar-item:hover {
-  color: #fffaf3;
-  background: rgba(255, 250, 243, 0.16);
+  color: var(--color-primary);
+  background: var(--color-bg-soft);
 }
 
 .sidebar-item.active {
   color: var(--color-primary-dark);
-  background: #fffaf3;
-  box-shadow: 0 10px 22px rgba(125, 62, 38, 0.18);
+  background: var(--color-primary-light);
+  box-shadow: none;
 }
 
 .sidebar-divider {
   width: 32px;
   margin: 6px 0;
-  border-top: 1px solid rgba(255, 250, 243, 0.28);
+  border-top: 1px solid var(--color-border-light);
 }
 </style>

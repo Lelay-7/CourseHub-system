@@ -5,6 +5,7 @@ import com.bugaoshan.common.Result;
 import com.bugaoshan.common.SecurityUtils;
 import com.bugaoshan.entity.*;
 import com.bugaoshan.mapper.*;
+import com.bugaoshan.service.CourseService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class AdminController {
     private final ScoreRecordMapper scoreRecordMapper;
     private final OrderMapper orderMapper;
     private final MaterialReportMapper materialReportMapper;
+    private final CourseService courseService;
 
     public AdminController(UserMapper userMapper, CourseMapper courseMapper,
                            CourseReviewMapper courseReviewMapper, MaterialMapper materialMapper,
@@ -39,7 +41,8 @@ public class AdminController {
                            FeedbackMapper feedbackMapper, SquarePostMapper squarePostMapper,
                            SquareCommentMapper squareCommentMapper,
                            ScoreRecordMapper scoreRecordMapper, OrderMapper orderMapper,
-                           MaterialReportMapper materialReportMapper) {
+                           MaterialReportMapper materialReportMapper,
+                           CourseService courseService) {
         this.userMapper = userMapper;
         this.courseMapper = courseMapper;
         this.courseReviewMapper = courseReviewMapper;
@@ -52,6 +55,7 @@ public class AdminController {
         this.scoreRecordMapper = scoreRecordMapper;
         this.orderMapper = orderMapper;
         this.materialReportMapper = materialReportMapper;
+        this.courseService = courseService;
     }
 
     // ==================== 仪表盘 ====================
@@ -178,8 +182,10 @@ public class AdminController {
 
     @DeleteMapping("/reviews/{id}")
     public Result<?> deleteReview(@PathVariable Long id) {
-        courseReviewMapper.deleteById(id);
-        return Result.ok();
+        // Resolve the course outside the mutation transaction; its first read must be the course lock.
+        CourseReview review = courseReviewMapper.selectById(id);
+        if (review == null) throw new BusinessException("评价不存在");
+        return courseService.deleteReviewForAdmin(review.getCourseId(), id);
     }
 
     // ==================== 资料审核 ====================

@@ -86,7 +86,7 @@ function highlightText(text, keyword) {
   padding: 20px;
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -120,7 +120,7 @@ function highlightText(text, keyword) {
 
 .course-card-pro h3 :deep(mark) {
   color: var(--color-primary-dark);
-  background: rgba(232, 116, 82, 0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
   border-radius: 4px;
   padding: 0 2px;
 }
@@ -155,7 +155,7 @@ function highlightText(text, keyword) {
 .course-card-pro__links button {
   border: 0;
   padding: 0;
-  color: #4c91d8;
+  color: var(--color-primary);
   background: transparent;
   cursor: pointer;
   font-weight: 800;
@@ -170,11 +170,11 @@ function highlightText(text, keyword) {
   min-width: 90px;
 }
 .course-card-pro.is-selected {
-  border-color: #67c23a;
-  box-shadow: 0 0 0 2px rgba(103,194,58,.15);
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 15%, transparent);
 }
 .course-card-pro.is-compared {
-  border-color: #e6a23c;
-  box-shadow: 0 0 0 2px rgba(230,162,60,.15);
+  border-color: var(--color-warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
 }
 </style>

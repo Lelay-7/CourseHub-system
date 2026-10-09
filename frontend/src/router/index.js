@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { isAuthenticated, getUserType } from '@/utils/auth'
+import { getUserType } from '@/utils/auth'
+import { ensureSession } from '@/utils/session'
 
 /**
  * 角色定义
@@ -70,7 +71,7 @@ const routes = [
     path: '/contact',
     name: 'ContactList',
     component: () => import('@/views/contact/ContactListView.vue'),
-    meta: { requiresAuth: true, roles: ALL, title: '师生通讯录', keepAlive: true }
+    meta: { requiresAuth: true, roles: ALL, title: '通讯录', keepAlive: true }
   },
   {
     path: '/contact/:id',
@@ -255,12 +256,12 @@ const router = createRouter({
   }
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 不高山选课通` : '不高山选课通'
 
   // 登录页：已登录则跳转首页
   if (to.meta.requiresAuth === false) {
-    if (to.name === 'Login' && isAuthenticated()) {
+    if (to.name === 'Login' && await ensureSession()) {
       next({ path: to.query.redirect || '/home', replace: true })
       return
     }
@@ -269,7 +270,7 @@ router.beforeEach((to, from, next) => {
   }
 
   // 需要登录
-  if (!isAuthenticated()) {
+  if (!await ensureSession()) {
     ElMessage.warning('请先登录')
     next({
       path: '/login',

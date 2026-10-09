@@ -38,7 +38,7 @@ const icon = computed(() => icons[props.goods.category - 1] || icons[0])
   padding: var(--spacing-lg);
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
 }
@@ -56,10 +56,10 @@ const icon = computed(() => icons[props.goods.category - 1] || icons[0])
   width: 72px;
   height: 72px;
   border-radius: 24px;
-  color: #fff;
+  color: var(--color-on-primary);
   background:
-    radial-gradient(circle at 30% 20%, rgba(255,255,255,.24), transparent 32%),
-    linear-gradient(135deg, #f07462, #f8b25f);
+    radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--color-bg-card) 24%, transparent), transparent 32%),
+    linear-gradient(135deg, var(--color-primary), var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;

@@ -119,6 +119,8 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public Result submitReview(Long courseId, Long userId, CourseReviewDTO dto) {
+        // Establish the REPEATABLE READ snapshot only after earlier rating mutations commit.
+        courseMapper.lockForRatingUpdate(courseId);
         Course course = courseMapper.selectById(courseId);
         if (course == null || !Integer.valueOf(1).equals(course.getStatus())
                 || Integer.valueOf(1).equals(course.getIsDeleted())) {
@@ -205,10 +207,27 @@ public class CourseServiceImpl implements CourseService {
     @Override
     @Transactional
     public Result deleteReview(Long courseId, Long userId) {
+        courseMapper.lockForRatingUpdate(courseId);
         if (!courseReviewMapper.existsByUserIdAndCourseId(userId, courseId)) {
             throw new BusinessException("该课程暂无您的评价");
         }
         courseReviewMapper.deleteByUserIdAndCourseId(userId, courseId);
+        recalcRating(courseId);
+        return Result.ok();
+    }
+
+    @Override
+    @Transactional
+    public Result deleteReviewForAdmin(Long courseId, Long reviewId) {
+        courseMapper.lockForRatingUpdate(courseId);
+        CourseReview review = courseReviewMapper.selectById(reviewId);
+        if (review == null || !courseId.equals(review.getCourseId())
+                || Integer.valueOf(1).equals(review.getIsDeleted())) {
+            throw new BusinessException("评价不存在");
+        }
+        if (courseReviewMapper.deleteById(reviewId) != 1) {
+            throw new BusinessException("评价状态已变化，请刷新后重试");
+        }
         recalcRating(courseId);
         return Result.ok();
     }

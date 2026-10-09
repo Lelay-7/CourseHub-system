@@ -13,20 +13,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class AuthServiceImpl implements AuthService {
 
     private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserMapper userMapper;
     private final SmsCodeMapper smsCodeMapper;
@@ -52,16 +52,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result login(String username, String password) {
-        User user = userMapper.selectByUsername(username);
+        String account = normalizeAccount(username);
+        validatePassword(password);
+        User user = userMapper.selectByUsername(account);
         if (user == null) {
-            throw new BusinessException("用户名或密码错误");
+            throw new BusinessException("账号或密码错误");
         }
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            throw new BusinessException("用户名或密码错误");
+            throw new BusinessException("账号或密码错误");
         }
-        if (user.getStatus() != 1) {
-            throw new BusinessException("账号已被禁用");
-        }
+        requireActiveUser(user);
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(user);
 
@@ -71,35 +71,23 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result smsLogin(String phone, String code) {
-        if (smsMock) {
-            if (smsMockCode == null || smsMockCode.isBlank() || !smsMockCode.equals(code)) {
-                throw new BusinessException("验证码错误或已过期");
-            }
-        } else {
-            SmsCode smsCode = smsCodeMapper.selectLatestByPhone(phone, 1);
-            if (smsCode == null || smsCode.getIsUsed() == 1
-                    || smsCode.getExpireTime().isBefore(LocalDateTime.now())
-                    || !smsCode.getCode().equals(code)) {
-                throw new BusinessException("验证码错误或已过期");
-            }
-            smsCodeMapper.markUsed(smsCode.getSmsId());
+        requireSmsAvailable();
+        String normalizedPhone = normalizePhone(phone);
+        SmsCode smsCode = smsCodeMapper.selectLatestByPhone(normalizedPhone, 1);
+        if (smsCode == null || !Objects.equals(smsCode.getIsUsed(), 0)
+                || smsCode.getExpireTime() == null
+                || !smsCode.getExpireTime().isAfter(LocalDateTime.now())
+                || code == null || !code.equals(smsCode.getCode())) {
+            throw new BusinessException("验证码错误或已过期");
         }
-
-        User user = userMapper.selectByPhone(phone);
+        User user = userMapper.selectByPhone(normalizedPhone);
         if (user == null) {
-            user = new User();
-            user.setUsername(phone);
-            user.setPasswordHash(passwordEncoder.encode(phone));
-            user.setNickname("用户" + phone.substring(phone.length() - 4));
-            user.setPhone(phone);
-            user.setUserType(1);
-            user.setStatus(1);
-            user.setScoreBalance(0);
-            user.setTotalScore(0);
-            user.setIsDeleted(0);
-            user.setCreateTime(LocalDateTime.now());
-            user.setUpdateTime(LocalDateTime.now());
-            userMapper.insert(user);
+            throw new BusinessException("该手机号未关联账号，请使用独立账号注册");
+        }
+        requireActiveUser(user);
+        // The conditional update lets only one concurrent request consume this code.
+        if (smsCodeMapper.markUsed(smsCode.getSmsId()) != 1) {
+            throw new BusinessException("验证码错误或已过期");
         }
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(user);
@@ -110,25 +98,26 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result sendSmsCode(String phone) {
-        if (smsMock && (smsMockCode == null || smsMockCode.isBlank())) {
+        requireSmsAvailable();
+        String normalizedPhone = normalizePhone(phone);
+        if (smsMockCode == null || !smsMockCode.matches("\\d{6}")) {
             throw new BusinessException("模拟短信验证码未配置");
         }
         Boolean acquired = redisTemplate.opsForValue().setIfAbsent(
-                "sms:send:" + phone, "1", Duration.ofSeconds(60));
+                "sms:send:" + normalizedPhone, "1", Duration.ofSeconds(60));
         if (!Boolean.TRUE.equals(acquired)) {
             throw new BusinessException("验证码发送过于频繁，请稍后再试");
         }
-        String code = smsMock ? smsMockCode : String.format("%06d", SECURE_RANDOM.nextInt(1000000));
         SmsCode smsCode = new SmsCode();
-        smsCode.setPhone(phone);
-        smsCode.setCode(code);
+        smsCode.setPhone(normalizedPhone);
+        smsCode.setCode(smsMockCode);
         smsCode.setType(1);
         smsCode.setIsUsed(0);
         smsCode.setExpireTime(LocalDateTime.now().plusMinutes(5));
         smsCode.setCreateTime(LocalDateTime.now());
         smsCodeMapper.insert(smsCode);
 
-        log.debug("SMS code created for phone ending in {}", phone.substring(Math.max(0, phone.length() - 4)));
+        log.debug("SMS code created for phone ending in {}", normalizedPhone.substring(normalizedPhone.length() - 4));
 
         Map<String, Object> data = new HashMap<>();
         data.put("sent", true);
@@ -137,22 +126,31 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public Result register(RegisterDTO dto) {
-        User existingUser = userMapper.selectByUsername(dto.getUsername());
-        if (existingUser != null) {
-            throw new BusinessException("用户名已存在");
+        if (dto == null) throw new BusinessException("注册信息不能为空");
+        String account = normalizeAccount(dto.getUsername());
+        validatePassword(dto.getPassword());
+        String nickname = dto.getNickname() == null ? account : normalizeOptional(dto.getNickname());
+        if (nickname == null || nickname.length() < 2 || nickname.length() > 20) {
+            throw new BusinessException("昵称长度需在2-20之间");
         }
-        if (dto.getPhone() != null && !dto.getPhone().isEmpty()) {
-            User existingPhone = userMapper.selectByPhone(dto.getPhone());
+        String phone = normalizeOptional(dto.getPhone());
+        if (phone != null) phone = normalizePhone(phone);
+        User existingUser = userMapper.selectByUsername(account);
+        if (existingUser != null) {
+            throw new BusinessException(409, "登录账号已存在");
+        }
+        if (phone != null) {
+            User existingPhone = userMapper.selectByPhone(phone);
             if (existingPhone != null) {
-                throw new BusinessException("手机号已被注册");
+                throw new BusinessException(409, "手机号已被注册");
             }
         }
 
         User user = new User();
-        user.setUsername(dto.getUsername());
+        user.setUsername(account);
         user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
-        user.setNickname(dto.getNickname() != null ? dto.getNickname() : dto.getUsername());
-        user.setPhone(dto.getPhone());
+        user.setNickname(nickname);
+        user.setPhone(phone);
         user.setRealName(dto.getRealName());
         user.setDepartment(dto.getDepartment());
         user.setClassName(dto.getClassName());
@@ -164,7 +162,11 @@ public class AuthServiceImpl implements AuthService {
         user.setIsDeleted(0);
         user.setCreateTime(LocalDateTime.now());
         user.setUpdateTime(LocalDateTime.now());
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(409, "登录账号或手机号已被使用");
+        }
 
         Map<String, Object> data = generateTokens(user.getUserId(), user.getUserType());
         return Result.ok(data);
@@ -200,5 +202,44 @@ public class AuthServiceImpl implements AuthService {
         result.put("accessToken", accessToken);
         result.put("refreshToken", refreshToken);
         return result;
+    }
+
+    private String normalizeAccount(String account) {
+        String normalized = normalizeOptional(account);
+        if (normalized == null || normalized.length() < 3 || normalized.length() > 20) {
+            throw new BusinessException("登录账号长度需在3-20之间");
+        }
+        return normalized;
+    }
+
+    private void validatePassword(String password) {
+        if (password == null || password.isBlank() || password.length() < 6 || password.length() > 20) {
+            throw new BusinessException("密码长度需在6-20之间");
+        }
+    }
+
+    private String normalizePhone(String phone) {
+        String normalized = normalizeOptional(phone);
+        if (normalized == null || !normalized.matches("1[3-9]\\d{9}")) {
+            throw new BusinessException("手机号格式不正确");
+        }
+        return normalized;
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
+    }
+
+    private void requireActiveUser(User user) {
+        if (!Objects.equals(user.getStatus(), 1)) {
+            throw new BusinessException("账号已被禁用");
+        }
+    }
+
+    private void requireSmsAvailable() {
+        if (!smsMock) {
+            throw new BusinessException("短信服务尚未配置，请使用账号密码登录");
+        }
     }
 }

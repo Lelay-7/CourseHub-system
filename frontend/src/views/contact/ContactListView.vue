@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <PageContainer>
-      <PageHeader title="师生通讯录" subtitle="搜索添加好友，查看联系人名片" />
+      <PageHeader title="通讯录" subtitle="查找用户，添加好友，查看联系人名片" />
 
       <el-tabs v-model="tab" @tab-change="handleTabChange">
         <el-tab-pane label="搜索用户" name="search" />
@@ -17,7 +17,8 @@
       <!-- 搜索 -->
       <div v-if="tab === 'search'" v-loading="loading">
         <el-input v-model="keyword" placeholder="搜索昵称、姓名、账号/学号、院系..." :prefix-icon="Search" clearable size="large" @input="onSearchInput" @clear="searchResults=[];searched=false" style="margin-bottom:16px" />
-        <div v-if="searchResults.length > 0" class="contact-grid">
+        <ErrorState v-if="errors.search" title="搜索失败" description="请稍后重试" @retry="doSearch(keyword.trim())" />
+        <div v-else-if="searchResults.length > 0" class="contact-grid">
           <article v-for="u in searchResults" :key="getUserId(u)" class="contact-card">
             <span class="card-avatar">
               <img
@@ -35,19 +36,20 @@
               <span class="card-department">{{ u.department || u.title || '' }}</span>
             </div>
             <div class="card-action">
-              <el-button v-if="u.friend_status === 'none'" type="primary" size="small" @click="handleAddFriend(getUserId(u))">添加好友</el-button>
+              <el-button v-if="u.friend_status === 'none'" type="primary" size="small" :loading="actions.has(getUserId(u))" @click="handleAddFriend(getUserId(u))">添加好友</el-button>
               <el-tag v-else-if="u.friend_status === 'pending'" type="warning">等待同意</el-tag>
               <el-tag v-else-if="u.friend_status === 'pending_receive'" type="info">待你同意</el-tag>
               <el-button v-else type="success" size="small" plain @click="$router.push(`/contact/${getUserId(u)}`)">查看名片</el-button>
             </div>
           </article>
         </div>
-        <EmptyState v-else-if="searched" description="未找到匹配用户" />
+        <EmptyState v-else-if="searched && !loading" description="未找到匹配用户" />
       </div>
 
       <!-- 我的好友 -->
       <div v-if="tab === 'friends'" v-loading="loading">
-        <div v-if="friends.length > 0" class="contact-grid">
+        <ErrorState v-if="errors.friends" title="好友加载失败" @retry="loadFriends" />
+        <div v-else-if="friends.length > 0" class="contact-grid">
           <article v-for="f in friends" :key="getUserId(f)" class="contact-card" @click="$router.push(`/contact/${getUserId(f)}`)">
             <span class="card-avatar">
               <img
@@ -66,12 +68,13 @@
             </div>
           </article>
         </div>
-        <EmptyState v-else description="还没有好友，去搜索添加吧" />
+        <EmptyState v-else-if="!loading" description="还没有好友，去搜索添加吧" />
       </div>
 
       <!-- 好友申请 -->
       <div v-if="tab === 'pending'" v-loading="loading">
-        <div v-if="pendingList.length > 0" class="contact-grid">
+        <ErrorState v-if="errors.pending" title="申请加载失败" @retry="loadPending" />
+        <div v-else-if="pendingList.length > 0" class="contact-grid">
           <article v-for="p in pendingList" :key="p.friend_id + p.direction" class="contact-card">
             <span class="card-avatar">
               <img
@@ -92,22 +95,22 @@
               </el-tag>
             </div>
             <div class="card-action" v-if="p.direction === 'received'">
-              <el-button type="primary" size="small" @click="handleAccept(p.friend_id)">同意</el-button>
-              <el-button size="small" @click="handleRemove(p.friend_id)">拒绝</el-button>
+              <el-button type="primary" size="small" :loading="actions.has(p.friend_id)" @click="handleAccept(p.friend_id)">同意</el-button>
+              <el-button size="small" :disabled="actions.has(p.friend_id)" @click="handleRemove(p.friend_id)">拒绝</el-button>
             </div>
             <div class="card-action" v-else>
-              <el-button size="small" type="danger" @click="handleRemove(p.friend_id)">撤回</el-button>
+              <el-button size="small" type="danger" :loading="actions.has(p.friend_id)" @click="handleRemove(p.friend_id)">撤回</el-button>
             </div>
           </article>
         </div>
-        <EmptyState v-else description="暂无好友申请" />
+        <EmptyState v-else-if="!loading" description="暂无好友申请" />
       </div>
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
@@ -115,13 +118,17 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ErrorState from '@/components/ErrorState.vue'
 import { USER_TYPE_LABEL } from '@/utils/constants'
 import request from '@/api/request'
 
 const route = useRoute()
-const tab = ref(route.query.tab || 'search')
+const tab = ref(['search', 'friends', 'pending'].includes(route.query.tab) ? route.query.tab : 'search')
 const keyword = ref('')
-const loading = ref(false)
+const loadingStates = reactive({ search: false, friends: false, pending: false })
+const loading = computed(() => loadingStates[tab.value])
+const errors = reactive({ search: false, friends: false, pending: false })
+const actions = reactive(new Set())
 const searched = ref(false)
 const searchResults = ref([])
 const friends = ref([])
@@ -129,6 +136,7 @@ const pendingList = ref([])
 const pendingCount = ref(0)
 
 let searchTimer = null
+let searchRequest = 0
 
 // 兼容后端 userId（驼峰）与 mock/user_id（下划线）两种字段名
 function getUserId(u) {
@@ -174,60 +182,80 @@ function onAvatarError(user) {
 }
 function onSearchInput() {
   clearTimeout(searchTimer)
+  searchRequest++
+  loadingStates.search = false
+  errors.search = false
   const q = keyword.value.trim()
   if (!q) { searchResults.value = []; searched.value = false; return }
   searchTimer = setTimeout(() => doSearch(q), 300)
 }
 
 async function doSearch(q) {
-  loading.value = true
+  const requestId = ++searchRequest
+  if (!q) { searchResults.value = []; searched.value = false; return }
+  loadingStates.search = true
+  errors.search = false
   searched.value = true
   try {
     const res = await request.get('/api/contact/search', { params: { keyword: q } })
-    searchResults.value = res.data?.list || res.data || []
-  } catch { searchResults.value = [] }
-  finally { loading.value = false }
+    if (requestId === searchRequest) searchResults.value = res.data?.list || res.data || []
+  } catch { if (requestId === searchRequest) { searchResults.value = []; errors.search = true } }
+  finally { if (requestId === searchRequest) loadingStates.search = false }
 }
 
 async function loadFriends() {
-  loading.value = true
+  loadingStates.friends = true
+  errors.friends = false
   try {
     const res = await request.get('/api/contact/my-friends')
     friends.value = res.data?.list || res.data || []
-  } catch { friends.value = [] }
-  finally { loading.value = false }
+  } catch { friends.value = []; errors.friends = true }
+  finally { loadingStates.friends = false }
 }
 
 async function loadPending() {
-  loading.value = true
+  loadingStates.pending = true
+  errors.pending = false
   try {
     const res = await request.get('/api/contact/pending')
     pendingList.value = res.data?.list || res.data || []
-    pendingCount.value = pendingList.value.length
-  } catch { pendingList.value = [] }
-  finally { loading.value = false }
+    pendingCount.value = pendingList.value.filter(item => item.direction === 'received').length
+  } catch { pendingList.value = []; errors.pending = true }
+  finally { loadingStates.pending = false }
 }
 
 async function handleAddFriend(targetId) {
+  if (actions.has(targetId)) return
+  actions.add(targetId)
   try {
     await request.post(`/api/contact/add/${targetId}`)
     ElMessage.success('好友申请已发送')
     if (keyword.value.trim()) doSearch(keyword.value.trim())
+    loadPending()
   } catch { /* handled */ }
+  finally { actions.delete(targetId) }
 }
 
 async function handleAccept(friendId) {
-  await request.post(`/api/contact/accept/${friendId}`)
-  ElMessage.success('已添加为好友')
-  loadFriends()
-  loadPending()
+  if (actions.has(friendId)) return
+  actions.add(friendId)
+  try {
+    await request.post(`/api/contact/accept/${friendId}`)
+    ElMessage.success('已添加为好友')
+    await Promise.all([loadFriends(), loadPending()])
+  } catch { /* handled */ }
+  finally { actions.delete(friendId) }
 }
 
 async function handleRemove(friendId) {
-  await request.delete(`/api/contact/remove/${friendId}`)
-  ElMessage.success('已处理')
-  loadFriends()
-  loadPending()
+  if (actions.has(friendId)) return
+  actions.add(friendId)
+  try {
+    await request.delete(`/api/contact/remove/${friendId}`)
+    ElMessage.success('已处理')
+    await Promise.all([loadFriends(), loadPending()])
+  } catch { /* handled */ }
+  finally { actions.delete(friendId) }
 }
 
 function handleTabChange(val) {
@@ -242,7 +270,15 @@ onMounted(() => {
     doSearch(keyword.value)
   }
   if (tab.value === 'friends') loadFriends()
-  if (tab.value === 'pending') loadPending()
+  loadPending()
+})
+onUnmounted(() => { clearTimeout(searchTimer); searchRequest++ })
+
+watch(() => [route.query.tab, route.query.keyword], ([nextTab, nextKeyword]) => {
+  tab.value = nextKeyword ? 'search' : (['search', 'friends', 'pending'].includes(nextTab) ? nextTab : 'search')
+  keyword.value = typeof nextKeyword === 'string' ? nextKeyword : ''
+  onSearchInput()
+  handleTabChange(tab.value)
 })
 </script>
 
@@ -251,13 +287,13 @@ onMounted(() => {
 .contact-card {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 18px; border-radius: 16px;
-  background: var(--color-bg-card); border: 1px solid rgba(154,66,45,.08);
+  background: var(--color-bg-card); border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   cursor: pointer; transition: box-shadow .15s;
 }
 .contact-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.06); }
 .card-avatar {
   width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
-  background: var(--color-primary); color: #fff;
+  background: var(--color-primary); color: var(--color-on-primary);
   display: flex; align-items: center; justify-content: center; font-weight: 900;
   overflow: hidden;
 }
@@ -265,8 +301,13 @@ onMounted(() => {
   width: 100%; height: 100%; object-fit: cover;
 }
 .card-info { flex: 1; min-width: 0; }
-.card-info strong { display: block; color: #333; }
-.card-info span { display: block; margin-top: 2px; font-size: 12px; color: #999; }
-.card-department { color: #bbb !important; font-size: 11px !important; }
+.card-info strong { display: block; color: var(--color-text-primary); }
+.card-info span { display: block; margin-top: 2px; font-size: 12px; color: var(--color-text-secondary); }
+.card-department { color: var(--color-text-placeholder) !important; font-size: 11px !important; }
 .card-action { flex-shrink: 0; }
+@media (max-width: 480px) {
+  .contact-card { flex-wrap: wrap; padding: 14px; }
+  .card-info { flex-basis: calc(100% - 58px); overflow-wrap: anywhere; }
+  .card-action { margin-left: 58px; }
+}
 </style>

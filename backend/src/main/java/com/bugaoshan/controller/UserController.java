@@ -4,6 +4,7 @@ import com.bugaoshan.common.BusinessException;
 import com.bugaoshan.common.Result;
 import com.bugaoshan.common.SecurityUtils;
 import com.bugaoshan.entity.User;
+import com.bugaoshan.dto.ProfileUpdateDTO;
 import com.bugaoshan.mapper.UserMapper;
 import com.bugaoshan.service.AuthService;
 import com.bugaoshan.storage.FileStorageService;
@@ -14,9 +15,12 @@ import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.dao.DuplicateKeyException;
+import jakarta.validation.Valid;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api")
@@ -64,19 +68,32 @@ public class UserController {
     }
 
     @PutMapping("/user/profile")
-    public Result<?> updateProfile(@RequestBody Map<String, Object> body) {
+    public Result<?> updateProfile(@Valid @RequestBody ProfileUpdateDTO body) {
         Long userId = SecurityUtils.getCurrentUserId();
         User user = userMapper.selectById(userId);
-        if (body.containsKey("nickname")) user.setNickname((String) body.get("nickname"));
-        if (body.containsKey("phone")) user.setPhone((String) body.get("phone"));
-        if (body.containsKey("email")) user.setEmail((String) body.get("email"));
-        if (body.containsKey("department")) user.setDepartment((String) body.get("department"));
-        if (body.containsKey("className")) user.setClassName((String) body.get("className"));
-        if (body.containsKey("studentNo")) user.setStudentNo((String) body.get("studentNo"));
-        if (body.containsKey("title")) user.setTitle((String) body.get("title"));
-        if (body.containsKey("officeLocation")) user.setOfficeLocation((String) body.get("officeLocation"));
+        if (user == null) {
+            throw new BusinessException(404, "用户不存在");
+        }
+        if (body.hasField("phone") && body.getPhone() != null) {
+            User owner = userMapper.selectByPhone(body.getPhone());
+            if (owner != null && !Objects.equals(owner.getUserId(), userId)) {
+                throw new BusinessException(409, "手机号已被其他账号使用");
+            }
+        }
+        if (body.hasField("nickname")) user.setNickname(body.getNickname());
+        if (body.hasField("phone")) user.setPhone(body.getPhone());
+        if (body.hasField("email")) user.setEmail(body.getEmail());
+        if (body.hasField("department")) user.setDepartment(body.getDepartment());
+        if (body.hasField("className")) user.setClassName(body.getClassName());
+        if (body.hasField("studentNo")) user.setStudentNo(body.getStudentNo());
+        if (body.hasField("title")) user.setTitle(body.getTitle());
+        if (body.hasField("officeLocation")) user.setOfficeLocation(body.getOfficeLocation());
         user.setUpdateTime(java.time.LocalDateTime.now());
-        userMapper.updateById(user);
+        try {
+            userMapper.updateById(user);
+        } catch (DuplicateKeyException exception) {
+            throw new BusinessException(409, "手机号已被其他账号使用");
+        }
         return Result.ok();
     }
 

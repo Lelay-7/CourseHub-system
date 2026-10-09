@@ -172,13 +172,16 @@ function getBody(config) {
 }
 
 export async function mockAdapter(config) {
-  const url = config.url || ''
+  const suppliedUrl = config.url || ''
+  const url = suppliedUrl.startsWith('/api/') ? suppliedUrl : `/api${suppliedUrl}`
   const method = (config.method || 'get').toLowerCase()
   const params = getParams(config)
   const body = getBody(config)
   let data = {}
 
   if (url === '/api/auth/login' || url === '/api/auth/login/sms') {
+    data = ok({ accessToken: makeToken(), refreshToken: makeToken() })
+  } else if (url === '/api/auth/refresh') {
     data = ok({ accessToken: makeToken(), refreshToken: makeToken() })
   } else if (url === '/api/auth/sms/send') {
     data = ok({ sent: true })

@@ -61,7 +61,8 @@ public class MallServiceImpl implements MallService {
     @Override
     @Transactional
     public Result exchangeGoods(Long userId, Long goodsId) {
-        Goods goods = goodsMapper.selectById(goodsId);
+        // Serialize allowance checks before stock and balance changes; keep goods -> user lock order.
+        Goods goods = goodsMapper.selectByIdForUpdate(goodsId);
         if (goods == null || goods.getStatus() != 1) {
             throw new BusinessException("商品不存在或已下架");
         }

@@ -118,13 +118,13 @@ const typeIconMap = {
   [MATERIAL_TYPE.IMAGE]: 'Picture', [MATERIAL_TYPE.ARCHIVE]: 'FolderOpened'
 }
 const typeColorMap = {
-  [MATERIAL_TYPE.PDF]: '#F56C6C', [MATERIAL_TYPE.WORD]: '#409EFF',
-  [MATERIAL_TYPE.EXCEL]: '#67C23A', [MATERIAL_TYPE.PPT]: '#E6A23C',
-  [MATERIAL_TYPE.IMAGE]: '#9B59B6', [MATERIAL_TYPE.ARCHIVE]: '#795548'
+  [MATERIAL_TYPE.PDF]: 'var(--color-danger)', [MATERIAL_TYPE.WORD]: 'var(--color-primary)',
+  [MATERIAL_TYPE.EXCEL]: 'var(--color-success)', [MATERIAL_TYPE.PPT]: 'var(--color-warning)',
+  [MATERIAL_TYPE.IMAGE]: 'var(--color-primary)', [MATERIAL_TYPE.ARCHIVE]: 'var(--color-text-secondary)'
 }
 
 const typeIcon = computed(() => typeIconMap[material.value.material_type] || 'Document')
-const typeColor = computed(() => typeColorMap[material.value.material_type] || '#909399')
+const typeColor = computed(() => typeColorMap[material.value.material_type] || 'var(--color-text-secondary)')
 const previewHint = computed(() => {
   const type = material.value.material_type
   if (type === MATERIAL_TYPE.PDF || type === MATERIAL_TYPE.IMAGE) return '为保护资料权限，请下载后查看文件'
@@ -243,7 +243,7 @@ onMounted(fetchDetail)
   width: 64px; height: 64px;
   border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
-  color: #fff; flex-shrink: 0;
+  color: var(--color-on-primary); flex-shrink: 0;
 }
 .material-meta h2 { margin: 0 0 var(--spacing-sm); font-size: var(--font-size-xl); }
 .meta-row {
@@ -254,7 +254,7 @@ onMounted(fetchDetail)
 .preview-section h3 { margin: 0 0 var(--spacing-md); }
 .preview-container {
   border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-  overflow: hidden; background: #f5f5f5;
+  overflow: hidden; background: var(--color-bg-soft);
 }
 .preview-img { max-width: 100%; display: block; margin: 0 auto; }
 .preview-iframe { width: 100%; height: 600px; }

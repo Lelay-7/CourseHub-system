@@ -27,22 +27,22 @@ defineProps({
 }
 
 .status-tag.success {
-  color: #5d7f45;
-  background: #edf7e5;
+  color: var(--color-success);
+  background: var(--color-success-light);
 }
 
 .status-tag.warning {
-  color: #ad6b1a;
-  background: #fff0cf;
+  color: var(--color-warning);
+  background: var(--color-warning-light);
 }
 
 .status-tag.danger {
-  color: #b84f45;
-  background: #fff0ec;
+  color: var(--color-danger);
+  background: var(--color-danger-light);
 }
 
 .status-tag.info {
   color: var(--color-text-secondary);
-  background: #f6eee7;
+  background: var(--color-bg-soft);
 }
 </style>

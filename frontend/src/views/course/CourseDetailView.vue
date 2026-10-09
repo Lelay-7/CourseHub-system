@@ -377,7 +377,7 @@ watch(() => route.params.id, (newId) => {
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-sm);
-  background: rgba(255, 250, 243, 0.9);
+  background: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -395,7 +395,7 @@ watch(() => route.params.id, (newId) => {
 }
 
 .detail-anchor button:hover {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
 }
 

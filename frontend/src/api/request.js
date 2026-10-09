@@ -4,9 +4,11 @@ import {
   clearAllAuth,
   getAccessToken,
   getRefreshToken,
-  isTokenExpired,
-  saveTokens
+  getAuthSessionId,
+  isTokenExpired
 } from '@/utils/auth'
+import { ensureFreshAccessToken, isPublicAuthRequest, normalizeApiUrl, sessionChangedError } from '@/utils/session'
+export { ensureSession } from '@/utils/session'
 import router from '@/router'
 import { mockAdapter } from './mock'
 
@@ -20,33 +22,6 @@ const service = axios.create({
   adapter: USE_MOCK ? mockAdapter : undefined
 })
 
-let refreshPromise = null
-
-async function requestNewAccessToken() {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) throw new Error('No refresh token')
-
-  const response = await service.post('/api/auth/refresh', { refreshToken })
-  const tokens = response.data || {}
-  saveTokens(tokens.accessToken, tokens.refreshToken || refreshToken)
-  // Sync to pinia user-store so persist doesn't rehydrate stale tokens
-  import('@/stores/user').then(({ useUserStore }) => {
-    const store = useUserStore()
-    if (store.accessToken !== tokens.accessToken) store.accessToken = tokens.accessToken
-    if (tokens.refreshToken && store.refreshToken !== tokens.refreshToken) store.refreshToken = tokens.refreshToken
-  }).catch(() => {})
-  return tokens.accessToken
-}
-
-function ensureFreshAccessToken() {
-  if (!refreshPromise) {
-    refreshPromise = requestNewAccessToken().finally(() => {
-      refreshPromise = null
-    })
-  }
-  return refreshPromise
-}
-
 let sessionExpired = false
 
 function expireSession(message = '登录已过期，请重新登录') {
@@ -54,7 +29,7 @@ function expireSession(message = '登录已过期，请重新登录') {
   sessionExpired = true
   clearAllAuth()
   import('@/stores/user').then(({ useUserStore }) => {
-    useUserStore().logout()
+    if (!getAccessToken() && !getRefreshToken()) useUserStore().logout()
   }).catch(() => {})
   ElMessage.error(message)
   if (router.currentRoute.value.path !== '/login') router.push('/login')
@@ -63,22 +38,27 @@ function expireSession(message = '登录已过期，请重新登录') {
 }
 
 service.interceptors.request.use(async config => {
-  // 归一化：当 baseURL='/api' 且 url 以 '/api/' 开头时，去掉 url 中的 '/api' 避免 /api/api
-  if (BASE_URL === '/api' && config.url && config.url.startsWith('/api/')) {
-    config.url = config.url.replace(/^\/api/, '')
-  }
+  config.url = normalizeApiUrl(config.url)
 
   if (config.data instanceof FormData) {
     config.headers?.delete?.('Content-Type')
     delete config.headers?.['Content-Type']
   }
 
+  if (isPublicAuthRequest(config.url)) {
+    delete config.headers.Authorization
+    return config
+  }
+  if (!Object.hasOwn(config, '_sessionIdentity')) config._sessionIdentity = getAuthSessionId()
+  if (config._sessionIdentity !== getAuthSessionId()) throw sessionChangedError()
   let token = getAccessToken()
-  if (token && isTokenExpired(token) && !String(config.url).endsWith('/api/auth/refresh') && config.url !== '/api/auth/refresh') {
+  if ((!token || isTokenExpired(token)) && getRefreshToken()) {
     try {
       token = await ensureFreshAccessToken()
+      if (config._sessionIdentity !== getAuthSessionId()) throw sessionChangedError()
     } catch (error) {
-      expireSession()
+      if (!error.sessionChanged) expireSession()
+      error.userNotified = true
       return Promise.reject(error)
     }
   }
@@ -88,16 +68,22 @@ service.interceptors.request.use(async config => {
 
 service.interceptors.response.use(
   response => {
+    if (!isPublicAuthRequest(response.config.url)
+        && response.config._sessionIdentity !== getAuthSessionId()) throw sessionChangedError()
     if (response.config.rawResponse) return response
 
     const result = response.data
     if (result?.code !== 200) {
       ElMessage.error(result?.message || '请求失败')
-      return Promise.reject(new Error(result?.message || '请求失败'))
+      return Promise.reject(Object.assign(new Error(result?.message || '请求失败'), { userNotified: true }))
     }
     return result
   },
   async error => {
+    if (error.userNotified || error.sessionChanged) return Promise.reject(error)
+    if (error.config && !isPublicAuthRequest(error.config.url)
+        && error.config._sessionIdentity !== getAuthSessionId()) return Promise.reject(sessionChangedError())
+    error.userNotified = true
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       ElMessage.error('网络请求超时，请稍后重试')
       return Promise.reject(error)
@@ -109,15 +95,19 @@ service.interceptors.response.use(
 
     const { status, data } = error.response
     const original = error.config || {}
-    if (status === 401 && !original._retry && getRefreshToken()
-        && original.url !== '/api/auth/refresh') {
+    if (isPublicAuthRequest(original.url)) {
+      ElMessage.error(data?.message || '登录请求失败，请重试')
+      return Promise.reject(error)
+    }
+    if (status === 401 && !original._retry && getRefreshToken()) {
       original._retry = true
       try {
         const token = await ensureFreshAccessToken()
         original.headers.Authorization = `Bearer ${token}`
         return service(original)
       } catch (refreshError) {
-        expireSession()
+        if (!refreshError.sessionChanged) expireSession()
+        refreshError.userNotified = true
         return Promise.reject(refreshError)
       }
     }

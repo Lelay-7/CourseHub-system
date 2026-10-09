@@ -4,7 +4,7 @@
       <PageHeader title="联系人名片" :show-back="true" />
       <div v-if="loading" class="detail-loading"><LoadingSkeleton type="list" :rows="3" /></div>
 
-      <template v-else-if="contactId">
+      <template v-else-if="contactId && !loadError">
         <Card>
           <div class="card-header">
             <span class="card-avatar">
@@ -26,7 +26,7 @@
               </p>
             </div>
           </div>
-          <el-descriptions :column="2" border style="margin-top:16px">
+          <el-descriptions :column="appStore.isMobile ? 1 : 2" border style="margin-top:16px">
             <el-descriptions-item v-if="contactUsername" label="账号">{{ contactUsername }}</el-descriptions-item>
             <el-descriptions-item label="昵称">{{ contact.nickname || '-' }}</el-descriptions-item>
             <el-descriptions-item v-if="contact.realName || contact.real_name" label="姓名">{{ contact.realName || contact.real_name }}</el-descriptions-item>
@@ -36,40 +36,41 @@
             <el-descriptions-item v-if="contact.className || contact.class_name" label="班级">{{ contact.className || contact.class_name }}</el-descriptions-item>
             <el-descriptions-item label="电话">
               <template v-if="contact.phone">{{ contact.phone }}</template>
-              <span v-else class="text-muted">未提供</span>
+              <span v-else class="text-muted">未公开或未提供</span>
             </el-descriptions-item>
             <el-descriptions-item label="邮箱">
               <template v-if="contact.email">{{ contact.email }}</template>
-              <span v-else class="text-muted">未提供</span>
+              <span v-else class="text-muted">未公开或未提供</span>
             </el-descriptions-item>
           </el-descriptions>
         </Card>
 
         <div class="action-bar">
           <template v-if="contact.friend_status === 'none'">
-            <el-button type="primary" @click="handleAddFriend">添加好友</el-button>
+            <el-button type="primary" :loading="actionLoading" @click="handleAddFriend">添加好友</el-button>
           </template>
           <template v-else-if="contact.friend_status === 'pending'">
             <el-tag type="warning" size="large">等待对方同意</el-tag>
           </template>
           <template v-else-if="contact.friend_status === 'pending_receive'">
-            <el-button type="primary" @click="handleAddFriend">同意好友申请</el-button>
+            <el-button type="primary" :loading="actionLoading" @click="handleAddFriend">同意好友申请</el-button>
           </template>
-          <template v-else>
+          <template v-else-if="contact.friend_status === 'accepted'">
             <el-tag type="success" size="large">已是好友</el-tag>
           </template>
+          <el-tag v-else-if="contact.friend_status === 'self'" size="large">这是你的名片</el-tag>
           <el-button v-if="contact.phone" @click="callPhone">拨打电话</el-button>
           <el-button v-if="contact.email" @click="sendEmail">发送邮件</el-button>
         </div>
       </template>
 
-      <ErrorState v-else title="用户不存在" @retry="fetchDetail" />
+      <ErrorState v-else title="无法加载联系人" description="用户可能已不存在，或网络请求失败。请重试。" @retry="fetchDetail" />
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User } from '@element-plus/icons-vue'
@@ -81,11 +82,16 @@ import PageHeader from '@/components/PageHeader.vue'
 import Card from '@/components/Card.vue'
 import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
 import ErrorState from '@/components/ErrorState.vue'
+import { useAppStore } from '@/stores/app'
 
 const route = useRoute()
+const appStore = useAppStore()
 const contact = ref({})
 const loading = ref(true)
 const avatarError = ref(false)
+const loadError = ref(false)
+const actionLoading = ref(false)
+let detailRequest = 0
 
 // 兼容后端 userId（驼峰）与 user_id（下划线）
 function getUserId(u) {
@@ -107,19 +113,27 @@ const contactUsername = computed(() => contact.value.username ?? contact.value.s
 const contactRole = computed(() => getRoleLabel(contact.value))
 
 async function fetchDetail() {
+  const requestId = ++detailRequest
   loading.value = true
+  loadError.value = false
+  avatarError.value = false
   try {
     const res = await request.get(`/api/contact/${route.params.id}`)
-    contact.value = res.data || {}
-  } finally { loading.value = false }
+    if (requestId === detailRequest) contact.value = res.data || {}
+  } catch {
+    if (requestId === detailRequest) { contact.value = {}; loadError.value = true }
+  } finally { if (requestId === detailRequest) loading.value = false }
 }
 
 async function handleAddFriend() {
+  if (actionLoading.value || loading.value || loadError.value) return
+  actionLoading.value = true
   try {
     await request.post(`/api/contact/add/${contactId.value}`)
     ElMessage.success('操作成功')
-    fetchDetail()
+    await fetchDetail()
   } catch { /* handled */ }
+  finally { actionLoading.value = false }
 }
 
 function callPhone() {
@@ -130,16 +144,18 @@ function sendEmail() {
 }
 
 onMounted(fetchDetail)
+watch(() => route.params.id, fetchDetail)
+onUnmounted(() => { detailRequest++ })
 </script>
 
 <style scoped>
 .detail-loading { padding: var(--spacing-lg); }
 .card-header { display: flex; align-items: center; gap: 16px; }
 .card-header h2 { margin: 0; }
-.card-header p { margin: 4px 0 0; color: #999; }
+.card-header p { margin: 4px 0 0; color: var(--color-text-secondary); }
 .card-avatar {
   width: 64px; height: 64px; border-radius: 18px; flex-shrink: 0;
-  background: var(--color-primary); color: #fff;
+  background: var(--color-primary); color: var(--color-on-primary);
   display: flex; align-items: center; justify-content: center;
   font-size: 28px; font-weight: 900;
   overflow: hidden;
@@ -147,6 +163,7 @@ onMounted(fetchDetail)
 .avatar-img {
   width: 100%; height: 100%; object-fit: cover;
 }
-.text-muted { color: #999; }
-.action-bar { display: flex; gap: 10px; margin-top: 16px; align-items: center; }
+.text-muted { color: var(--color-text-secondary); }
+.action-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; align-items: center; }
+.card-header { overflow-wrap: anywhere; }
 </style>

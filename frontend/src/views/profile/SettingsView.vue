@@ -3,6 +3,12 @@
     <PageContainer>
       <PageHeader title="设置" :show-back="true" />
 
+      <div class="settings-section card">
+        <h3>界面配色</h3>
+        <ThemeOptions />
+        <p class="setting-desc">切换立即生效，配色会保存在当前浏览器中。</p>
+      </div>
+
       <!-- 消息通知 -->
       <div class="settings-section card">
         <h3>消息通知</h3>
@@ -23,27 +29,31 @@
       <!-- 隐私设置 -->
       <div class="settings-section card">
         <h3>隐私设置</h3>
+        <ErrorState v-if="privacyError" title="隐私设置加载失败" @retry="loadPrivacy" />
         <div class="setting-item flex-between">
           <div>
-            <span>手机号可见范围</span>
-            <p class="setting-desc">控制其他用户是否可以看到你的手机号</p>
+            <span>联系方式可见范围</span>
+            <p class="setting-desc">姓名、学号和联系方式按此范围展示。</p>
           </div>
-          <el-select v-model="settings.phoneVisibility" style="width: 140px">
-            <el-option label="仅自己可见" :value="0" />
-            <el-option label="授权可见" :value="1" />
-            <el-option label="所有人可见" :value="2" />
+          <el-select v-model="settings.contact_visible" style="width: 140px">
+            <el-option label="所有人可见" :value="1" />
+            <el-option label="仅好友可见" :value="2" />
+            <el-option label="仅自己可见" :value="3" />
           </el-select>
         </div>
         <div class="setting-item flex-between">
           <div>
-            <span>邮箱可见范围</span>
-            <p class="setting-desc">控制其他用户是否可以看到你的邮箱</p>
+            <span>展示手机号</span>
+            <p class="setting-desc">在上述范围内展示手机号，关闭后仅自己可见。</p>
           </div>
-          <el-select v-model="settings.emailVisibility" style="width: 140px">
-            <el-option label="仅自己可见" :value="0" />
-            <el-option label="授权可见" :value="1" />
-            <el-option label="所有人可见" :value="2" />
-          </el-select>
+          <el-switch v-model="settings.phone_visible" :active-value="1" :inactive-value="2" />
+        </div>
+        <div class="setting-item flex-between">
+          <div>
+            <span>展示邮箱</span>
+            <p class="setting-desc">在上述范围内展示邮箱，关闭后仅自己可见。</p>
+          </div>
+          <el-switch v-model="settings.email_visible" :active-value="1" :inactive-value="2" />
         </div>
       </div>
 
@@ -61,7 +71,7 @@
       </div>
 
       <!-- 保存按钮 -->
-      <el-button type="primary" style="width: 100%; margin-top: 16px" @click="saveSettings">
+      <el-button type="primary" :loading="saving" :disabled="privacyLoading || privacyError" style="width: 100%; margin-top: 16px" @click="saveSettings">
         保存设置
       </el-button>
     </PageContainer>
@@ -74,6 +84,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import ThemeOptions from '@/components/ThemeOptions.vue'
+import ErrorState from '@/components/ErrorState.vue'
 import { getCacheSizeFormatted, clearAll } from '@/utils/storage'
 import { getMyAuth, updateMyAuth } from '@/api/contact'
 
@@ -81,11 +93,15 @@ const settings = reactive({
   courseNotify: true,
   activityNotify: true,
   systemNotify: true,
-  phoneVisibility: 1,
-  emailVisibility: 0
+  phone_visible: 2,
+  email_visible: 2,
+  contact_visible: 2
 })
 
 const cacheSize = ref('0 B')
+const saving = ref(false)
+const privacyLoading = ref(true)
+const privacyError = ref(false)
 
 function refreshCacheSize() {
   cacheSize.value = getCacheSizeFormatted()
@@ -104,21 +120,36 @@ async function handleClearCache() {
 }
 
 async function saveSettings() {
-  localStorage.setItem('user_settings', JSON.stringify(settings))
+  if (saving.value || privacyLoading.value || privacyError.value) return
+  saving.value = true
   try {
     await updateMyAuth({
-      phoneVisibility: settings.phoneVisibility,
-      emailVisibility: settings.emailVisibility
+      phone_visible: settings.phone_visible,
+      email_visible: settings.email_visible,
+      contact_visible: settings.contact_visible
     })
+    localStorage.setItem('user_settings', JSON.stringify(settings))
     ElMessage.success('设置已保存')
-  } catch {
-    ElMessage.success('部分设置已保存（同步到服务器失败）')
-  }
+  } catch { /* The request layer reports server failures. */ }
+  finally { saving.value = false }
+}
+
+async function loadPrivacy() {
+  privacyLoading.value = true
+  privacyError.value = false
+  try {
+    const res = await getMyAuth()
+    if (res.code === 200 && res.data) {
+      settings.phone_visible = res.data.phone_visible ?? 2
+      settings.email_visible = res.data.email_visible ?? 2
+      settings.contact_visible = res.data.contact_visible ?? 2
+    }
+  } catch { privacyError.value = true }
+  finally { privacyLoading.value = false }
 }
 
 onMounted(async () => {
   refreshCacheSize()
-  // 从localStorage恢复通知设置
   const saved = localStorage.getItem('user_settings')
   if (saved) {
     try {
@@ -128,14 +159,7 @@ onMounted(async () => {
       settings.systemNotify = parsed.systemNotify ?? true
     } catch {}
   }
-  // 从后端加载隐私设置
-  try {
-    const res = await getMyAuth()
-    if (res.code === 200 && res.data) {
-      settings.phoneVisibility = res.data.phoneVisibility ?? settings.phoneVisibility
-      settings.emailVisibility = res.data.emailVisibility ?? settings.emailVisibility
-    }
-  } catch { /* 使用localStorage中的值 */ }
+  await loadPrivacy()
 })
 </script>
 
@@ -153,6 +177,7 @@ onMounted(async () => {
 
 .setting-item {
   padding: var(--spacing-sm) 0;
+  gap: 16px;
 }
 .setting-item + .setting-item {
   border-top: 1px solid var(--color-border-light);

@@ -49,9 +49,9 @@ function navigate(path) {
   display: flex;
   align-items: center;
   padding: 5px 4px env(safe-area-inset-bottom, 0);
-  background: rgba(255, 250, 243, 0.94);
-  border-top: 1px solid rgba(154, 66, 45, 0.1);
-  box-shadow: 0 -12px 28px rgba(106, 70, 43, 0.1);
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
   backdrop-filter: blur(14px);
   z-index: 100;
 }
@@ -74,10 +74,10 @@ function navigate(path) {
 }
 
 .tabbar-item.active {
-  color: #fffaf3;
+  color: var(--color-on-primary);
   background: var(--color-primary);
   transform: translateY(-2px);
-  box-shadow: 0 8px 18px rgba(154, 66, 45, 0.18);
+  box-shadow: none;
 }
 
 .tabbar-label {

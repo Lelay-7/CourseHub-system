@@ -5,6 +5,18 @@
 
 const ACCESS_TOKEN_KEY = 'access_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
+const SESSION_ID_KEY = 'auth_session_id'
+
+// This identity changes on logout/login, while token renewal keeps it stable.
+export function getAuthSessionId() {
+  if (!getAccessToken() && !getRefreshToken()) return null
+  let id = localStorage.getItem(SESSION_ID_KEY)
+  if (!id) {
+    id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    localStorage.setItem(SESSION_ID_KEY, id)
+  }
+  return id
+}
 
 /**
  * 获取 Access Token
@@ -40,6 +52,7 @@ export function setRefreshToken(token) {
 export function saveTokens(accessToken, refreshToken) {
   setAccessToken(accessToken)
   setRefreshToken(refreshToken)
+  getAuthSessionId()
 }
 
 /**
@@ -47,12 +60,12 @@ export function saveTokens(accessToken, refreshToken) {
  * @param {string} token - JWT token
  * @returns {boolean}
  */
-export function isTokenExpired(token) {
+export function isTokenExpired(token, advanceSeconds = 300) {
   if (!token) return true
   try {
     const payload = JSON.parse(
       decodeURIComponent(
-        atob(token.split('.')[1])
+        atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
           .split('')
           .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
           .join('')
@@ -60,7 +73,7 @@ export function isTokenExpired(token) {
     )
     const now = Math.floor(Date.now() / 1000)
     // 提前 5 分钟视为过期，避免在请求中过期
-    return payload.exp && payload.exp < now + 300
+    return !Number.isFinite(payload.exp) || payload.exp <= now + advanceSeconds
   } catch {
     return true
   }
@@ -72,6 +85,7 @@ export function isTokenExpired(token) {
 export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(SESSION_ID_KEY)
 }
 
 /**

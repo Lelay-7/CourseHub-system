@@ -108,7 +108,7 @@ onMounted(() => { fetchList(true) })
 }
 .review-teacher { color: var(--color-text-secondary); }
 .review-item p { margin: 6px 0; color: var(--color-text-regular); }
-.review-rating { color: #e6a23c; font-weight: 700; white-space: nowrap; }
+.review-rating { color: var(--color-warning); font-weight: 700; white-space: nowrap; }
 .review-rating span { margin-left: 8px; color: var(--color-text-secondary); }
 
 .review-pagination {

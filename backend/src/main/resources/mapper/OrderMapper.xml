@@ -67,7 +67,7 @@
     <select id="countByUserIdAndGoodsId" resultType="long">
         SELECT COUNT(*) FROM `order`
         WHERE user_id = #{userId} AND goods_id = #{goodsId}
-          AND status != 4 AND is_deleted = 0
+          AND status != 4
     </select>
 
     <select id="countPendingByUserId" resultType="long">

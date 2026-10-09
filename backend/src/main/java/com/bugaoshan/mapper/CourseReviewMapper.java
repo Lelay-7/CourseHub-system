@@ -13,6 +13,8 @@ import java.util.Map;
 @Mapper
 public interface CourseReviewMapper extends BaseMapper<CourseReview> {
 
+    CourseReview selectById(@Param("reviewId") Long reviewId);
+
     List<CourseReview> selectByCourseId(@Param("courseId") Long courseId, @Param("offset") Integer offset, @Param("limit") Integer limit);
 
     List<CourseReview> selectAllForAdmin(@Param("offset") Integer offset, @Param("limit") Integer limit);

@@ -12,7 +12,7 @@ defineProps({
 
 <style scoped>
 .page-container {
-  width: min(calc(100% - 64px), 1180px);
+  width: min(calc(100% - 64px), 1440px);
   margin: 0 auto;
   padding: 40px 0 var(--spacing-xxl);
 }

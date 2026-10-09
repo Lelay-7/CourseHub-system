@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs/promises'
+import vm from 'node:vm'
+
+async function loadView(relativePath, overrides = {}) {
+  const source = await fs.readFile(new URL(relativePath, import.meta.url), 'utf8')
+  const script = source.match(/<script setup>([\s\S]*?)<\/script>/)[1]
+    .replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*$/gm, '')
+  const mounted = []
+  const messages = []
+  const context = vm.createContext({
+    ref: value => ({ value }), reactive: value => value,
+    computed: callback => ({ get value() { return callback() } }),
+    onMounted: callback => mounted.push(callback), onUnmounted: () => {}, watch: () => {},
+    useRoute: () => ({ query: {}, params: {} }),
+    ElMessage: { success: text => messages.push(text), error: text => messages.push(text), warning: () => {} },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    getCacheSizeFormatted: () => '0 B',
+    setTimeout, clearTimeout, console,
+    ...overrides
+  })
+  vm.runInContext(script, context)
+  return { context, mounted, get: expression => vm.runInContext(expression, context) }
+}
+
+// Runs the actual SettingsView script against the live backend JSON contract.
+const writes = []
+const settings = await loadView('../src/views/profile/SettingsView.vue', {
+  getMyAuth: async () => ({ code: 200, data: { phone_visible: 2, email_visible: 1, contact_visible: 3 } }),
+  updateMyAuth: async payload => writes.push(JSON.parse(JSON.stringify(payload)))
+})
+await settings.mounted[0]()
+await settings.get('saveSettings()')
+assert.deepEqual(writes[0], { phone_visible: 2, email_visible: 1, contact_visible: 3 },
+  'Settings must read and save the same privacy values using backend snake_case fields')
+
+const pending = []
+const search = await loadView('../src/views/contact/ContactListView.vue', {
+  request: { get: () => new Promise(resolve => pending.push(resolve)) }
+})
+const first = search.get('doSearch("first")')
+const second = search.get('doSearch("second")')
+pending[1]({ data: [{ user_id: 2, nickname: 'second' }] })
+await second
+pending[0]({ data: [{ user_id: 1, nickname: 'first' }] })
+await first
+assert.equal(search.get('searchResults.value[0].user_id'), 2,
+  'An older contact search response must not replace the newest results')
+
+const cleared = search.get('doSearch("before-clear")')
+search.get('keyword.value = ""; onSearchInput()')
+pending[2]({ data: [{ user_id: 3 }] })
+await cleared
+assert.equal(search.get('searchResults.value.length'), 0,
+  'Clearing contact search must also invalidate a request already in flight')
+
+console.log('Contact privacy payload and search race regressions passed')

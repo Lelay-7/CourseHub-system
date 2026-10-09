@@ -34,6 +34,8 @@ public interface CourseMapper extends BaseMapper<Course> {
 
     Course selectById(@Param("courseId") Long courseId);
 
+    Long lockForRatingUpdate(@Param("courseId") Long courseId);
+
     Course selectByCourseCode(@Param("courseCode") String courseCode);
 
     List<Course> selectAllForAdmin(@Param("keyword") String keyword,

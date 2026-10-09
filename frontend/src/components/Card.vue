@@ -15,7 +15,7 @@ defineProps({
 .ui-card {
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
 }
 

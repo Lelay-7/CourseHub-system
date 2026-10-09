@@ -191,6 +191,12 @@
         LIMIT #{limit}
     </select>
 
+    <!-- Lock before any consistent read in rating mutation transactions. Deleted courses
+         remain lockable so administrators can remove their historical reviews. -->
+    <select id="lockForRatingUpdate" resultType="long">
+        SELECT course_id FROM course WHERE course_id = #{courseId} FOR UPDATE
+    </select>
+
     <update id="updateRating">
         UPDATE course SET avg_rating = #{avgRating}, rating_count = #{ratingCount}, update_time = NOW()
         WHERE course_id = #{courseId}

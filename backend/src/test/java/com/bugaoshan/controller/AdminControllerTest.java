@@ -50,7 +50,47 @@ class AdminControllerTest {
         return new AdminController(userMapper, courseMapper, courseReviewMapper,
                 materialMapper, bannerMapper, goodsMapper, feedbackMapper, squarePostMapper,
                 squareCommentMapper,
-                scoreRecordMapper, orderMapper, materialReportMapper);
+                scoreRecordMapper, orderMapper, materialReportMapper,
+                new com.bugaoshan.service.impl.CourseServiceImpl(courseMapper, courseReviewMapper,
+                        org.mockito.Mockito.mock(CourseSelectionMapper.class),
+                        org.mockito.Mockito.mock(FavoriteMapper.class), userMapper, scoreRecordMapper));
+    }
+
+    @Test
+    void deletingLastReviewClearsCourseRatingAndCount() {
+        CourseReview review = new CourseReview();
+        review.setReviewId(8L);
+        review.setCourseId(7L);
+        review.setUserId(9L);
+        review.setIsDeleted(0);
+        org.mockito.Mockito.lenient().when(courseReviewMapper.selectById(8L)).thenReturn(review);
+        org.mockito.Mockito.lenient().when(courseReviewMapper.calcAvgAndCount(7L))
+                .thenReturn(java.util.Map.of("avg_rating", java.math.BigDecimal.ZERO, "rating_count", 0));
+        org.mockito.Mockito.lenient().when(courseReviewMapper.deleteById(8L)).thenReturn(1);
+
+        controller().deleteReview(8L);
+
+        verify(courseMapper).updateRating(7L, java.math.BigDecimal.ZERO, 0);
+    }
+
+    @Test
+    void deletingMissingReviewIsRejected() {
+        assertThrows(BusinessException.class, () -> controller().deleteReview(999L));
+
+        verify(courseReviewMapper, never()).deleteById(999L);
+    }
+
+    @Test
+    void deletingReviewLostRaceDoesNotChangeRating() {
+        CourseReview review = new CourseReview();
+        review.setReviewId(8L);
+        review.setCourseId(7L);
+        review.setIsDeleted(0);
+        org.mockito.Mockito.lenient().when(courseReviewMapper.selectById(8L)).thenReturn(review);
+
+        assertThrows(BusinessException.class, () -> controller().deleteReview(8L));
+
+        verify(courseMapper, never()).updateRating(anyLong(), org.mockito.ArgumentMatchers.any(), anyInt());
     }
 
     @Test

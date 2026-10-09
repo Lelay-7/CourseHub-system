@@ -68,7 +68,7 @@ onMounted(fetchList)
 </script>
 
 <style scoped>
-.text-success { color: #67c23a; font-weight: 700; }
-.text-warning { color: #e6a23c; font-weight: 700; }
+.text-success { color: var(--color-success); font-weight: 700; }
+.text-warning { color: var(--color-warning); font-weight: 700; }
 .pagination-wrap { display: flex; justify-content: center; margin-top: var(--spacing-lg); }
 </style>

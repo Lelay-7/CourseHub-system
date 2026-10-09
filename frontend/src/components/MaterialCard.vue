@@ -101,7 +101,7 @@ function formatNumber(num) {
   padding: var(--spacing-lg);
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
@@ -116,18 +116,18 @@ function formatNumber(num) {
   width: 58px;
   height: 58px;
   border-radius: 18px;
-  color: #fff;
-  background: linear-gradient(135deg, #e87452, #f4b24f);
+  color: var(--color-on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.material-card-pro__icon.type-2 { background: linear-gradient(135deg, #c98272, #e87452); }
-.material-card-pro__icon.type-3 { background: linear-gradient(135deg, #86a96f, #d89334); }
-.material-card-pro__icon.type-4 { background: linear-gradient(135deg, #f4b24f, #e87452); }
-.material-card-pro__icon.type-5 { background: linear-gradient(135deg, #9b7cf4, #c98272); }
-.material-card-pro__icon.type-6 { background: linear-gradient(135deg, #8b6f55, #b56b48); }
+.material-card-pro__icon.type-2 { background: linear-gradient(135deg, var(--color-primary-hover), var(--color-primary)); }
+.material-card-pro__icon.type-3 { background: linear-gradient(135deg, var(--color-success), var(--color-warning)); }
+.material-card-pro__icon.type-4 { background: linear-gradient(135deg, var(--color-accent), var(--color-primary)); }
+.material-card-pro__icon.type-5 { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); }
+.material-card-pro__icon.type-6 { background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover)); }
 
 .material-card-pro__body {
   min-width: 0;
@@ -152,7 +152,7 @@ function formatNumber(num) {
 
 .material-card-pro h3 :deep(mark) {
   color: var(--color-primary-dark);
-  background: rgba(232, 116, 82, 0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
   border-radius: 4px;
   padding: 0 2px;
 }

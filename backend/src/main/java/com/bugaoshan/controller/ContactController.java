@@ -1,6 +1,7 @@
 package com.bugaoshan.controller;
 
 import com.bugaoshan.common.BusinessException;
+import com.bugaoshan.common.ContactCardPolicy;
 import com.bugaoshan.common.Result;
 import com.bugaoshan.common.SecurityUtils;
 import com.bugaoshan.entity.ContactAuth;
@@ -39,17 +40,12 @@ public class ContactController {
             return Result.ok(Collections.emptyList());
         }
         Long myId = SecurityUtils.getCurrentUserId();
-        List<User> teachers = userMapper.selectByUserType(2);
         List<Map<String, Object>> results = new ArrayList<>();
-        for (User u : teachers) {
-            if (matches(u, keyword)) {
-                results.add(buildCard(u, myId));
-            }
-        }
-        List<User> students = userMapper.selectByUserType(1);
-        for (User u : students) {
-            if (matches(u, keyword)) {
-                results.add(buildCard(u, myId));
+        for (int role : List.of(1, 2, 3)) {
+            for (User user : userMapper.selectByUserType(role)) {
+                if (myId.equals(user.getUserId())) continue;
+                Map<String, Object> card = buildCard(user, myId);
+                if (ContactCardPolicy.matches(card, keyword)) results.add(card);
             }
         }
         return Result.ok(results);
@@ -62,58 +58,58 @@ public class ContactController {
         return contactService.getContactList(type, keyword);
     }
 
-    private boolean matches(User u, String keyword) {
-        String k = keyword.toLowerCase();
-        return (u.getNickname() != null && u.getNickname().toLowerCase().contains(k))
-            || (u.getRealName() != null && u.getRealName().toLowerCase().contains(k))
-            || (u.getUsername() != null && u.getUsername().toLowerCase().contains(k))
-            || (u.getDepartment() != null && u.getDepartment().toLowerCase().contains(k));
-    }
-
     private Map<String, Object> buildCard(User u, Long myId) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("user_id", u.getUserId());
-        m.put("nickname", u.getNickname());
-        m.put("real_name", u.getRealName());
-        m.put("avatarUrl", u.getAvatarUrl());
-        m.put("user_type", u.getUserType());
-        m.put("department", u.getDepartment());
-        m.put("title", u.getTitle());
-        m.put("class_name", u.getClassName());
-        // Check friend status
+        if (myId.equals(u.getUserId())) return ContactCardPolicy.build(u, myId, null, "self");
         Friend f = friendMapper.selectByUserAndTarget(myId, u.getUserId());
         Friend rev = friendMapper.selectByUserAndTarget(u.getUserId(), myId);
+        String status;
+        Long friendId = null;
         if ((f != null && Integer.valueOf(1).equals(f.getStatus())) || (rev != null && Integer.valueOf(1).equals(rev.getStatus()))) {
-            m.put("friend_status", "accepted");
-            ContactAuth auth = contactAuthMapper.selectByUserId(u.getUserId());
-            if (auth != null && Integer.valueOf(1).equals(auth.getPhoneVisible())) {
-                m.put("phone", u.getPhone());
-            }
-            if (auth != null && Integer.valueOf(1).equals(auth.getEmailVisible())) {
-                m.put("email", u.getEmail());
-            }
+            status = "accepted";
+            friendId = f != null && Integer.valueOf(1).equals(f.getStatus()) ? f.getFriendId() : rev.getFriendId();
         } else if (f != null && Integer.valueOf(0).equals(f.getStatus())) {
-            m.put("friend_status", "pending");
+            status = "pending";
+            friendId = f.getFriendId();
         } else if (rev != null && Integer.valueOf(0).equals(rev.getStatus())) {
-            m.put("friend_status", "pending_receive");
+            status = "pending_receive";
+            friendId = rev.getFriendId();
         } else {
-            m.put("friend_status", "none");
+            status = "none";
         }
-        return m;
+        Map<String, Object> card = ContactCardPolicy.build(u, myId,
+                contactAuthMapper.selectByUserId(u.getUserId()), status);
+        if (friendId != null) card.put("friend_id", friendId);
+        return card;
+    }
+
+    private List<Map<String, Object>> buildRelationshipCards(List<Map<String, Object>> relationships, Long viewerId) {
+        List<Map<String, Object>> cards = new ArrayList<>();
+        for (Map<String, Object> row : relationships) {
+            Object id = row.get("user_id");
+            if (id == null) continue;
+            User user = userMapper.selectById(Long.valueOf(id.toString()));
+            if (user == null) continue;
+            Map<String, Object> card = buildCard(user, viewerId);
+            for (String key : List.of("friend_id", "direction", "create_time")) {
+                if (row.containsKey(key)) card.put(key, row.get(key));
+            }
+            cards.add(card);
+        }
+        return cards;
     }
 
     /** 好友列表 */
     @GetMapping("/my-friends")
     public Result<?> myFriends() {
         Long userId = SecurityUtils.getCurrentUserId();
-        return Result.ok(friendMapper.selectMyFriends(userId));
+        return Result.ok(buildRelationshipCards(friendMapper.selectMyFriends(userId), userId));
     }
 
     /** 待处理的好友申请 */
     @GetMapping("/pending")
     public Result<?> pending() {
         Long userId = SecurityUtils.getCurrentUserId();
-        return Result.ok(friendMapper.selectPendingRequests(userId));
+        return Result.ok(buildRelationshipCards(friendMapper.selectPendingRequests(userId), userId));
     }
 
     /** 发送好友申请 */
@@ -199,19 +195,31 @@ public class ContactController {
     @PutMapping("/auth/update")
     public Result<?> updateAuth(@RequestBody ContactAuth auth) {
         Long userId = SecurityUtils.getCurrentUserId();
+        if (auth == null) throw new BusinessException("请提供隐私设置");
+        validateVisibility(auth.getPhoneVisible(), 2);
+        validateVisibility(auth.getEmailVisible(), 2);
+        validateVisibility(auth.getContactVisible(), 3);
         ContactAuth existing = contactAuthMapper.selectByUserId(userId);
         if (existing != null) {
-            existing.setPhoneVisible(auth.getPhoneVisible());
-            existing.setEmailVisible(auth.getEmailVisible());
-            existing.setContactVisible(auth.getContactVisible());
+            if (auth.getPhoneVisible() != null) existing.setPhoneVisible(auth.getPhoneVisible());
+            if (auth.getEmailVisible() != null) existing.setEmailVisible(auth.getEmailVisible());
+            if (auth.getContactVisible() != null) existing.setContactVisible(auth.getContactVisible());
             existing.setUpdateTime(LocalDateTime.now());
             contactAuthMapper.updateAuth(existing);
         } else {
-            auth.setUserId(userId);
-            auth.setCreateTime(LocalDateTime.now());
-            auth.setUpdateTime(LocalDateTime.now());
-            contactAuthMapper.insert(auth);
+            ContactAuth created = new ContactAuth();
+            created.setUserId(userId);
+            created.setPhoneVisible(auth.getPhoneVisible() == null ? 2 : auth.getPhoneVisible());
+            created.setEmailVisible(auth.getEmailVisible() == null ? 2 : auth.getEmailVisible());
+            created.setContactVisible(auth.getContactVisible() == null ? 2 : auth.getContactVisible());
+            created.setCreateTime(LocalDateTime.now());
+            created.setUpdateTime(LocalDateTime.now());
+            contactAuthMapper.insert(created);
         }
         return Result.ok();
+    }
+
+    private void validateVisibility(Integer value, int max) {
+        if (value != null && (value < 1 || value > max)) throw new BusinessException("隐私设置选项不正确");
     }
 }

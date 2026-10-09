@@ -19,6 +19,7 @@ export const useUserStore = defineStore('user', () => {
   const accessToken = ref(getAccessToken() || '')
   const refreshToken = ref(getRefreshToken() || '')
   const scoreBalance = ref(0)
+  let identityVersion = 0
 
   // Watch userInfo to keep selectionStore in sync after rehydration
   watch(userInfo, (info) => {
@@ -35,74 +36,57 @@ export const useUserStore = defineStore('user', () => {
   // ========== Actions ==========
 
   /** 账号密码登录 */
-  async function loginByPassword({ username, password }) {
-    const res = await authApi.loginByPassword({ username, password })
-    if (res.code === 200) {
-      const { accessToken: at, refreshToken: rt } = res.data
-      saveTokens(at, rt)
-      accessToken.value = at
-      refreshToken.value = rt
-      await fetchUserInfo()
-      // fetchUserInfo 内部有 try-catch 吞错，如果 userInfo 仍然为空说明获取失败
-      if (!userInfo.value) {
-        // Token 已写入，但用户信息缺失会导致后续页面异常
-        // 清除已写入的 Token 避免"半登录"状态
-        clearTokens()
-        accessToken.value = ''
-        refreshToken.value = ''
-        throw new Error('登录失败：无法获取用户信息，请稍后重试')
-      }
-    }
+  async function loginByPassword(data) {
+    await authenticate(authApi.loginByPassword, data)
   }
 
   /** 手机验证码登录 */
-  async function loginBySms({ phone, code }) {
-    const res = await authApi.loginBySms({ phone, code })
-    if (res.code === 200) {
-      const { accessToken: at, refreshToken: rt } = res.data
-      saveTokens(at, rt)
-      accessToken.value = at
-      refreshToken.value = rt
-      await fetchUserInfo()
-      if (!userInfo.value) {
-        clearTokens()
-        accessToken.value = ''
-        refreshToken.value = ''
-        throw new Error('登录失败：无法获取用户信息，请稍后重试')
-      }
-    }
+  async function loginBySms(data) {
+    await authenticate(authApi.loginBySms, data)
   }
 
   /** 注册并登录 */
   async function register(data) {
-    const res = await authApi.register(data)
-    if (res.code === 200) {
-      const { accessToken: at, refreshToken: rt } = res.data
+    await authenticate(authApi.register, data)
+  }
+
+  async function authenticate(action, data) {
+    logout()
+    const version = identityVersion
+    try {
+      const res = await action(data)
+      if (version !== identityVersion) throw new Error('登录状态已经改变，请重试')
+      const { accessToken: at, refreshToken: rt } = res.data || {}
+      if (!at || !rt) throw new Error('登录凭证不完整，请重试')
       saveTokens(at, rt)
       accessToken.value = at
       refreshToken.value = rt
-      await fetchUserInfo()
-      if (!userInfo.value) {
-        clearTokens()
-        accessToken.value = ''
-        refreshToken.value = ''
-        throw new Error('注册失败：无法获取用户信息，请稍后重试')
+      await fetchUserInfo({ throwOnError: true })
+      if (version !== identityVersion || !userInfo.value) {
+        throw new Error('无法获取用户信息，请重新登录')
       }
+    } catch (error) {
+      if (version === identityVersion) logout()
+      throw error
     }
   }
 
   /** 获取用户信息 */
-  async function fetchUserInfo() {
+  async function fetchUserInfo({ throwOnError = false } = {}) {
+    const version = identityVersion
     try {
       const res = await authApi.getUserInfo()
+      if (version !== identityVersion || !getAccessToken()) return null
       if (res.code === 200) {
         userInfo.value = res.data
         scoreBalance.value = res.data?.balance || res.data?.score_balance || 0
         setItem('user_info', res.data)
         selectionStore.setCurrentUser(res.data?.user_id ?? res.data?.userId)
+        return res.data
       }
     } catch (err) {
-      console.error('[UserStore] fetchUserInfo error', err)
+      if (throwOnError) throw err
+      return null
     }
   }
 
@@ -113,6 +97,7 @@ export const useUserStore = defineStore('user', () => {
 
   /** 退出登录 */
   function logout() {
+    identityVersion++
     userInfo.value = null
     accessToken.value = ''
     refreshToken.value = ''
@@ -154,6 +139,11 @@ export const useUserStore = defineStore('user', () => {
   persist: {
     key: 'user-store',
     storage: localStorage,
-    paths: ['userInfo', 'accessToken', 'refreshToken', 'scoreBalance']
+    paths: ['userInfo', 'accessToken', 'refreshToken', 'scoreBalance'],
+    afterRestore: ({ store }) => {
+      store.accessToken = getAccessToken() || ''
+      store.refreshToken = getRefreshToken() || ''
+      if (!store.accessToken && !store.refreshToken) store.logout()
+    }
   }
 })

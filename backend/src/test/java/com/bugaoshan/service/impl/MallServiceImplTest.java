@@ -41,7 +41,7 @@ class MallServiceImplTest {
         user.setUserId(8L);
         user.setScoreBalance(100);
         user.setTotalScore(100);
-        when(goodsMapper.selectById(2L)).thenReturn(goods);
+        when(goodsMapper.selectByIdForUpdate(2L)).thenReturn(goods);
         when(userMapper.selectById(8L)).thenReturn(user);
         when(goodsMapper.decrementStock(2L)).thenReturn(1);
         when(userMapper.deductScoreIfSufficient(8L, 80)).thenReturn(0);
@@ -68,7 +68,7 @@ class MallServiceImplTest {
         goods.setStatus(1);
         goods.setStock(5);
         goods.setExchangeLimit(1);
-        when(goodsMapper.selectById(2L)).thenReturn(goods);
+        when(goodsMapper.selectByIdForUpdate(2L)).thenReturn(goods);
         when(orderMapper.countByUserIdAndGoodsId(8L, 2L)).thenReturn(1L);
         MallServiceImpl service = new MallServiceImpl(goodsMapper, orderMapper, userMapper, scoreRecordMapper);
 

@@ -46,21 +46,23 @@
 
         <el-divider />
         <h3 style="margin-bottom:16px;padding-left:12px">通讯录隐私设置</h3>
-        <el-form v-if="!userStore.isAdmin" :model="privacyForm" label-width="140px" label-position="right" style="max-width:500px">
+        <ErrorState v-if="privacyError" title="隐私设置加载失败" @retry="loadPrivacy" />
+        <el-form :model="privacyForm" :disabled="privacyLoading || privacySaving || privacyError" label-width="140px" label-position="right" style="max-width:500px">
           <el-form-item label="手机号可见">
-            <el-switch v-model="privacyForm.phone_visible" :active-value="1" :inactive-value="2" active-text="公开" inactive-text="隐藏" @change="savePrivacy" />
+            <el-switch v-model="privacyForm.phone_visible" :active-value="1" :inactive-value="2" active-text="展示" inactive-text="隐藏" @change="savePrivacy" />
           </el-form-item>
           <el-form-item label="邮箱可见">
-            <el-switch v-model="privacyForm.email_visible" :active-value="1" :inactive-value="2" active-text="公开" inactive-text="隐藏" @change="savePrivacy" />
+            <el-switch v-model="privacyForm.email_visible" :active-value="1" :inactive-value="2" active-text="展示" inactive-text="隐藏" @change="savePrivacy" />
           </el-form-item>
-          <el-form-item label="联系方式">
+          <el-form-item label="联系方式可见范围">
             <el-radio-group v-model="privacyForm.contact_visible" @change="savePrivacy">
               <el-radio :value="1">所有人可见</el-radio>
               <el-radio :value="2">仅好友可见</el-radio>
-              <el-radio :value="3">不可见</el-radio>
+              <el-radio :value="3">仅自己可见</el-radio>
             </el-radio-group>
           </el-form-item>
         </el-form>
+        <p class="privacy-hint">姓名、学号和联系方式按上述范围展示；关闭的手机号和邮箱仅自己可见。修改立即保存。</p>
       </Card>
     </PageContainer>
   </AppLayout>
@@ -78,10 +80,13 @@ import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Card from '@/components/Card.vue'
+import ErrorState from '@/components/ErrorState.vue'
 
 const userStore = useUserStore()
 const saving = ref(false)
 const privacySaving = ref(false)
+const privacyLoading = ref(true)
+const privacyError = ref(false)
 
 const privacyForm = reactive({
   phone_visible: 2,
@@ -90,6 +95,8 @@ const privacyForm = reactive({
 })
 
 async function loadPrivacy() {
+  privacyLoading.value = true
+  privacyError.value = false
   try {
     const res = await contactApi.getMyAuth()
     if (res.code === 200 && res.data) {
@@ -98,14 +105,17 @@ async function loadPrivacy() {
       privacyForm.email_visible = d.email_visible ?? d.emailVisible ?? 2
       privacyForm.contact_visible = d.contact_visible ?? d.contactVisible ?? 2
     }
-  } catch { /* ignore */ }
+  } catch { privacyError.value = true }
+  finally { privacyLoading.value = false }
 }
 
 async function savePrivacy() {
+  if (privacySaving.value || privacyLoading.value || privacyError.value) return
   privacySaving.value = true
   try {
     await contactApi.updateMyAuth(privacyForm)
-  } finally { privacySaving.value = false }
+  } catch { await loadPrivacy() }
+  finally { privacySaving.value = false }
 }
 
 const form = reactive({
@@ -153,6 +163,7 @@ function onAvatarChange(e) {
 </script>
 
 <style scoped>
+.privacy-hint { color: var(--color-text-secondary); line-height: 1.6; font-size: 12px; }
 .avatar-item :deep(.el-form-item__content) {
   align-items: center;
 }
@@ -168,11 +179,11 @@ function onAvatarChange(e) {
   transition: box-shadow 0.2s;
 }
 .avatar-pic:hover {
-  box-shadow: 0 0 0 3px rgba(231, 102, 74, 0.3);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 .avatar-hint {
   margin: 0;
   font-size: 12px;
-  color: #999;
+  color: var(--color-text-secondary);
 }
 </style>

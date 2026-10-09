@@ -4,6 +4,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { THEMES, isTheme, readTheme, applyTheme } from '@/utils/theme'
 
 export const useAppStore = defineStore('app', () => {
   // ========== State ==========
@@ -11,6 +12,13 @@ export const useAppStore = defineStore('app', () => {
   const pageLoading = ref(false)
   const pendingOrderCount = ref(0)
   const isMobile = ref(false)
+  const theme = ref(readTheme())
+  const currentTheme = computed(() => THEMES.find(item => item.id === theme.value) || THEMES[0])
+
+  function setTheme(value, options) {
+    if (!isTheme(value)) return
+    theme.value = applyTheme(value, options)
+  }
 
   // ========== Getters ==========
   const sidebarWidth = computed(() => '72px')
@@ -42,6 +50,9 @@ export const useAppStore = defineStore('app', () => {
   }
 
   return {
+    theme,
+    currentTheme,
+    setTheme,
     sidebarCollapsed,
     pageLoading,
     pendingOrderCount,

@@ -317,7 +317,7 @@ onMounted(() => {
 .metric-grid div {
   padding: var(--spacing-md);
   border-radius: 18px;
-  background: rgba(255, 240, 228, 0.72);
+  background: color-mix(in srgb, var(--color-bg-card) 72%, transparent);
   text-align: center;
 }
 
@@ -335,7 +335,7 @@ onMounted(() => {
 
 .quick-card {
   min-height: 116px;
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   border-radius: 24px;
   background: var(--color-bg-card);
   box-shadow: var(--shadow-sm);
@@ -347,8 +347,8 @@ onMounted(() => {
   height: 46px;
   margin: 0 auto 10px;
   border-radius: 16px;
-  color: #fff;
-  background: linear-gradient(135deg, #f07462, #f8b25f);
+  color: var(--color-on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -368,7 +368,7 @@ onMounted(() => {
   padding: var(--spacing-lg);
   border-radius: 24px;
   background: var(--color-bg-card);
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   box-shadow: var(--shadow-sm);
 }
 

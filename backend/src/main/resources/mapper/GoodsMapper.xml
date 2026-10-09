@@ -6,6 +6,10 @@
         SELECT * FROM goods WHERE goods_id = #{goodsId} AND is_deleted = 0
     </select>
 
+    <select id="selectByIdForUpdate" resultType="com.bugaoshan.entity.Goods">
+        SELECT * FROM goods WHERE goods_id = #{goodsId} AND is_deleted = 0 FOR UPDATE
+    </select>
+
     <select id="selectList" resultType="com.bugaoshan.entity.Goods">
         SELECT * FROM goods
         <where>
@@ -35,7 +39,7 @@
 
     <update id="incrementStock">
         UPDATE goods SET stock = stock + 1, update_time = NOW()
-        WHERE goods_id = #{goodsId} AND is_deleted = 0
+        WHERE goods_id = #{goodsId}
     </update>
 
     <update id="deleteById">

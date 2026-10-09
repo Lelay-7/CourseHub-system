@@ -380,7 +380,7 @@ onMounted(() => {
   padding: 16px 20px;
   border-radius: 22px;
   color: var(--color-primary-dark);
-  background: #ffe9df;
+  background: var(--color-primary-light);
   font-weight: 900;
 }
 

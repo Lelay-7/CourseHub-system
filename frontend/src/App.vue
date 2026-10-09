@@ -3,21 +3,27 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
-import bgImage from '@/assets/images/beijing.png'
+import { THEME_STORAGE_KEY, readTheme } from '@/utils/theme'
 
 const appStore = useAppStore()
+const checkViewport = () => appStore.checkViewport()
+function syncTheme(event) {
+  if (event.key === THEME_STORAGE_KEY || event.key === null) {
+    appStore.setTheme(readTheme(), { persist: false })
+  }
+}
 
 onMounted(() => {
   // 监听窗口尺寸变化，自动切换布局模式
   appStore.checkViewport()
-  window.addEventListener('resize', () => {
-    appStore.checkViewport()
-  })
-
-  // 设置全局背景图
-  document.body.style.background = `url(${bgImage}) center / cover no-repeat fixed`
+  window.addEventListener('resize', checkViewport)
+  window.addEventListener('storage', syncTheme)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', checkViewport)
+  window.removeEventListener('storage', syncTheme)
 })
 </script>
 

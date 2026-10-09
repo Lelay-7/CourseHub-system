@@ -45,8 +45,8 @@ import PageHeader from '@/components/PageHeader.vue'
   margin-bottom: var(--spacing-lg);
   padding: var(--spacing-xl);
   border-radius: 28px;
-  color: #fffaf3;
-  background: linear-gradient(135deg, #f07462, #f8b25f);
+  color: var(--color-on-primary);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   display: flex;
   align-items: flex-end;
   justify-content: space-between;

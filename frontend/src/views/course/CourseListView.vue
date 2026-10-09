@@ -116,7 +116,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Loading } from '@element-plus/icons-vue'
@@ -256,9 +256,17 @@ onMounted(() => {
   if (route.query.keyword) {
     searchKeyword.value = route.query.keyword
   }
+  filters.categoryId = Number(route.query.categoryId) || null
   fetchCourses()
   fetchCategories()
   selectionStore.refresh().catch(() => {})
+})
+
+watch(() => [route.query.keyword, route.query.categoryId], ([keyword, categoryId]) => {
+  if (route.path !== '/course') return
+  searchKeyword.value = typeof keyword === 'string' ? keyword : ''
+  filters.categoryId = Number(categoryId) || null
+  applyFilters()
 })
 </script>
 
@@ -292,18 +300,18 @@ onMounted(() => {
 .category-tabs button {
   appearance: none;
   min-height: 38px;
-  border: 1px solid rgba(154, 66, 45, 0.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
   border-radius: 999px;
   padding: 0 16px;
   color: var(--color-text-regular);
-  background: rgba(255, 250, 243, 0.86);
+  background: color-mix(in srgb, var(--color-bg-card) 86%, transparent);
   cursor: pointer;
   font-weight: 900;
 }
 
 .category-tabs button.active,
 .category-tabs button:hover {
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary);
   border-color: var(--color-primary);
 }

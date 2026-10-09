@@ -88,10 +88,10 @@ onMounted(() => { fetchList(true) })
 .fav-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px; border-radius: 16px; background: var(--color-bg-card);
-  border: 1px solid rgba(154,66,45,.08);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
-.fav-info strong { display: block; color: #333; }
-.fav-info span { font-size: 12px; color: #999; }
+.fav-info strong { display: block; color: var(--color-text-primary); }
+.fav-info span { font-size: 12px; color: var(--color-text-secondary); }
 .fav-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .load-more { text-align: center; padding: var(--spacing-md); color: var(--color-text-secondary); }
 </style>
