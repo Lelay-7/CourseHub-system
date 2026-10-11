@@ -65,6 +65,36 @@ test('a send acknowledgement cannot mark unfetched intervening messages read',as
   await f.chat.pullNew();await f.chat.markVisibleRead({visible:true,atBottom:true});assert.deepEqual(marked,['1','4'])
 })
 
+for(const refresh of ['list','detail']) test(`read completion updates the current conversation after a ${refresh} refresh`,async()=>{
+  const read=deferred()
+  const row={conversation_id:'1',peer:{user_id:'2',nickname:'乙'},can_send:true,last_sequence:'3',last_read_sequence:'0',unread_count:3}
+  const f=fixture({
+    getConversation:async()=>({...row}),listConversations:async()=>({items:[{...row}],next_cursor:null}),
+    getMessages:async()=>({items:[message('1'),message('2'),message('3')],has_more:false,next_after_sequence:'3'}),
+    markRead:()=>read.promise
+  })
+  await f.chat.selectConversation('1');const old=f.state.conversations[0]
+  const marking=f.chat.markVisibleRead({visible:true,atBottom:true})
+  if(refresh==='list')await f.chat.refreshConversations();else await f.chat.pullNew()
+  assert.notEqual(f.state.conversations[0],old)
+  read.resolve({last_read_sequence:'3',unread_count:0});await marking
+  assert.equal(f.state.conversations[0].last_read_sequence,'3')
+  assert.equal(f.state.conversations[0].unread_count,0)
+})
+
+test('an older read completion cannot overwrite a newer refreshed read cursor',async()=>{
+  const read=deferred();let cursor='0'
+  const f=fixture({
+    getConversation:async()=>({conversation_id:'1',can_send:true,last_read_sequence:cursor,unread_count:cursor==='0'?3:1}),
+    getMessages:async()=>({items:[message('1'),message('2'),message('3')],has_more:false,next_after_sequence:'3'}),
+    markRead:()=>read.promise
+  })
+  await f.chat.selectConversation('1');const marking=f.chat.markVisibleRead({visible:true,atBottom:true})
+  cursor='4';await f.chat.pullNew();read.resolve({last_read_sequence:'3',unread_count:2});await marking
+  assert.equal(f.state.conversations[0].last_read_sequence,'4')
+  assert.equal(f.state.conversations[0].unread_count,1)
+})
+
 test('cancelled history cannot keep pagination busy after failed reselection and recovery',async()=>{
   const old=deferred();let beforeCalls=0,hold=true,failInitial=false
   const f=fixture({getMessages:async(id,p)=>{

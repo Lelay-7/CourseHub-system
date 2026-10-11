@@ -15,7 +15,7 @@
             </header>
             <div v-if="conversation && !conversation.can_send" class="readonly-notice" role="status">{{ conversation.send_disabled_reason==='NOT_FRIENDS'?'已解除好友，历史消息仍可查看':'对方账号不可用，历史消息仍可查看' }}</div>
             <div v-if="chat.state.errors[id] && messages.length" class="inline-error" role="status">{{ chat.state.errors[id] }} <button @click="refreshDetail">重试</button></div>
-            <MessageTimeline ref="timeline" :conversation-id="id" :messages="messages" :peer="conversation?.peer" :my-user-id="myUserId" :loading="pagination.loading" :error="chat.state.errors[id]" :has-previous="pagination.hasPrevious" @load-previous="previous" @retry="reload" @retry-send="chat.retrySend" @at-bottom="bottom" />
+            <MessageTimeline ref="timeline" :conversation-id="id" :messages="messages" :peer="conversation?.peer" :my-user-id="myUserId" :loading="pagination.loading" :error="chat.state.errors[id]" :has-previous="pagination.hasPrevious" :can-send="conversation?.can_send" @load-previous="previous" @retry="reload" @retry-send="chat.retrySend" @at-bottom="bottom" />
             <MessageComposer v-model="draft" :disabled="!conversation?.can_send || !!pagination.loading" :sending="sending" @send="send" />
           </template>
           <EmptyState v-else description="选择好友，开始聊天"><router-link class="contact-link" to="/contact?tab=friends">去通讯录</router-link></EmptyState>

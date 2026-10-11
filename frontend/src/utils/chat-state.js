@@ -165,7 +165,11 @@ export function createChatSession({ state, api, getSessionId, newClientMessageId
     try {
       const result = await api.markRead(id, loaded, t.config)
       if (!t.valid()) return
-      if (conversation) { conversation.last_read_sequence = result.last_read_sequence; conversation.unread_count = result.unread_count }
+      const currentConversation = state.conversations.find(c => c.conversation_id === id)
+      if (currentConversation && compareChatSequence(result.last_read_sequence, currentConversation.last_read_sequence || '0') >= 0) {
+        currentConversation.last_read_sequence = result.last_read_sequence
+        currentConversation.unread_count = result.unread_count
+      }
       await refreshUnread()
     } catch (error) { if (t.valid()) state.errors[id] = errorText(error) }
     finally { t.finish() }

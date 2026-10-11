@@ -14,7 +14,7 @@
               <div class="message-block">
                 <time>{{ time(message.created_at) }}</time>
                 <div class="message-bubble">
-                  <TextMessage v-if="message.message_type==='TEXT'" :message="message" :own="isOwn(message)" @retry="$emit('retry-send',$event)" />
+                  <TextMessage v-if="message.message_type==='TEXT'" :message="message" :own="isOwn(message)" :can-send="canSend" @retry="$emit('retry-send',$event)" />
                   <span v-else>暂不支持的消息类型</span>
                 </div>
               </div>
@@ -32,7 +32,7 @@ import { ref,watch,nextTick,onMounted } from 'vue'
 import TextMessage from './TextMessage.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
-const props=defineProps({conversationId:String,messages:{type:Array,default:()=>[]},peer:Object,loading:Boolean,error:String,hasPrevious:Boolean,myUserId:String})
+const props=defineProps({conversationId:String,messages:{type:Array,default:()=>[]},peer:Object,loading:Boolean,error:String,hasPrevious:Boolean,myUserId:String,canSend:Boolean})
 const emit=defineEmits(['load-previous','at-bottom','retry','retry-send'])
 const scroller=ref(null),atBottom=ref(true),newMessages=ref(false),loadingPrevious=ref(false),announcement=ref('')
 let timelineGeneration=0

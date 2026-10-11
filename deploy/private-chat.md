@@ -49,3 +49,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-private-c
 ```
 
 脚本只创建新的 `coursehub_chat_check_<32hex>` 数据库与本地实例。每次 SQL 操作检查实例数据路径、端口、版本、PID 文件和所有权标记；清理核对进程路径、捕获句柄与启动时间。Java fixture 再检查数据库名称和 `private_chat_test_guard` nonce。没有连接已有服务器模式。浏览器验收使用生产 Spring Boot、真实认证和 SQL，全部进程仅绑定 127.0.0.1，不启动 SMTP；证据保留于 `backend/target` 与 `frontend/output/playwright`。
+
+上述自动脚本完成后关闭实例，不提供持续运行的真机服务。需要真实 iPhone/Android 验收时，另行使用独立本地测试环境，按 [手机验收清单](../docs/private-chat-mobile-acceptance.md) 接入；当前仅完成浏览器模拟。
