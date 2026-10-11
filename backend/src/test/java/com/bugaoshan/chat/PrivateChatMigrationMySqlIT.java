@@ -18,9 +18,13 @@ class PrivateChatMigrationMySqlIT {
             if(name.equals("private_chat_test_guard"))continue;
             assertTrue(name.matches("[a-z_]+"));db.execute("DROP TABLE `"+name+"`");
         }
+        initialize(init);
+        migrate("db/migrations/2026-10-10-account-recovery.sql");
+    }
+    void initialize(String init) throws Exception {
+        PrivateChatE2eApplication.guardedSource();
         String database=db.queryForObject("SELECT DATABASE()",String.class);assertTrue(database.matches("coursehub_chat_check_[a-f0-9]{32}"));
         try(var c=source.getConnection()){ScriptUtils.executeSqlScript(c,new org.springframework.core.io.support.EncodedResource(new ByteArrayResource(resource(init).replace("bgss_xtt",database).getBytes(StandardCharsets.UTF_8)),StandardCharsets.UTF_8));}
-        migrate("db/migrations/2026-10-10-account-recovery.sql");
     }
     void migrate(String path) throws Exception {
         String script=resource(path);
@@ -70,5 +74,27 @@ class PrivateChatMigrationMySqlIT {
         assertEquals(before,db.queryForList("SELECT * FROM user ORDER BY user_id"));
         assertEquals(4,db.queryForObject("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name LIKE 'chat_%'",Integer.class));
         assertEquals(2,db.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='chat_message' AND index_name='uk_chat_client' AND non_unique=0",Integer.class));
+    }
+    @Test void repeatedInitializationCannotExposePreviousPrivateHistoryToRecycledUsers() throws Exception {
+        reset("db/init.sql");
+        // Test initializer-only databases without a foreign key from the separate recovery migration.
+        db.execute("DROP TABLE recovery_code");
+        var ids=db.queryForList("SELECT user_id FROM user ORDER BY user_id LIMIT 2",Long.class);
+        long a=ids.get(0),b=ids.get(1);
+        db.update("INSERT INTO chat_conversation(conversation_id,conversation_type,private_user_low_id,private_user_high_id,last_sequence,created_at,updated_at) VALUES(9400,'PRIVATE',?,?,1,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))",a,b);
+        db.update("INSERT INTO chat_conversation_member(conversation_id,user_id,last_read_sequence,joined_at,updated_at) VALUES(9400,?,0,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3)),(9400,?,0,UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))",a,b);
+        db.update("INSERT INTO chat_message(conversation_id,sequence,sender_id,client_message_id,message_type,content,created_at) VALUES(9400,1,?,'11111111-1111-4111-8111-111111111111','TEXT',JSON_OBJECT('text','previous private history'),UTC_TIMESTAMP(3))",a);
+        db.update("INSERT INTO chat_send_rate_window(user_id,window_start,window_seconds,used_count,expires_at) VALUES(?,UTC_TIMESTAMP(3),60,1,DATE_ADD(UTC_TIMESTAMP(3),INTERVAL 1 DAY))",a);
+        // Execute the initializer itself, without the fixture's defensive table reset.
+        initialize("db/init.sql");
+        assertEquals(ids,db.queryForList("SELECT user_id FROM user ORDER BY user_id LIMIT 2",Long.class));
+        for(String table:List.of("chat_conversation","chat_conversation_member","chat_message","chat_send_rate_window"))
+            assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class),table+" must not survive recycled user identities");
+    }
+    @Test void repeatedInitializationAfterRecoveryMigrationCanResetUserIdentities() throws Exception {
+        reset("db/init.sql");
+        assertDoesNotThrow(()->initialize("db/init.sql"));
+        migrate("db/migrations/2026-10-10-account-recovery.sql");
+        assertEquals(0,db.queryForObject("SELECT COUNT(*) FROM recovery_code",Integer.class));
     }
 }

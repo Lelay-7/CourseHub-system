@@ -12,8 +12,9 @@
     "test:recovery": "node --test scripts/account-recovery.test.mjs",
     "test:recovery:browser": "node scripts/account-recovery-browser.mjs",
     "test:contact": "node scripts/contact-ui.test.mjs",
-    "test:chat": "node --test scripts/private-chat-state.test.mjs",
+    "test:chat": "node --test scripts/private-chat-state.test.mjs scripts/private-chat-view.test.mjs",
     "test:chat:ui": "node scripts/private-chat-ui.mjs",
+    "test:chat:races": "node --test scripts/private-chat-races.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

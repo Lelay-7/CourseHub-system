@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-11-private-chat-design.md`；UI 依据 `docs/superpowers/prototypes/2026-10-11-private-chat-ui.html`。
 
-**Status:** 设计及交互稿已确认；本计划等待用户审阅。建议当前会话直接执行（Native），完成后做一次独立聚焦审查。任务接口互相依赖，逐项直接实现更便于保持 SQL、API 与前端状态一致。
+**Status:** 设计、交互稿及本计划已确认；七项任务已直接执行（Native），独立聚焦审查及一次重要问题修复已完成，最终验证通过。代码保留在本地 codex/private-chat 分支及隔离工作区，不推送、不部署。
 
 ## Global Constraints
 
@@ -75,18 +75,18 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** Consumes `UserMapper.selectForUpdate(Long)`；Produces `LockedUsers lockUsers(long actorId,long targetId)`（调用者必须已在事务中）、`boolean isAccepted(long actorId,long targetId)`、`AddFriendResult addFriend(long actorId,long targetId)`（含 `acceptedExistingRequest`）、`void accept(long actorId,long friendId)`、`void remove(long actorId,long friendId)`。Mapper 新增 `Friend selectPair(long lowerId,long higherId)`；接受 SQL 保留现有方法但增加 `status=0`；删除返回实际受影响行数。
 
-- [ ] Step 1：在真实服务/SQL 的 H2 测试 fixture 中增加 `reverseAcceptedDoesNotCreatePending`、`invalidTargetDoesNotInsert`、`onlyRecipientMayAcceptPending`、`pairLocksAreTakenInAscendingOrder`，补现有控制器委托/参与者测试。断言：
+- [x] Step 1：在真实服务/SQL 的 H2 测试 fixture 中增加 `reverseAcceptedDoesNotCreatePending`、`invalidTargetDoesNotInsert`、`onlyRecipientMayAcceptPending`、`pairLocksAreTakenInAscendingOrder`，补现有控制器委托/参与者测试。断言：
   ```java
   insertFriend(2L, 1L, 1); // helper 在本测试类定义，返回 friend_id
   assertThrows(BusinessException.class, () -> service.addFriend(1L, 2L));
   assertEquals(1, countPair(1L, 2L));
   assertEquals(1, findPair(1L, 2L).getStatus());
   ```
-- [ ] Step 2：运行 `& $chatMaven '-Dtest=FriendRelationshipServiceTest,ContactControllerTest' test`，确认因缺失关系规则/错误状态而失败；环境错误不记作 RED。
-- [ ] Step 3：实现上述接口及 `READ_COMMITTED` 事务；先读取申请定位用户对，再按升序锁用户并重新读取关系后变更。校验自身/目标状态，处理正反向申请，条件接受，参与者删除；控制器保持旧接口和名片隐私行为。
-- [ ] Step 4：迁移先检查自关系、物理不存在的用户及非法状态，发现即 SQL `SIGNAL` 停止；禁用或软删除用户的既有关系保留。合法重复优先已接受，否则最小 friend_id。添加 `user_low_id`/`user_high_id` STORED 生成列和唯一索引；用 information_schema 判断已有列/索引，支持更新后的 init 与迁移链配合。H2 fixture 单独适配语法，不称其验证 MySQL DDL。
-- [ ] Step 5：运行 Task 1 测试及 `npm.cmd run test:contact`，输出零失败；真实迁移/并发由 Task 6 验收。
-- [ ] Step 6：只 stage 本任务文件并提交 `feat: make friend relationships consistent for private chat`。
+- [x] Step 2：运行 `& $chatMaven '-Dtest=FriendRelationshipServiceTest,ContactControllerTest' test`，确认因缺失关系规则/错误状态而失败；环境错误不记作 RED。
+- [x] Step 3：实现上述接口及 `READ_COMMITTED` 事务；先读取申请定位用户对，再按升序锁用户并重新读取关系后变更。校验自身/目标状态，处理正反向申请，条件接受，参与者删除；控制器保持旧接口和名片隐私行为。
+- [x] Step 4：迁移先检查自关系、物理不存在的用户及非法状态，发现即 SQL `SIGNAL` 停止；禁用或软删除用户的既有关系保留。合法重复优先已接受，否则最小 friend_id。添加 `user_low_id`/`user_high_id` STORED 生成列和唯一索引；用 information_schema 判断已有列/索引，支持更新后的 init 与迁移链配合。H2 fixture 单独适配语法，不称其验证 MySQL DDL。
+- [x] Step 5：运行 Task 1 测试及 `npm.cmd run test:contact`，输出零失败；真实迁移/并发由 Task 6 验收。
+- [x] Step 6：只 stage 本任务文件并提交 `feat: make friend relationships consistent for private chat`。
 
 ### Task 2: 认证上下文、会话与受限读取
 
@@ -94,18 +94,18 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** Consumes Task 1；Produces `ConversationView openPrivate(Actor actor,long targetId)`、`ConversationPage list(Actor actor,int limit,String cursor)`、`ConversationView detail(Actor actor,long id)`、`ReadView markRead(Actor actor,long id,long sequence)`、`UnreadView unread(Actor actor)`、`LockedUsers lockMembersForWrite(Actor actor,long id)`；最后方法在调用者事务中按成员限定查询获取用户对，再锁用户并复核凭据版本，供 Task 3 复用。`ChatException.status()`/`retryAfterSeconds()` 提供 HTTP 状态及可选重试时间。`SecurityUtils.getCurrentCredentialVersion()` 不存在可信上下文时拒绝，`AuthenticatedSession(int userType,int credentialVersion)` 只由过滤链设置。
 
-- [ ] Step 1：创建 `ChatTestFixture`，负责独立 H2、真实 MyBatis 与 TransactionTemplate 服务实例；提供 `actor(id,version)`、`friend(a,b)`、`seedMessage(conversation,sequence,sender,text)`。测试 `privateConversationIsReused`、`outsiderAndAdminCannotRead`、`unfriendingKeepsReadOnlyHistory`、`readCursorCannotRegressOrCrossConversations`、`peerJsonContainsNoPrivateFields`、`largeIdsRemainStrings`：
+- [x] Step 1：创建 `ChatTestFixture`，负责独立 H2、真实 MyBatis 与 TransactionTemplate 服务实例；提供 `actor(id,version)`、`friend(a,b)`、`seedMessage(conversation,sequence,sender,text)`。测试 `privateConversationIsReused`、`outsiderAndAdminCannotRead`、`unfriendingKeepsReadOnlyHistory`、`readCursorCannotRegressOrCrossConversations`、`peerJsonContainsNoPrivateFields`、`largeIdsRemainStrings`：
   ```java
   var chat = conversations.openPrivate(actor(1L, 0), 2L);
   assertEquals(chat.conversationId(), conversations.openPrivate(actor(2L, 0), 1L).conversationId());
   assertEquals(404, assertThrows(ChatException.class,
       () -> conversations.detail(actor(3L, 0), Long.parseLong(chat.conversationId()))).status());
   ```
-- [ ] Step 2：运行 `& $chatMaven '-Dtest=ChatConversationTest,ChatApiTest,JwtAuthenticationFilterTest' test`，记录上述行为的失败。
-- [ ] Step 3：为新上下文调整过滤链和 SecurityUtils，保持旧用户 ID/角色调用兼容；添加三张聊天表、索引和显式 UTC 时间参数；会话创建和成员插入同事务，唯一规范用户对；Actor 由控制器读取可信上下文，不从 body 获取。
-- [ ] Step 4：实现列表/详情/读游标/未读 API 和专用异常处理；非成员与不存在统一 404；成员历史不要求仍是好友；发送资格在详情动态计算。目标不可用/旧凭据转为 ChatException 对应状态，不让通用 BusinessException 导致聊天错误仍返回 HTTP 200。读游标先核对本会话实际消息，单调更新；未读仅统计他人新消息。预览按 code point 截断为最多 80 个，详情最小 peer 投影遵守 ContactCardPolicy。
-- [ ] Step 5：重复 Step 2 命令，确认 MockMvc 的 HTTP/业务码、五个入口、snake_case、ID 字符串及旧契约测试全部通过。
-- [ ] Step 6：只 stage 本任务文件并提交 `feat: add authenticated private conversations and read cursors`。
+- [x] Step 2：运行 `& $chatMaven '-Dtest=ChatConversationTest,ChatApiTest,JwtAuthenticationFilterTest' test`，记录上述行为的失败。
+- [x] Step 3：为新上下文调整过滤链和 SecurityUtils，保持旧用户 ID/角色调用兼容；添加三张聊天表、索引和显式 UTC 时间参数；会话创建和成员插入同事务，唯一规范用户对；Actor 由控制器读取可信上下文，不从 body 获取。
+- [x] Step 4：实现列表/详情/读游标/未读 API 和专用异常处理；非成员与不存在统一 404；成员历史不要求仍是好友；发送资格在详情动态计算。目标不可用/旧凭据转为 ChatException 对应状态，不让通用 BusinessException 导致聊天错误仍返回 HTTP 200。读游标先核对本会话实际消息，单调更新；未读仅统计他人新消息。预览按 code point 截断为最多 80 个，详情最小 peer 投影遵守 ContactCardPolicy。
+- [x] Step 5：重复 Step 2 命令，确认 MockMvc 的 HTTP/业务码、五个入口、snake_case、ID 字符串及旧契约测试全部通过。
+- [x] Step 6：只 stage 本任务文件并提交 `feat: add authenticated private conversations and read cursors`。
 
 ### Task 3: 类型化文字、幂等发送、分页与额度
 
@@ -113,7 +113,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** Consumes `lockMembersForWrite`、Task 2 DTO；Produces `MessageView send(Actor actor,long conversationId,SendTextRequest request)`、`MessagePage messages(Actor actor,long conversationId,Long before,Long after,int limit)`、`String normalizeText(String text)`；`void reserve(long userId,Instant now)` 在同一事务中原子预留，失败抛 429；`int purgeExpired(Instant cutoff,int batchSize)` 分批清理。配置 `send-per-minute=30`、`send-per-hour=300`、`rate-retention-hours=48`，注入 UTC Clock 便于固定窗口测试。`ChatMessageCreated(long conversationId,long messageId,long sequence,List<Long> participantIds)` 无正文。
 
-- [ ] Step 1：增加幂等/冲突、2000/2001 emoji、全角空格/NBSP、控制字符/未配对 surrogate、未知类型、UUID/游标错误、删除好友后的新消息和重试拒绝、序号补拉、回滚额度、旧凭据写入测试：
+- [x] Step 1：增加幂等/冲突、2000/2001 emoji、全角空格/NBSP、控制字符/未配对 surrogate、未知类型、UUID/游标错误、删除好友后的新消息和重试拒绝、序号补拉、回滚额度、旧凭据写入测试：
   ```java
   var request = new SendTextRequest(UUID.randomUUID(), "TEXT", "😀".repeat(2000));
   var first = messages.send(actor(1L, 0), id, request);
@@ -121,11 +121,11 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
   assertEquals(1, countMessages(id));
   assertEquals(1, usedMinuteQuota(1L));
   ```
-- [ ] Step 2：运行 `& $chatMaven '-Dtest=ChatMessageTest,ChatRateLimitTest,ChatApiTest' test`，确认缺少发送/校验行为时失败。
-- [ ] Step 3：实现 TEXT JSON 内容及 DTO 映射。纯空白定义为 Unicode White_Space（包含 NBSP/全角空格）；先拒绝未配对 surrogate，规范换行，再按 code point 校验长度与控制字符；前端用同一定义。事务锁定/校验成员、用户与当前关系，幂等检查后预留额度；会话锁内推进 `last_sequence`、插入消息、更新活动时间，统一提交/回滚。重复键的结果必须核对会话、类型、规范正文，不能直接当成功。JSON 内容只保存类型校验后的对象。
-- [ ] Step 4：实现历史/增量互斥游标、升序结果与完整下一游标；初次返回最新一页，补拉只推进到实际返回的末条。限流按分钟/小时稳定顺序锁窗口，新消息失败回滚两个窗口。配置有界清理批次、定时清理和 429 重试时间；提交后发布无正文事件，首版不接网络推送器。
-- [ ] Step 5：重复 Step 2 命令，确认全部七接口、400/401/403/404/409/429、丢失响应后的同 ID 重试测试零失败。
-- [ ] Step 6：只 stage 本任务文件并提交 `feat: persist idempotent text messages with pagination and limits`。
+- [x] Step 2：运行 `& $chatMaven '-Dtest=ChatMessageTest,ChatRateLimitTest,ChatApiTest' test`，确认缺少发送/校验行为时失败。
+- [x] Step 3：实现 TEXT JSON 内容及 DTO 映射。纯空白定义为 Unicode White_Space（包含 NBSP/全角空格）；先拒绝未配对 surrogate，规范换行，再按 code point 校验长度与控制字符；前端用同一定义。事务锁定/校验成员、用户与当前关系，幂等检查后预留额度；会话锁内推进 `last_sequence`、插入消息、更新活动时间，统一提交/回滚。重复键的结果必须核对会话、类型、规范正文，不能直接当成功。JSON 内容只保存类型校验后的对象。
+- [x] Step 4：实现历史/增量互斥游标、升序结果与完整下一游标；初次返回最新一页，补拉只推进到实际返回的末条。限流按分钟/小时稳定顺序锁窗口，新消息失败回滚两个窗口。配置有界清理批次、定时清理和 429 重试时间；提交后发布无正文事件，首版不接网络推送器。
+- [x] Step 5：重复 Step 2 命令，确认全部七接口、400/401/403/404/409/429、丢失响应后的同 ID 重试测试零失败。
+- [x] Step 6：只 stage 本任务文件并提交 `feat: persist idempotent text messages with pagination and limits`。
 
 ### Task 4: 前端会话状态、认证清理与轮询
 
@@ -135,7 +135,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 状态字段固定为 `conversations`、`messagesByConversation`、`draftsByConversation`、`pendingByClientId`、`selectedId`、`unreadCount`、`paginationByConversation`、`errors`；消息沿用 API snake_case，增加内存 `delivery_state = SENDING|SENT|FAILED`。方法签名为 `selectConversation(id):Promise<void>`、`loadPrevious(config?):Promise<void>`、`pullNew(config?):Promise<void>`、`sendText(text):Promise<LocalMessage|undefined>`、`retrySend(clientMessageId):Promise<LocalMessage|undefined>`、`markVisibleRead({visible,atBottom}):Promise<void>`、`refreshConversations(config?):Promise<void>`、`refreshUnread(config?):Promise<void>`、`reset():void`。发送网络失败转为 FAILED 结果并保存原 UUID，不抛出未处理 Promise rejection。读取 config 可传 AbortSignal；poller 的 `task(signal):Promise<void>` 接收取消信号，三个生命周期方法均返回 void。
 
-- [ ] Step 1：用现有 esbuild+Node test 模式加载真实模块，注入 API、UUID 和计时器。测试丢失响应重试、超过一页补拉、分页去重、换账号/快速切会话迟到响应、退出同步清理、Unicode 长度、隐藏取消及退避：
+- [x] Step 1：用现有 esbuild+Node test 模式加载真实模块，注入 API、UUID 和计时器。测试丢失响应重试、超过一页补拉、分页去重、换账号/快速切会话迟到响应、退出同步清理、Unicode 长度、隐藏取消及退避：
   ```js
   await chat.sendText('hello') // fixture API 本次提交后模拟响应超时
   const originalId = calls[0].data.client_message_id
@@ -143,11 +143,11 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
   assert.equal(calls[1].data.client_message_id, originalId)
   assert.equal(state.messagesByConversation[id].length, 1)
   ```
-- [ ] Step 2：运行 `& $chatNode --test scripts/private-chat-state.test.mjs scripts/auth-session.test.mjs`，确认缺少状态守卫/轮询行为而失败。
-- [ ] Step 3：实现请求和状态协调，所有异步响应同时校验认证身份、选中会话和请求代次；失败消息保存原 UUID，草稿按会话保留，仅存内存。序号用 BigInt/规范十进制字符串比较，禁止 Number 转换造成排序精度丢失；加载旧历史与新增合并不直接标已读。
-- [ ] Step 4：request 增加仅供后台请求使用的静默错误选项，保留现有 401 刷新/清理/跳登录；auth 生命周期同步清理 chat，并处理浏览器 storage 事件引起的跨标签身份改变。App.vue 是全局未读轮询唯一所有者，聊天页只拥有详情计时器；列表首页刷新重置排序游标并保留当前聊天。停止时取消 AbortController，等待请求结束才安排下次，无重叠；隐藏与重新可见按设计处理。
-- [ ] Step 5：新增 `test:chat` 为 Node 行为测试命令，运行其与 `test:auth`、`test:recovery`、`test:contracts`，确认零失败。
-- [ ] Step 6：只 stage 本任务文件并提交 `feat: coordinate private chat sessions and polling`。
+- [x] Step 2：运行 `& $chatNode --test scripts/private-chat-state.test.mjs scripts/auth-session.test.mjs`，确认缺少状态守卫/轮询行为而失败。
+- [x] Step 3：实现请求和状态协调，所有异步响应同时校验认证身份、选中会话和请求代次；失败消息保存原 UUID，草稿按会话保留，仅存内存。序号用 BigInt/规范十进制字符串比较，禁止 Number 转换造成排序精度丢失；加载旧历史与新增合并不直接标已读。
+- [x] Step 4：request 增加仅供后台请求使用的静默错误选项，保留现有 401 刷新/清理/跳登录；auth 生命周期同步清理 chat，并处理浏览器 storage 事件引起的跨标签身份改变。App.vue 是全局未读轮询唯一所有者，聊天页只拥有详情计时器；列表首页刷新重置排序游标并保留当前聊天。停止时取消 AbortController，等待请求结束才安排下次，无重叠；隐藏与重新可见按设计处理。
+- [x] Step 5：新增 `test:chat` 为 Node 行为测试命令，运行其与 `test:auth`、`test:recovery`、`test:contracts`，确认零失败。
+- [x] Step 6：只 stage 本任务文件并提交 `feat: coordinate private chat sessions and polling`。
 
 ### Task 5: 与现有风格一致的正式私聊页面
 
@@ -155,7 +155,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** Consumes Task 4 store；路由 `/messages` 与 `/messages/:id` 均 requiresAuth、ALL 角色，详情 meta 标记 `hideMobileTabbar`。`ConversationList` props `{items,selectedId,loading,error}`，emit `select/search/load-more/retry`；`MessageTimeline` props `{messages,peer,loading,error,hasPrevious}`，emit `load-previous/at-bottom/retry`，保持锚点并暴露 `scrollToLatest()`；`MessageComposer` props `{modelValue,disabled,sending,maxCodePoints:2000}`，emit `update:modelValue/send`；`TextMessage` 只插值内容、发出 `retry(clientMessageId)`。按 `message_type` 选择 TEXT 组件，未知类型安全降级为“暂不支持的消息类型”。
 
-- [ ] Step 1：新增可重复浏览器 UI 探针（此任务用限定的 API fixture，不称真实 E2E）：验证入口、IME Enter 不发送、Shift+Enter 换行、纯文本 XSS 显示、重试复用 UUID、滚动/历史锚点、只读、空/错误/加载、键盘焦点，失败时保存截图/错误。
+- [x] Step 1：新增可重复浏览器 UI 探针（此任务用限定的 API fixture，不称真实 E2E）：验证入口、IME Enter 不发送、Shift+Enter 换行、纯文本 XSS 显示、重试复用 UUID、滚动/历史锚点、只读、空/错误/加载、键盘焦点，失败时保存截图/错误。
   ```js
   await page.getByRole('textbox', { name: '消息内容' }).fill('<img src=x onerror=alert(1)>')
   await page.getByRole('textbox', { name: '消息内容' }).press('Shift+Enter')
@@ -163,12 +163,12 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
   await page.getByRole('button', { name: '发送', exact: true }).click()
   assert.equal(await page.getByText('<img src=x onerror=alert(1)>', { exact: true }).count(), 1)
   ```
-- [ ] Step 2：运行 `npm.cmd run build` 后执行 `& $chatNode scripts/private-chat-ui.mjs`，记录页面不存在或行为未满足的失败，排除环境错误。
-- [ ] Step 3：实现页面与四个组件，复用 AppLayout/PageContainer/PageHeader/EmptyState/ErrorState 和原主题变量，按已批准交互稿落地双栏、聊天头、气泡、固定输入区和手机版列表/详情。维护日期分组、头像失败回退、44px 触达目标、低干扰播报及 reduced-motion；显示“已发送”只代表持久化成功。
-- [ ] Step 4：接通通讯录“发消息”和个人中心/顶栏入口；好友列表按钮阻止冒泡，现有订单 Bell 含义保持；AppShell 依据路由 meta 隐藏聊天详情 TabBar，并包含 `/messages` 前台路径。窄屏保留消息/个人入口，避免 theme/order 图标挤出页面。
-- [ ] Step 5：时间线向前加载保存高度/首条锚点；非底部收到消息显示定位按钮且不标已读；当前可见并在底部才上报读游标。绑定 visualViewport resize/scroll 与安全区，卸载清理，模拟软键盘视口缩小检查输入可见。
-- [ ] Step 6：重复 Step 2 命令及 `npm.cmd run test:contact`；三主题分别检查 1440px、768px、390px、320px、长链接/2000 字正文、初次空聊天，确认无页面 JS 错误/横向溢出。实际手机软键盘如未有设备验证，在证据中明确说明。
-- [ ] Step 7：只 stage 本任务文件并提交 `feat: add themed responsive private chat UI`。
+- [x] Step 2：运行 `npm.cmd run build` 后执行 `& $chatNode scripts/private-chat-ui.mjs`，记录页面不存在或行为未满足的失败，排除环境错误。
+- [x] Step 3：实现页面与四个组件，复用 AppLayout/PageContainer/PageHeader/EmptyState/ErrorState 和原主题变量，按已批准交互稿落地双栏、聊天头、气泡、固定输入区和手机版列表/详情。维护日期分组、头像失败回退、44px 触达目标、低干扰播报及 reduced-motion；显示“已发送”只代表持久化成功。
+- [x] Step 4：接通通讯录“发消息”和个人中心/顶栏入口；好友列表按钮阻止冒泡，现有订单 Bell 含义保持；AppShell 依据路由 meta 隐藏聊天详情 TabBar，并包含 `/messages` 前台路径。窄屏保留消息/个人入口，避免 theme/order 图标挤出页面。
+- [x] Step 5：时间线向前加载保存高度/首条锚点；非底部收到消息显示定位按钮且不标已读；当前可见并在底部才上报读游标。绑定 visualViewport resize/scroll 与安全区，卸载清理，模拟软键盘视口缩小检查输入可见。
+- [x] Step 6：重复 Step 2 命令及 `npm.cmd run test:contact`；三主题分别检查 1440px、768px、390px、320px、长链接/2000 字正文、初次空聊天，确认无页面 JS 错误/横向溢出。实际手机软键盘如未有设备验证，在证据中明确说明。
+- [x] Step 7：只 stage 本任务文件并提交 `feat: add themed responsive private chat UI`。
 
 ### Task 6: 独立真实 MySQL 与双账号验收
 
@@ -176,7 +176,7 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** 既有隔离脚本新增 `-Suite AccountRecovery|PrivateChat`（默认 AccountRecovery），保留原验收入口。新 wrapper 调用 PrivateChat；该分支使用 `coursehub_chat_check_<32hex>`、运行目录及 `private_chat_test_guard` nonce，并设置 `COURSEHUB_CHAT_MYSQL_URL/USER/PASSWORD/NONCE`。`-BrowserE2E` 在 PrivateChat 分支调度新 E2E runner；旧分支仍运行原 SMTP 浏览器验收。所有 SQL/删除/停进程继续核对本次实例、绝对路径、marker、PID 及启动时间；不提供现有服务器连接模式。
 
-- [ ] Step 1：添加真实 MySQL 用例：旧库合法重复、非法关系预检查及初始化后迁移可运行；双向申请、并发接受/解除、同一会话并发创建、同 ID 发送、发送/解除交错、发送/改密交错、顺序补拉、读游标竞争、限流并发与回滚。用 latch/独立 datasource 控制关键交错，给等待设置超时，不用偶然 sleep 证明并发。
+- [x] Step 1：添加真实 MySQL 用例：旧库合法重复、非法关系预检查及初始化后迁移可运行；双向申请、并发接受/解除、同一会话并发创建、同 ID 发送、发送/解除交错、发送/改密交错、顺序补拉、读游标竞争、限流并发与回滚。用 latch/独立 datasource 控制关键交错，给等待设置超时，不用偶然 sleep 证明并发。
   命名 `concurrentCreatesReuseOneConversation`、`sendAndUnfriendHaveAValidSerialization`、`passwordChangeRejectsAnOldWaitingSender`、`migrationStopsBeforeChangingInvalidRows`；并发创建结果断言：
   ```java
   assertEquals(first.get(10, TimeUnit.SECONDS).conversationId(),
@@ -184,11 +184,11 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
   assertEquals(1, db.queryForObject("SELECT COUNT(*) FROM chat_conversation", Integer.class));
   assertEquals(2, db.queryForObject("SELECT COUNT(*) FROM chat_conversation_member", Integer.class));
   ```
-- [ ] Step 2：落实新套件分支和 MySQL 8 测试守卫；legacy fixture 从已验证基线 `f6ebb7c` 的 `backend/src/main/resources/db/init.sql` 复制并记录来源，不能使用已加新约束的 init 构造旧库。按 legacy fixture+account recovery migration+私聊 migration 验证增量路径，再按当前 init+全部迁移验证新库路径。非法旧关系必须在删除/DDL 前终止；合法清理结果、禁用用户保留及未受影响用户数据逐字段核对。记录引擎、collation、索引及实际 JUnit 零失败结果。
-- [ ] Step 3：运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-private-chat-mysql.ps1`；进程级 Bypass 不改变 Windows 策略。若 MySQL 暴露锁/SQL 错误，先定位并加入确定性失败用例，最小修复后复验受影响场景。
-- [ ] Step 4：E2E 启动仅绑定 127.0.0.1 的实际 Spring Boot 和生产构建前端，使用 guard 保护的临时账号 A/B/C（C 为非成员管理员）；两个独立浏览器登录、申请/接受、发收/分页/未读、解除后只读、重新加好友复用，直接 HTTP 校验 C 的 404；改密后旧 A 会话的读写/刷新拒绝及页面清理。此验收不启动 SMTP、不替换生产 API 响应、不访问业务库。
-- [ ] Step 5：运行同一 wrapper 加 `-BrowserE2E`，检查三主题手机/桌面与无外部请求；证据保存到 target/frontend output。失败和成功路径均确认所有自建进程/临时数据清理。因为复用了旧 runner，运行旧账号恢复 MySQL 套件和其浏览器入口确认默认行为仍正确。
-- [ ] Step 6：记录真实验证结果，只 stage 本任务文件并提交 `test: verify private chat with disposable MySQL and browsers`。
+- [x] Step 2：落实新套件分支和 MySQL 8 测试守卫；legacy fixture 从已验证基线 `f6ebb7c` 的 `backend/src/main/resources/db/init.sql` 复制并记录来源，不能使用已加新约束的 init 构造旧库。按 legacy fixture+account recovery migration+私聊 migration 验证增量路径，再按当前 init+全部迁移验证新库路径。非法旧关系必须在删除/DDL 前终止；合法清理结果、禁用用户保留及未受影响用户数据逐字段核对。记录引擎、collation、索引及实际 JUnit 零失败结果。
+- [x] Step 3：运行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/verify-private-chat-mysql.ps1`；进程级 Bypass 不改变 Windows 策略。若 MySQL 暴露锁/SQL 错误，先定位并加入确定性失败用例，最小修复后复验受影响场景。
+- [x] Step 4：E2E 启动仅绑定 127.0.0.1 的实际 Spring Boot 和生产构建前端，使用 guard 保护的临时账号 A/B/C（C 为非成员管理员）；两个独立浏览器登录、申请/接受、发收/分页/未读、解除后只读、重新加好友复用，直接 HTTP 校验 C 的 404；改密后旧 A 会话的读写/刷新拒绝及页面清理。此验收不启动 SMTP、不替换生产 API 响应、不访问业务库。
+- [x] Step 5：运行同一 wrapper 加 `-BrowserE2E`，检查三主题手机/桌面与无外部请求；证据保存到 target/frontend output。失败和成功路径均确认所有自建进程/临时数据清理。因为复用了旧 runner，运行旧账号恢复 MySQL 套件和其浏览器入口确认默认行为仍正确。
+- [x] Step 6：记录真实验证结果，只 stage 本任务文件并提交 `test: verify private chat with disposable MySQL and browsers`。
 
 ### Task 7: 最终验证、聚焦审查与交付
 
@@ -196,15 +196,15 @@ $env:PLAYWRIGHT_BROWSERS_PATH = 'C:\Users\二货道士\AppData\Local\ms-playwrig
 
 **Interfaces:** Consumes Task 1–6 的代码、JUnit/浏览器报告及迁移说明；Produces 可复验的提交、交付说明和实际通过记录。当前阶段不创建远端 PR、不自动推送功能分支；若用户后续要求同步，再核对远端处理。
 
-- [ ] Step 1：运行后端完整 `& $chatMaven test`；前端 `npm.cmd run test:contracts`、`test:auth`、`test:recovery`、`test:contact`、`test:chat`、`npm.cmd run build`；项目根 `scripts/verify-schema.ps1`。检查退出码、测试数与零失败，不引用过期结果。IT 通过 Task 6 的有 guard 命令显式运行，不静默跳过。
-- [ ] Step 2：对实际 diff 做一次独立聚焦审查，检查成员越权、用户锁顺序、提交后序号、幂等与额度、凭据上下文、JSON 最小投影、旧请求污染和新 UI 状态；发现重要问题先补失败回归再修复，仅复验受影响检查。
-- [ ] Step 3：核对所有设计要求对应完成任务；说明真实手机软键盘等未实测项。检查增量迁移备份、DDL 隐式提交、回退保留数据说明和环境示例，不含真实秘密或默认外部 SMTP。
-- [ ] Step 4：运行 `git diff --check` 并精确核对改动与 stage 列表，证据目录保持忽略。
-- [ ] Step 5：提交最终修复/验证记录，保存分支状态及提交号。
-- [ ] Step 6：展示正式 UI 和文档，清楚报告功能、测试、实际局限，以及业务迁移/部署仍由后续授权安排。
+- [x] Step 1：运行后端完整 `& $chatMaven test`；前端 `npm.cmd run test:contracts`、`test:auth`、`test:recovery`、`test:contact`、`test:chat`、`npm.cmd run build`；项目根 `scripts/verify-schema.ps1`。检查退出码、测试数与零失败，不引用过期结果。IT 通过 Task 6 的有 guard 命令显式运行，不静默跳过。
+- [x] Step 2：对实际 diff 做一次独立聚焦审查，检查成员越权、用户锁顺序、提交后序号、幂等与额度、凭据上下文、JSON 最小投影、旧请求污染和新 UI 状态；发现重要问题先补失败回归再修复，仅复验受影响检查。
+- [x] Step 3：核对所有设计要求对应完成任务；说明真实手机软键盘等未实测项。检查增量迁移备份、DDL 隐式提交、回退保留数据说明和环境示例，不含真实秘密或默认外部 SMTP。
+- [x] Step 4：运行 `git diff --check` 并精确核对改动与 stage 列表，证据目录保持忽略。
+- [x] Step 5：提交最终修复/验证记录，保存分支状态及提交号。
+- [x] Step 6：展示正式 UI 和文档，清楚报告功能、测试、实际局限，以及业务迁移/部署仍由后续授权安排。
 
 ## 计划审查记录与下一阶段
 
 2026-10-11：本计划对照设计检查了七个 API、四张新表、好友规范用户对、凭据写入复核、TEXT/JSON 扩展边界、未读与分页、轮询生命周期、三主题 UI、真实 MySQL 与双账号验收。Review Focus 五项均归属具体测试任务；公共方法/DTO/前端事件名称集中定义，后续任务引用一致。
 
-本阶段仅新增计划并记录设计已确认；未执行任务勾选、编写私聊产品代码或运行计划中的功能测试。书面计划经用户审阅并选择/确认执行方式后，使用相应执行技能从 Task 1 开始。
+2026-10-11：用户确认直接执行后，Task 1–6 已完成并分别提交。Task 7 的独立聚焦审查发现 1 项严重及 5 项重要问题，全部先补失败回归，再于一次修复批次解决；收尾补查的历史取消/重进失败忙标记也已补回归修复。最终后端 175 项、前端 42 项、私聊 MySQL 17 项、真实私聊浏览器 12 项、两个 UI 竞态和三主题 12 组合检查通过；原账号恢复 MySQL 26 项及浏览器 16 项复验通过。保留两项轻微界面问题及真机验证局限，实际结果见 ../../private-chat-verification.md。

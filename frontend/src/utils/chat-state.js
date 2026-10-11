@@ -74,7 +74,7 @@ export function createChatSession({ state, api, getSessionId, newClientMessageId
     if (state.selectedId === null) return
     const t = ticket('select')
     state.errors[t.id] = null
-    state.paginationByConversation[t.id] = { ...(state.paginationByConversation[t.id] || {}), loading: true }
+    state.paginationByConversation[t.id] = { ...(state.paginationByConversation[t.id] || {}), loading: true, loadingPrevious: false }
     try {
       const detail = await api.getConversation(t.id, t.config)
       if (!t.valid()) return
@@ -95,7 +95,7 @@ export function createChatSession({ state, api, getSessionId, newClientMessageId
       if (!t.valid()) return
       merge(id, page.items); pagination.before = page.next_before_sequence; pagination.hasPrevious = page.has_more; state.errors[id] = null
     } catch (error) { if (t.valid()) state.errors[id] = errorText(error); throw error }
-    finally { if (t.valid()) pagination.loadingPrevious = false; t.finish() }
+    finally { pagination.loadingPrevious = false; t.finish() }
   }
   async function pullNew(config = {}) {
     const id = state.selectedId
@@ -155,7 +155,10 @@ export function createChatSession({ state, api, getSessionId, newClientMessageId
   async function markVisibleRead({ visible, atBottom }) {
     const id = state.selectedId
     if (!id || !visible || !atBottom || state.paginationByConversation[id]?.loading) return
-    const loaded = (state.messagesByConversation[id] || []).filter(m => m.sequence).at(-1)?.sequence
+    const highestLoaded = (state.messagesByConversation[id] || []).filter(m => m.sequence).at(-1)?.sequence
+    // A send acknowledgement may be ahead of incoming messages not fetched yet.
+    const fetched = state.paginationByConversation[id]?.after || '0'
+    const loaded = highestLoaded && compareChatSequence(highestLoaded, fetched) > 0 ? fetched : highestLoaded
     const conversation = state.conversations.find(c => c.conversation_id === id)
     if (!loaded || compareChatSequence(loaded, conversation?.last_read_sequence || '0') <= 0) return
     const t = ticket('read')

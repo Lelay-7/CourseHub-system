@@ -31,6 +31,10 @@ export function sessionChangedError() {
   return Object.assign(new Error('登录状态已经改变'), { sessionChanged: true })
 }
 
+export function isSessionRejected(error) {
+  return error.sessionRejected === true || [400, 401, 403].includes(error.response?.status)
+}
+
 export function ensureFreshAccessToken() {
   const identity = getAuthSessionId()
   if (!refreshPromise || refreshIdentity !== identity) {
@@ -46,7 +50,7 @@ export function ensureFreshAccessToken() {
 async function refreshAccessToken() {
   const refreshToken = getRefreshToken()
   const identity = getAuthSessionId()
-  if (!refreshToken) throw new Error('缺少登录凭证，请重新登录')
+  if (!refreshToken) throw Object.assign(new Error('缺少登录凭证，请重新登录'), { sessionRejected: true })
   let response
   try {
     response = await refreshClient.post(normalizeApiUrl('/api/auth/refresh'), { refreshToken })
@@ -57,7 +61,7 @@ async function refreshAccessToken() {
   if (getAuthSessionId() !== identity || getRefreshToken() !== refreshToken) throw sessionChangedError()
   const result = response.data
   if (result?.code !== 200 || !result.data?.accessToken || !result.data?.refreshToken) {
-    throw new Error(result?.message || '登录续期失败，请重新登录')
+    throw Object.assign(new Error(result?.message || '登录续期暂时失败，请稍后重试'), { sessionRejected: [400, 401, 403].includes(result?.code) })
   }
   const tokens = result.data
   saveTokens(tokens.accessToken, tokens.refreshToken)
@@ -84,7 +88,7 @@ export async function ensureSession() {
     return true
   } catch (error) {
     if (error.sessionChanged) return !!getAccessToken() && !isTokenExpired(getAccessToken())
-    clearAllAuth()
-    return false
+    if (isSessionRejected(error)) { clearAllAuth(); return false }
+    throw error
   }
 }

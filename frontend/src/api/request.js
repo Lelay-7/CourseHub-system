@@ -7,7 +7,7 @@ import {
   getAuthSessionId,
   isTokenExpired
 } from '@/utils/auth'
-import { ensureFreshAccessToken, isPublicAuthRequest, normalizeApiUrl, sessionChangedError } from '@/utils/session'
+import { ensureFreshAccessToken, isSessionRejected, isPublicAuthRequest, normalizeApiUrl, sessionChangedError } from '@/utils/session'
 export { ensureSession } from '@/utils/session'
 import router from '@/router'
 import { mockAdapter } from './mock'
@@ -37,6 +37,15 @@ function expireSession(message = '登录已过期，请重新登录') {
   setTimeout(() => { sessionExpired = false }, 2000)
 }
 
+function refreshFailure(error, config) {
+  if (!error.sessionChanged) {
+    if (isSessionRejected(error)) expireSession()
+    else if (!config.silentError) ElMessage.error('登录续期暂时失败，请稍后重试')
+  }
+  error.userNotified = true
+  return Promise.reject(error)
+}
+
 service.interceptors.request.use(async config => {
   config.url = normalizeApiUrl(config.url)
 
@@ -57,9 +66,7 @@ service.interceptors.request.use(async config => {
       token = await ensureFreshAccessToken()
       if (config._sessionIdentity !== getAuthSessionId()) throw sessionChangedError()
     } catch (error) {
-      if (!error.sessionChanged) expireSession()
-      error.userNotified = true
-      return Promise.reject(error)
+      return refreshFailure(error, config)
     }
   }
   if (token) config.headers.Authorization = `Bearer ${token}`
@@ -107,9 +114,7 @@ service.interceptors.response.use(
         original.headers.Authorization = `Bearer ${token}`
         return service(original)
       } catch (refreshError) {
-        if (!refreshError.sessionChanged) expireSession()
-        refreshError.userNotified = true
-        return Promise.reject(refreshError)
+        return refreshFailure(refreshError, original)
       }
     }
 

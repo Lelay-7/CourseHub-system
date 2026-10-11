@@ -52,6 +52,37 @@ test('history merging deduplicates and only visible bottom marks loaded sequence
   await f.chat.markVisibleRead({visible:false,atBottom:true});await f.chat.markVisibleRead({visible:true,atBottom:false});assert.deepEqual(marked,[])
   await f.chat.markVisibleRead({visible:true,atBottom:true}); assert.deepEqual(marked,['3'])
 })
+
+test('a send acknowledgement cannot mark unfetched intervening messages read',async()=>{
+  const marked=[];const f=fixture({
+    getMessages:async(id,p)=>p.after_sequence?{items:[message('2'),message('3'),message('4','11111111-1111-4111-8111-111111111111')],has_more:false,next_after_sequence:'4'}:{items:[message('1')],has_more:false,next_after_sequence:'1'},
+    sendMessage:async(id,data)=>({...message('4',data.client_message_id),sender_id:'1'}),
+    markRead:async(id,seq)=>{marked.push(seq);return {last_read_sequence:seq,unread_count:seq==='1'?2:0}}
+  })
+  await f.chat.selectConversation('1');await f.chat.sendText('outgoing')
+  assert.deepEqual(f.state.messagesByConversation['1'].map(m=>m.sequence),['1','4'])
+  await f.chat.markVisibleRead({visible:true,atBottom:true});assert.deepEqual(marked,['1'])
+  await f.chat.pullNew();await f.chat.markVisibleRead({visible:true,atBottom:true});assert.deepEqual(marked,['1','4'])
+})
+
+test('cancelled history cannot keep pagination busy after failed reselection and recovery',async()=>{
+  const old=deferred();let beforeCalls=0,hold=true,failInitial=false
+  const f=fixture({getMessages:async(id,p)=>{
+    if(p.before_sequence){beforeCalls++;return hold?old.promise:{items:[message('1')],has_more:false,next_before_sequence:'1'}}
+    if(!p.after_sequence&&failInitial&&id==='1'){failInitial=false;throw new Error('temporary initial history failure')}
+    return {items:[message('2'),message('3')],has_more:true,next_before_sequence:'2',next_after_sequence:'3'}
+  }})
+  await f.chat.selectConversation('1');const previous=f.chat.loadPrevious()
+  await f.chat.selectConversation('2');failInitial=true;await f.chat.selectConversation('1')
+  hold=false;f.api.getMessages=async(id,p)=>{
+    if(p.before_sequence){beforeCalls++;return {items:[message('1')],has_more:false,next_before_sequence:'1'}}
+    return {items:[],has_more:false,next_after_sequence:'3'}
+  }
+  await f.chat.pullNew();await f.chat.loadPrevious()
+  assert.equal(beforeCalls,2,'recovered current history must be requestable')
+  old.resolve({items:[],has_more:false});await previous
+  assert.equal(f.state.paginationByConversation['1'].loadingPrevious,false)
+})
 test('Unicode validation uses code points, normalizes newlines and rejects invalid whitespace/control',()=>{
   assert.equal(normalizeChatText('😀'.repeat(2000)).length,4000)
   assert.equal(normalizeChatText('a\r\nb\rc'),'a\nb\nc')

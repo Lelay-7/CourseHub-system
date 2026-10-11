@@ -14,6 +14,13 @@ USE bgss_xtt;
 -- ============================================================================
 -- 删除表（方便重新初始化）
 -- ============================================================================
+DROP TABLE IF EXISTS chat_message;
+DROP TABLE IF EXISTS chat_conversation_member;
+DROP TABLE IF EXISTS chat_conversation;
+DROP TABLE IF EXISTS chat_send_rate_window;
+DROP TABLE IF EXISTS recovery_code;
+DROP TABLE IF EXISTS recovery_rate_event;
+DROP TABLE IF EXISTS recovery_rate_lock;
 DROP TABLE IF EXISTS sms_code;
 DROP TABLE IF EXISTS material_report;
 DROP TABLE IF EXISTS material_download;

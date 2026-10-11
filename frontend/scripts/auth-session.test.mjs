@@ -145,6 +145,34 @@ test('a rejected refresh fails promptly and clears the expired session', async (
   assert.equal(localStorage.getItem('refresh_token'), null)
 })
 
+for (const stage of ['expired access','rejected access']) for (const failure of ['offline','timeout','server']) {
+  test(`temporary ${failure} refresh failure after ${stage} preserves identity and allows retry`,async()=>{
+    const context=fixture(stage==='expired access'?jwt(-600):jwt(7200));const identity=auth.getAuthSessionId()
+    const access=localStorage.getItem('access_token'),refresh=localStorage.getItem('refresh_token'),normal=context.adapter
+    let failing=true
+    context.adapter=async config=>{
+      if(config.url.endsWith('/auth/refresh')&&failing) throw Object.assign(new Error(failure),{config,...(failure==='timeout'?{code:'ECONNABORTED'}:{}),...(failure==='server'?{response:{status:503,data:{message:'unavailable'}}}:{})})
+      if(!config.url.endsWith('/auth/refresh')&&stage==='rejected access'&&failing) throw Object.assign(new Error('unauthorized'),{config,response:{status:401,data:{}}})
+      return normal(config)
+    }
+    const {default:request}=await load('src/api/request.js')
+    await assert.rejects(bounded(request.get('/api/chat/unread',{silentError:true})))
+    assert.equal(localStorage.getItem('access_token'),access);assert.equal(localStorage.getItem('refresh_token'),refresh)
+    assert.equal(auth.getAuthSessionId(),identity);assert.deepEqual(context.navigation,[]);assert.deepEqual(context.notices,[])
+    failing=false;await bounded(request.get('/api/chat/unread',{silentError:true}));assert.equal(auth.getAuthSessionId(),identity)
+  })
+}
+
+test('business-code rejected refresh still clears credentials for password invalidation',async()=>{
+  const context=fixture();context.adapter=async config=>({config,status:200,headers:{},data:{code:401,message:'登录已失效'}})
+  const {default:request}=await load('src/api/request.js');await assert.rejects(request.get('/api/chat/unread',{silentError:true}))
+  assert.equal(localStorage.getItem('access_token'),null);assert.equal(localStorage.getItem('refresh_token'),null);assert.equal(context.navigation.at(-1),'/login')
+})
+test('navigation session restoration preserves credentials on a temporary refresh failure',async()=>{
+  const context=fixture();const identity=auth.getAuthSessionId();context.adapter=async config=>{throw Object.assign(new Error('offline'),{config})}
+  const api=await load('src/api/request.js');await assert.rejects(api.ensureSession(),/offline/);assert.equal(auth.getAuthSessionId(),identity)
+})
+
 test('a valid refresh token restores the session used by navigation', async () => {
   fixture()
   const api = await load('src/api/request.js')

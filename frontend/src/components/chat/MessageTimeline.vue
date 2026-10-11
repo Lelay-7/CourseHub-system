@@ -32,24 +32,32 @@ import { ref,watch,nextTick,onMounted } from 'vue'
 import TextMessage from './TextMessage.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ErrorState from '@/components/ErrorState.vue'
-const props=defineProps({messages:{type:Array,default:()=>[]},peer:Object,loading:Boolean,error:String,hasPrevious:Boolean,myUserId:String})
+const props=defineProps({conversationId:String,messages:{type:Array,default:()=>[]},peer:Object,loading:Boolean,error:String,hasPrevious:Boolean,myUserId:String})
 const emit=defineEmits(['load-previous','at-bottom','retry','retry-send'])
 const scroller=ref(null),atBottom=ref(true),newMessages=ref(false),loadingPrevious=ref(false),announcement=ref('')
+let timelineGeneration=0
+watch(()=>props.conversationId,()=>{timelineGeneration++;loadingPrevious.value=false;atBottom.value=true;newMessages.value=false;announcement.value=''},{flush:'sync'})
 const isOwn=message=>message.sender_id===props.myUserId || message.sender_id===null
 function day(value){return new Intl.DateTimeFormat('zh-CN',{year:'numeric',month:'long',day:'numeric'}).format(new Date(value))}
 function time(value){return new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit'}).format(new Date(value))}
 function scroll(){const el=scroller.value;if(!el)return;atBottom.value=el.scrollHeight-el.scrollTop-el.clientHeight<40;if(atBottom.value)newMessages.value=false;emit('at-bottom',atBottom.value)}
-async function scrollToLatest(){await nextTick();const el=scroller.value;if(el){el.scrollTop=el.scrollHeight;newMessages.value=false;scroll()}}
+async function scrollToLatest(){const generation=timelineGeneration;await nextTick();if(generation!==timelineGeneration)return;const el=scroller.value;if(el){el.scrollTop=el.scrollHeight;newMessages.value=false;scroll()}}
 function previous(){
  const el=scroller.value;if(!el||loadingPrevious.value)return
- const height=el.scrollHeight,top=el.scrollTop;loadingPrevious.value=true
- emit('load-previous',async()=>{await nextTick();el.scrollTop=top+el.scrollHeight-height;loadingPrevious.value=false;scroll()})
+ const generation=timelineGeneration,top=el.scrollTop,rect=el.getBoundingClientRect()
+ const anchor=[...el.querySelectorAll('li[data-message-id]')].find(row=>row.getBoundingClientRect().bottom>rect.top&&row.getBoundingClientRect().top<rect.bottom)
+ const offset=anchor?.getBoundingClientRect().top-rect.top;loadingPrevious.value=true
+ emit('load-previous',async()=>{await nextTick();if(generation!==timelineGeneration||el!==scroller.value)return;el.scrollTop=anchor&&el.contains(anchor)?el.scrollTop+anchor.getBoundingClientRect().top-el.getBoundingClientRect().top-offset:top;loadingPrevious.value=false;scroll()})
 }
 watch(()=>props.messages.map(m=>m.message_id || m.client_message_id).join(','),async(value,old)=>{
- if(!value || loadingPrevious.value)return
- const latest=props.messages.at(-1)
- if(!old || atBottom.value || latest?.sender_id===null){await scrollToLatest()}
- else {newMessages.value=true;announcement.value='有新消息'}
+ if(!value)return
+ const previousIds=new Set(old?.split(',') || [])
+ const previousSequence=props.messages.filter(m=>m.sequence&&previousIds.has(m.message_id || m.client_message_id)).reduce((max,m)=>BigInt(m.sequence)>max?BigInt(m.sequence):max,0n)
+ const appended=props.messages.some(m=>m.sequence&&!previousIds.has(m.message_id || m.client_message_id)&&BigInt(m.sequence)>previousSequence)
+ const initiated=props.messages.some(m=>!m.sequence&&!previousIds.has(m.client_message_id))
+ if(loadingPrevious.value){if(appended&&!atBottom.value){newMessages.value=true;announcement.value='有新消息'};return}
+ if(!old || atBottom.value || initiated){await scrollToLatest()}
+ else if(appended){newMessages.value=true;announcement.value='有新消息'}
 },{flush:'post'})
 onMounted(scroll)
 defineExpose({scrollToLatest})

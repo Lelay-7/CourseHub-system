@@ -15,7 +15,7 @@
             </header>
             <div v-if="conversation && !conversation.can_send" class="readonly-notice" role="status">{{ conversation.send_disabled_reason==='NOT_FRIENDS'?'已解除好友，历史消息仍可查看':'对方账号不可用，历史消息仍可查看' }}</div>
             <div v-if="chat.state.errors[id] && messages.length" class="inline-error" role="status">{{ chat.state.errors[id] }} <button @click="refreshDetail">重试</button></div>
-            <MessageTimeline ref="timeline" :messages="messages" :peer="conversation?.peer" :my-user-id="myUserId" :loading="pagination.loading" :error="chat.state.errors[id]" :has-previous="pagination.hasPrevious" @load-previous="previous" @retry="reload" @retry-send="chat.retrySend" @at-bottom="bottom" />
+            <MessageTimeline ref="timeline" :conversation-id="id" :messages="messages" :peer="conversation?.peer" :my-user-id="myUserId" :loading="pagination.loading" :error="chat.state.errors[id]" :has-previous="pagination.hasPrevious" @load-previous="previous" @retry="reload" @retry-send="chat.retrySend" @at-bottom="bottom" />
             <MessageComposer v-model="draft" :disabled="!conversation?.can_send || !!pagination.loading" :sending="sending" @send="send" />
           </template>
           <EmptyState v-else description="选择好友，开始聊天"><router-link class="contact-link" to="/contact?tab=friends">去通讯录</router-link></EmptyState>
@@ -50,21 +50,24 @@ const draft=computed({get:()=>chat.state.draftsByConversation[id.value] || '',se
 const sending=computed(()=>Object.values(chat.state.pendingByClientId).some(row=>row.conversation_id===id.value && row.delivery_state==='SENDING'))
 const listLoading=computed(()=>!chat.state.paginationByConversation._list&&!chat.state.errors._list)
 useChatPolling({detail:true})
-watch(id,async value=>{atBottom.value=true;await chat.selectConversation(value);await nextTick();if(value)await timeline.value?.scrollToLatest()},{immediate:true})
+let viewGeneration=0,disposed=false
+const viewTicket=()=>({generation:viewGeneration,id:id.value,session:chat.sessionId})
+const current=ticket=>!disposed && ticket.generation===viewGeneration && ticket.id===id.value && ticket.session===chat.sessionId
+watch(id,async value=>{viewGeneration++;const ticket=viewTicket();atBottom.value=true;await chat.selectConversation(value);if(!current(ticket))return;await nextTick();if(value&&current(ticket))await timeline.value?.scrollToLatest()},{immediate:true})
 watch(()=>messages.value.map(m=>m.sequence).join(','),()=>{void markRead()},{flush:'post'})
 function select(value){router.push('/messages/'+value)}
 async function reload(){await chat.selectConversation(id.value)}
 async function refreshList(){try{await chat.refreshConversations()}catch{}}
 async function more(){try{await chat.refreshConversations({cursor:chat.state.paginationByConversation._list?.nextCursor})}catch{}}
-async function refreshDetail(){try{await chat.pullNew();await markRead()}catch{}}
-async function previous(done){try{await chat.loadPrevious()}catch{}finally{await done()}}
-async function send(value){await chat.sendText(value);await timeline.value?.scrollToLatest();await markRead()}
+async function refreshDetail(){const ticket=viewTicket();try{await chat.pullNew();if(current(ticket))await markRead()}catch{}}
+async function previous(done){const ticket=viewTicket();try{await chat.loadPrevious()}catch{}finally{if(current(ticket))await done()}}
+async function send(value){const ticket=viewTicket();await chat.sendText(value);if(!current(ticket))return;await timeline.value?.scrollToLatest();if(current(ticket))await markRead()}
 function bottom(value){atBottom.value=value;void markRead()}
 async function markRead(){await chat.markVisibleRead({visible:document.visibilityState==='visible',atBottom:atBottom.value})}
 function measureViewport(){const viewport=window.visualViewport;const navbar=document.querySelector('.app-navbar');viewportStyle.value={'--chat-viewport-height':(viewport?.height || window.innerHeight)+'px','--chat-navbar-height':Math.max(0,navbar?.getBoundingClientRect().bottom || 66)+'px'}}
 function visible(){if(document.visibilityState==='visible')void markRead()}
 onMounted(()=>{measureViewport();window.visualViewport?.addEventListener('resize',measureViewport);window.visualViewport?.addEventListener('scroll',measureViewport);window.addEventListener('resize',measureViewport);document.addEventListener('visibilitychange',visible)})
-onUnmounted(()=>{void chat.selectConversation(null);window.visualViewport?.removeEventListener('resize',measureViewport);window.visualViewport?.removeEventListener('scroll',measureViewport);window.removeEventListener('resize',measureViewport);document.removeEventListener('visibilitychange',visible)})
+onUnmounted(()=>{disposed=true;viewGeneration++;void chat.selectConversation(null);window.visualViewport?.removeEventListener('resize',measureViewport);window.visualViewport?.removeEventListener('scroll',measureViewport);window.removeEventListener('resize',measureViewport);document.removeEventListener('visibilitychange',visible)})
 </script>
 <style scoped>
 .message-page{max-width:1180px}

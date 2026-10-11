@@ -270,21 +270,29 @@ const router = createRouter({
   }
 })
 
+async function restoreNavigationSession(next) {
+  try { return await ensureSession() }
+  catch { ElMessage.error('网络暂不可用，请稍后重试'); next(false); return null }
+}
+
 router.beforeEach(async (to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 不高山选课通` : '不高山选课通'
 
   // 登录页：已登录则跳转首页
   if (to.meta.requiresAuth === false) {
-    if (to.name === 'Login' && await ensureSession()) {
-      next({ path: to.query.redirect || '/home', replace: true })
-      return
+    if (to.name === 'Login') {
+      const authenticated = await restoreNavigationSession(next)
+      if (authenticated === null) return
+      if (authenticated) { next({ path: to.query.redirect || '/home', replace: true }); return }
     }
     next()
     return
   }
 
   // 需要登录
-  if (!await ensureSession()) {
+  const authenticated = await restoreNavigationSession(next)
+  if (authenticated === null) return
+  if (!authenticated) {
     ElMessage.warning('请先登录')
     next({
       path: '/login',
