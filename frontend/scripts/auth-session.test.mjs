@@ -11,6 +11,34 @@ const auth = await import(pathToFileURL(resolve(root, 'src/utils/auth.js')).href
 let sequence = 0
 const jwt = seconds => `e30.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + seconds })).toString('base64url')}.signature`
 
+test('auth subscribers clear synchronously on logout and new identity but not refresh', () => {
+  fixture(jwt(7200))
+  const initial = auth.getAuthSessionId()
+  const changes = []
+  const unsubscribe = auth.subscribeAuthSessionChange(id => changes.push(id))
+  auth.saveTokens(jwt(8000),jwt(16000))
+  assert.equal(auth.getAuthSessionId(), initial)
+  assert.deepEqual(changes, [])
+  auth.clearTokens()
+  assert.deepEqual(changes, [null])
+  auth.saveTokens(jwt(7200),jwt(14400))
+  assert.equal(changes.length,2)
+  assert.notEqual(changes[1],initial)
+  unsubscribe()
+})
+
+test('silent background failure has no toast while unauthorized still clears credentials', async () => {
+  const context = fixture(jwt(7200))
+  context.adapter = async config => { throw Object.assign(new Error('offline'),{config}) }
+  const { default: request } = await load('src/api/request.js')
+  await assert.rejects(request.get('/api/chat/unread',{silentError:true}))
+  assert.deepEqual(context.notices,[])
+  context.adapter = async config => { throw Object.assign(new Error('unauthorized'),{config,response:{status:401,data:{message:'expired'}}}) }
+  await assert.rejects(request.get('/api/chat/unread',{silentError:true}))
+  assert.equal(localStorage.getItem('access_token'),null)
+  assert.equal(context.navigation.at(-1),'/login')
+})
+
 async function load(entry, env = {}) {
   const target = resolve(root, `output/playwright/auth-test-${process.pid}-${++sequence}.mjs`)
   mkdirSync(resolve(root, 'output/playwright'), { recursive: true })

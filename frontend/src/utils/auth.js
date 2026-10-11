@@ -6,6 +6,28 @@
 const ACCESS_TOKEN_KEY = 'access_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
 const SESSION_ID_KEY = 'auth_session_id'
+const sessionListeners = new Set()
+let lastNotifiedSession
+function notifySessionChange() {
+  const id = getAuthSessionId()
+  if (id === lastNotifiedSession) return
+  lastNotifiedSession = id
+  for (const listener of sessionListeners) listener(id)
+}
+function storageSessionChange(event) {
+  if (event.key === null || [ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_ID_KEY].includes(event.key)) notifySessionChange()
+}
+export function subscribeAuthSessionChange(listener) {
+  if (!sessionListeners.size) {
+    lastNotifiedSession = getAuthSessionId()
+    globalThis.window?.addEventListener('storage',storageSessionChange)
+  }
+  sessionListeners.add(listener)
+  return () => {
+    sessionListeners.delete(listener)
+    if (!sessionListeners.size) globalThis.window?.removeEventListener('storage',storageSessionChange)
+  }
+}
 
 // This identity changes on logout/login, while token renewal keeps it stable.
 export function getAuthSessionId() {
@@ -53,6 +75,7 @@ export function saveTokens(accessToken, refreshToken) {
   setAccessToken(accessToken)
   setRefreshToken(refreshToken)
   getAuthSessionId()
+  notifySessionChange()
 }
 
 /**
@@ -86,6 +109,7 @@ export function clearTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(SESSION_ID_KEY)
+  notifySessionChange()
 }
 
 /**

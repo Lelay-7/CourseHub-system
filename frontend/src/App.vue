@@ -6,6 +6,9 @@
 import { onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '@/stores/app'
 import { THEME_STORAGE_KEY, readTheme } from '@/utils/theme'
+import { useChatPolling } from '@/composables/useChatPolling'
+
+useChatPolling()
 
 const appStore = useAppStore()
 const checkViewport = () => appStore.checkViewport()

@@ -74,22 +74,23 @@ service.interceptors.response.use(
 
     const result = response.data
     if (result?.code !== 200) {
-      ElMessage.error(result?.message || '请求失败')
+      if (!response.config.silentError) ElMessage.error(result?.message || '请求失败')
       return Promise.reject(Object.assign(new Error(result?.message || '请求失败'), { userNotified: true }))
     }
     return result
   },
   async error => {
+    if (error.code === 'ERR_CANCELED') return Promise.reject(error)
     if (error.userNotified || error.sessionChanged) return Promise.reject(error)
     if (error.config && !isPublicAuthRequest(error.config.url)
         && error.config._sessionIdentity !== getAuthSessionId()) return Promise.reject(sessionChangedError())
     error.userNotified = true
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      ElMessage.error('网络请求超时，请稍后重试')
+      if (!error.config?.silentError) ElMessage.error('网络请求超时，请稍后重试')
       return Promise.reject(error)
     }
     if (!error.response) {
-      ElMessage.error('网络异常，请稍后重试')
+      if (!error.config?.silentError) ElMessage.error('网络异常，请稍后重试')
       return Promise.reject(error)
     }
 
@@ -113,9 +114,11 @@ service.interceptors.response.use(
     }
 
     if (status === 401) expireSession('登录已失效，请重新登录')
-    else if (status === 403) ElMessage.error('权限不足，无法执行此操作')
-    else if (status === 404) ElMessage.error(data?.message || '请求的资源不存在')
-    else ElMessage.error(data?.message || '请求失败，请稍后重试')
+    else if (!original.silentError) {
+      if (status === 403) ElMessage.error('权限不足，无法执行此操作')
+      else if (status === 404) ElMessage.error(data?.message || '请求的资源不存在')
+      else ElMessage.error(data?.message || '请求失败，请稍后重试')
+    }
     return Promise.reject(error)
   }
 )
