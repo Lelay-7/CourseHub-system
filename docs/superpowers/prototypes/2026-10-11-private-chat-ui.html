@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="blue">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CourseHub · 私聊界面设计预览</title>
+  <link rel="stylesheet" href="../../../frontend/src/styles/variables.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--color-text-primary); background: var(--color-bg-page); font: 14px/1.6 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: default; opacity: .55; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+    button, select, input, textarea { color: var(--color-text-primary); }
+    .prototype-bar { padding: 7px 24px; border-bottom: 1px solid var(--color-border-light); display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; justify-content: center; color: var(--color-text-secondary); font-size: 12px; }
+    .prototype-bar label { display: inline-flex; align-items: center; gap: 6px; }
+    select { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 8px; padding: 3px 8px; }
+    .app-navbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; height: 80px; padding: 0 max(32px, calc((100vw - 1440px) / 2)); border-bottom: 1px solid var(--color-border-light); }
+    .brand { display: flex; align-items: center; gap: 12px; color: var(--color-primary); }
+    .brand svg { width: 36px; height: 36px; }
+    .brand strong { display: block; color: var(--color-text-primary); font-size: 22px; letter-spacing: -.6px; line-height: 1.2; }
+    .brand small { display: block; color: var(--color-text-secondary); font-size: 11px; letter-spacing: 1px; margin-top: 4px; }
+    .primary-nav { display: flex; gap: clamp(16px, 2.4vw, 36px); color: var(--color-text-secondary); font-size: 15px; }
+    .navbar-right { display: flex; align-items: center; gap: 16px; }
+    .icon-button { width: 44px; min-height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--color-primary); display: inline-flex; align-items: center; justify-content: center; position: relative; }
+    .icon-button svg { width: 22px; height: 22px; }
+    .icon-button:hover { background: var(--color-bg-soft); }
+    .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--color-danger); color: var(--color-bg-card); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+    .icon-button .count { position: absolute; top: 0; right: 0; }
+    .avatar { width: 44px; height: 44px; border-radius: 14px; flex: 0 0 44px; display: inline-flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-size: 16px; font-weight: 800; }
+    .avatar.self { background: var(--color-primary); color: var(--color-on-primary); }
+    main { width: min(calc(100% - 64px), var(--content-max-width)); margin: 0 auto; padding: 24px 0 40px; }
+    .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+    h1 { margin: 0; font-size: 28px; line-height: 1.25; font-weight: 900; }
+    .page-heading p { margin: 8px 0 0; color: var(--color-text-secondary); }
+    .pill { min-height: 44px; padding: 8px 18px; border: 1px solid var(--color-border); border-radius: 999px; background: var(--color-bg-card); font-weight: 700; white-space: nowrap; }
+    .pill.primary { border-color: var(--color-primary); background: var(--color-primary); color: var(--color-on-primary); }
+    .chat-card { display: grid; grid-template-columns: 300px minmax(0, 1fr); height: clamp(540px, calc(100dvh - 275px), 760px); min-height: 540px; background: var(--color-bg-card); border: 1px solid var(--color-border-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+    .conversations { min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--color-border-light); }
+    .list-title { padding: 22px 20px 14px; display: flex; align-items: center; gap: 8px; }
+    .list-title strong { font-size: 16px; }
+    .list-title small { color: var(--color-text-secondary); }
+    .search { margin: 0 16px 14px; position: relative; }
+    .search svg { position: absolute; left: 12px; top: 13px; width: 18px; height: 18px; color: var(--color-text-placeholder); }
+    .search input { width: 100%; height: 44px; padding: 9px 12px 9px 38px; border: 1px solid var(--color-border-light); border-radius: 14px; background: var(--color-bg-soft); }
+    input::placeholder, textarea::placeholder { color: var(--color-text-placeholder); }
+    .conversation-list { padding: 0 10px 12px; overflow: auto; flex: 1; }
+    .conversation { width: 100%; display: flex; gap: 12px; align-items: center; border: 1px solid transparent; border-radius: 16px; padding: 14px 10px; text-align: left; background: transparent; margin-bottom: 4px; }
+    .conversation:hover { background: var(--color-bg-soft); }
+    .conversation[aria-current="true"] { background: var(--color-primary-light); border-color: var(--color-border); }
+    .conversation-info { flex: 1; min-width: 0; }
+    .conversation-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .conversation-top strong { font-size: 14px; font-weight: 750; }
+    .conversation-top time { font-size: 11px; color: var(--color-text-secondary); flex-shrink: 0; }
+    .conversation-bottom { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+    .preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--color-text-secondary); font-size: 12px; flex: 1; }
+    .list-foot { padding: 14px 20px; color: var(--color-text-secondary); font-size: 12px; border-top: 1px solid var(--color-border-light); }
+    .chat { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+    .chat-header { min-height: 84px; padding: 18px 24px; border-bottom: 1px solid var(--color-border-light); display: flex; align-items: center; gap: 12px; }
+    .chat-header .identity { flex: 1; min-width: 0; }
+    .identity strong { font-size: 16px; }
+    .identity p { margin: 2px 0 0; color: var(--color-text-secondary); font-size: 12px; }
+    .tag { font-size: 11px; font-weight: 600; margin-left: 8px; padding: 3px 7px; border-radius: 6px; background: var(--color-success-light); color: var(--color-success); vertical-align: 1px; }
+    .back { display: none; }
+    .readonly-note { margin: 12px 24px 0; border-radius: 10px; padding: 10px 12px; color: var(--color-warning); background: var(--color-warning-light); font-size: 12px; }
+    .timeline { flex: 1; overflow: auto; min-height: 0; padding: 22px 24px; }
+    .day { display: flex; justify-content: center; color: var(--color-text-secondary); font-size: 11px; margin-bottom: 22px; }
+    .day span { padding: 4px 12px; border-radius: 999px; background: var(--color-bg-soft); }
+    .message { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+    .message .avatar { width: 32px; height: 32px; flex-basis: 32px; border-radius: 10px; font-size: 12px; }
+    .message.own { flex-direction: row-reverse; }
+    .message-content { max-width: min(78%, 520px); min-width: 0; }
+    .bubble { padding: 12px 16px; border-radius: 6px 18px 18px 18px; background: var(--color-bg-soft); color: var(--color-text-primary); line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .own .bubble { color: var(--color-on-primary); background: var(--color-primary); border-radius: 18px 6px 18px 18px; }
+    .message-meta { font-size: 11px; color: var(--color-text-secondary); margin-top: 5px; }
+    .own .message-meta { text-align: right; }
+    .retry { border: 0; background: transparent; color: var(--color-danger); min-height: 44px; padding: 4px 8px; font-size: 12px; }
+    .composer { border-top: 1px solid var(--color-border-light); padding: 16px 24px 18px; }
+    .composer textarea { width: 100%; height: 74px; resize: none; border: 1px solid var(--color-border-light); border-radius: 16px; background: var(--color-bg-card); padding: 12px 14px; outline-offset: 2px; }
+    .composer textarea:disabled { background: var(--color-bg-soft); }
+    .composer-bottom { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .composer-hint { font-size: 11px; color: var(--color-text-secondary); }
+    .composer-action { display: flex; align-items: center; gap: 12px; }
+    .character-count { font-size: 11px; color: var(--color-text-secondary); }
+    .character-count.invalid { color: var(--color-danger); }
+    .blank { flex: 1; display: flex; align-items: center; justify-content: center; padding: 32px; text-align: center; }
+    .blank h2 { font-size: 18px; margin: 12px 0 6px; }
+    .blank p { color: var(--color-text-secondary); margin: 0 0 18px; }
+    .empty-icon { width: 60px; height: 60px; border-radius: 20px; background: var(--color-primary-light); color: var(--color-primary); display: inline-flex; align-items: center; justify-content: center; }
+    .empty-icon svg { width: 28px; height: 28px; }
+    .skeleton { height: 58px; border-radius: 14px; margin: 12px 0; background: var(--color-bg-soft); }
+    .mobile-tabs { display: none; }
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 12px 20px; background: var(--color-primary); color: var(--color-on-primary); border-radius: 999px; box-shadow: var(--shadow-md); z-index: 20; max-width: calc(100% - 24px); }
+    [hidden] { display: none !important; }
+    @media (min-width: 768px) and (max-width: 1100px) { .primary-nav { gap: 18px; } .chat-card { grid-template-columns: 260px minmax(0, 1fr); } main { width: calc(100% - 32px); } .app-navbar { padding: 0 24px; gap: 16px; } }
+    @media (max-width: 767px) {
+      .prototype-bar { padding: 6px 12px; gap: 6px 12px; justify-content: flex-start; font-size: 11px; }
+      .prototype-bar > span { width: 100%; }
+      .app-navbar { height: 66px; padding: 0 16px; gap: 12px; }
+      .brand svg { width: 28px; height: 28px; }
+      .brand { gap: 8px; }
+      .brand strong { font-size: 18px; }
+      .brand small { font-size: 10px; }
+      .primary-nav { display: none; }
+      .navbar-right { gap: 6px; }
+      .navbar-right > .avatar { width: 32px; height: 32px; flex-basis: 32px; border-radius: 10px; font-size: 13px; }
+      main { width: calc(100% - 24px); padding: 16px 0 72px; }
+      .page-heading { gap: 12px; margin-bottom: 16px; }
+      h1 { font-size: 24px; }
+      .page-heading p { font-size: 12px; }
+      .page-heading .pill { padding: 8px 12px; font-size: 12px; }
+      .chat-card { display: block; height: calc(100dvh - 294px); min-height: 390px; border-radius: 18px; }
+      .conversations, .chat { height: 100%; }
+      .conversations { border-right: 0; }
+      .chat { display: none; }
+      body[data-panel="chat"] main { padding: 12px 0; }
+      body[data-panel="chat"] .page-heading, body[data-panel="chat"] .conversations { display: none; }
+      body[data-panel="chat"] .chat-card { height: calc(100dvh - 162px); min-height: 400px; }
+      body[data-panel="chat"] .chat { display: flex; }
+      .chat-header { min-height: 72px; padding: 12px; gap: 8px; }
+      .chat-header > .avatar { display: none; }
+      .chat-header .pill { padding: 8px 12px; font-size: 12px; }
+      .identity strong { font-size: 15px; }
+      .identity p { font-size: 11px; }
+      .back { display: inline-flex; flex-shrink: 0; width: 36px; }
+      .timeline { padding: 18px 12px; }
+      .message { gap: 7px; }
+      .message-content { max-width: 80%; }
+      .bubble { padding: 10px 12px; font-size: 13px; }
+      .composer { padding: 12px 12px max(12px, env(safe-area-inset-bottom)); }
+      .composer textarea { height: 68px; font-size: 16px; }
+      .composer-hint { font-size: 10px; }
+      .composer-hint .desktop-hint { display: none; }
+      .composer-action { gap: 8px; }
+      .readonly-note { margin: 10px 12px 0; }
+      .mobile-tabs { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 4px env(safe-area-inset-bottom); background: var(--color-bg-card); border-top: 1px solid var(--color-border); display: flex; justify-content: space-around; z-index: 10; }
+      .mobile-tabs span { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50px; font-size: 11px; color: var(--color-text-secondary); flex: 1; }
+      .mobile-tabs svg { width: 20px; height: 20px; }
+      body[data-panel="chat"] .mobile-tabs { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body data-panel="list">
+  <div class="prototype-bar">
+    <span>交互设计稿 · 示例数据，发送仅在此预览中演示</span>
+    <label>主题 <select id="theme" aria-label="预览主题"><option value="blue">瓷白墨蓝</option><option value="wine">暖白酒红</option><option value="black">曜石黑</option></select></label>
+    <label>状态 <select id="state" aria-label="预览状态"><option value="normal">正常聊天</option><option value="readonly">解除好友</option><option value="empty">暂无会话</option><option value="error">加载失败</option><option value="loading">加载中</option><option value="send-failure">发送失败演示</option></select></label>
+  </div>
+  <header class="app-navbar">
+    <div class="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20 2 30 8 30 20 20 26 10 20 10 8Z" fill="currentColor" opacity=".65"/><path d="M10 15 20 21 20 33 10 39 0 33 0 21Z" fill="currentColor"/><path d="M30 15 40 21 40 33 30 39 20 33 20 21Z" fill="currentColor" opacity=".85"/></svg><div><strong>CourseHub</strong><small>不高山选课通</small></div></div>
+    <nav class="primary-nav" aria-label="现有主导航预览"><span>首页</span><span>课程</span><span>资料</span><span>广场</span><span>我的</span><span>更多⌄</span></nav>
+    <div class="navbar-right"><button class="icon-button" id="messages-entry" type="button" aria-label="消息，3 条未读"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 15a3 3 0 0 1-3 3H8l-4 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3z"/><path d="M8 8h8M8 12h5"/></svg><span class="count">3</span></button><span class="avatar self" aria-label="当前用户">我</span></div>
+  </header>
+  <main>
+    <div class="page-heading"><div><h1>消息</h1><p>和好友聊聊课程与学习</p></div><button class="pill contact-link" type="button">去通讯录 ↗</button></div>
+    <section class="chat-card" aria-label="私聊">
+      <aside class="conversations" aria-label="会话列表">
+        <div class="list-title"><strong>我的会话</strong><small id="list-count">4 个会话</small></div>
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="search" aria-label="搜索会话" placeholder="搜索会话昵称"></div>
+        <div class="conversation-list" id="conversation-list"></div>
+        <div class="list-foot">从通讯录的好友名片开始聊天</div>
+      </aside>
+      <section class="chat" aria-label="当前聊天">
+        <header class="chat-header"><button class="icon-button back" id="back" aria-label="返回会话列表" type="button">←</button><span class="avatar" id="peer-avatar">陈</span><div class="identity"><strong id="peer-name">陈雨</strong><span class="tag" id="friend-tag">好友</span><p id="peer-role">学生 · 计算机学院</p></div><button class="pill" id="profile" type="button">查看名片</button></header>
+        <div class="readonly-note" id="readonly-note" hidden>好友关系已解除，可以查看历史消息。</div>
+        <div class="timeline" id="timeline" aria-label="消息记录"></div>
+        <div class="blank" id="chat-blank" hidden></div>
+        <form class="composer" id="composer"><textarea id="text" aria-label="消息内容" placeholder="写点什么，和好友聊聊…"></textarea><div class="composer-bottom"><span class="composer-hint"><span class="desktop-hint">Enter 发送 · Shift+Enter 换行</span><span class="mobile-hint"> 仅好友可发送</span></span><div class="composer-action"><span class="character-count" id="character-count">0 / 2000</span><button class="pill primary" id="send" type="submit" disabled>发送</button></div></div></form>
+      </section>
+    </section>
+  </main>
+  <nav class="mobile-tabs" aria-label="现有手机导航预览"><span>⌂<br>首页</span><span>▤<br>选课</span><span>◌<br>广场</span><span>▱<br>资料</span><span>♙<br>我的</span></nav>
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script>
+    // This document is a design prototype. It never calls product APIs or persists data.
+    const params = new URLSearchParams(location.search);
+    const themeControl = document.querySelector('#theme');
+    const stateControl = document.querySelector('#state');
+    const allowedThemes = ['blue', 'wine', 'black'];
+    themeControl.value = allowedThemes.includes(params.get('theme')) ? params.get('theme') : 'blue';
+    document.documentElement.dataset.theme = themeControl.value;
+    if ([...stateControl.options].some(option => option.value === params.get('state'))) stateControl.value = params.get('state');
+    document.body.dataset.panel = params.get('view') === 'chat' ? 'chat' : 'list';
+    const peers = [
+      { id: '1', name: '陈雨', initial: '陈', role: '学生 · 计算机学院', preview: '好，那我们明天图书馆见。', time: '14:32', unread: 0 },
+      { id: '2', name: '王明', initial: '王', role: '学生 · 数学学院', preview: '我把第三题的思路整理好了。', time: '13:58', unread: 2 },
+      { id: '3', name: '林老师', initial: '林', role: '教师 · 计算机学院', preview: '课程资料已经更新，可以去看看。', time: '昨天', unread: 1 },
+      { id: '4', name: '周一', initial: '周', role: '学生', preview: '谢谢，之后有机会再交流。', time: '周五', unread: 0, readonly: true }
+    ];
+    const history = new Map([
+      ['1', [{ text: '你好！你也选了这学期的数据库课程吗？', own: false, time: '14:26' }, { text: '选了，刚好在看实验要求。\n我们可以一起讨论一下表结构设计。', own: true, time: '14:28' }, { text: '太好了，我也想找人讨论。明天下午有时间吗？', own: false, time: '14:30' }, { text: '可以，下午三点吧。我们先把各自的问题列一下。', own: true, time: '14:31' }, { text: '好，那我们明天图书馆见。', own: false, time: '14:32' }]],
+      ['2', [{ text: '我把第三题的思路整理好了。', own: false, time: '13:58' }]],
+      ['3', [{ text: '课程资料已经更新，可以去看看。', own: false, time: '昨天 16:20' }]],
+      ['4', [{ text: '谢谢，之后有机会再交流。', own: false, time: '周五 10:18' }]]
+    ]);
+    const drafts = new Map();
+    let selected = '1';
+    let toastTimer;
+    const input = document.querySelector('#text');
+    const timeline = document.querySelector('#timeline');
+    const list = document.querySelector('#conversation-list');
+    function toast(message) { const target = document.querySelector('#toast'); target.textContent = message; target.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => target.hidden = true, 2300); }
+    function blankMarkup(title, description, action = '') { return `<div><span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 15a3 3 0 0 1-3 3H8l-4 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3z"/><path d="M8 8h8M8 12h5"/></svg></span><h2>${title}</h2><p>${description}</p>${action}</div>`; }
+    function renderList() {
+      list.replaceChildren();
+      const matches = peers.filter(peer => peer.name.includes(document.querySelector('#search').value.trim()));
+      document.querySelector('#list-count').textContent = stateControl.value === 'empty' ? '0 个会话' : `${peers.length} 个会话`;
+      if (stateControl.value === 'empty') { list.innerHTML = `<div class="blank">${blankMarkup('还没有会话', '从好友名片开始第一段交流。', '<button class="pill contact-link" type="button">去通讯录</button>')}</div>`; return; }
+      if (!matches.length) { list.innerHTML = '<div class="blank"><p>没有匹配的会话</p></div>'; return; }
+      for (const peer of matches) {
+        const button = document.createElement('button'); button.className = 'conversation'; button.type = 'button'; button.setAttribute('aria-current', String(peer.id === selected)); button.setAttribute('aria-label', `${peer.name}，${peer.unread} 条未读`);
+        const avatar = document.createElement('span'); avatar.className = 'avatar'; avatar.textContent = peer.initial;
+        const info = document.createElement('div'); info.className = 'conversation-info';
+        const top = document.createElement('div'); top.className = 'conversation-top';
+        const name = document.createElement('strong'); name.textContent = peer.name; const time = document.createElement('time'); time.textContent = peer.time; top.append(name, time);
+        const bottom = document.createElement('div'); bottom.className = 'conversation-bottom'; const preview = document.createElement('span'); preview.className = 'preview'; preview.textContent = peer.preview; bottom.append(preview);
+        if (peer.unread) { const count = document.createElement('span'); count.className = 'count'; count.textContent = String(peer.unread); bottom.append(count); }
+        info.append(top, bottom); button.append(avatar, info);
+        button.addEventListener('click', () => { drafts.set(selected, input.value); selected = peer.id; document.body.dataset.panel = 'chat'; renderList(); renderChat(); });
+        list.append(button);
+      }
+    }
+    function updateComposer() { const size = [...input.value].length; const counter = document.querySelector('#character-count'); counter.textContent = `${size} / 2000`; counter.classList.toggle('invalid', size > 2000); document.querySelector('#send').disabled = input.disabled || !input.value.trim() || size > 2000; drafts.set(selected, input.value); }
+    function renderChat() {
+      const peer = peers.find(item => item.id === selected); const state = stateControl.value; const readOnly = state === 'readonly' || peer.readonly;
+      document.querySelector('#peer-name').textContent = peer.name; document.querySelector('#peer-role').textContent = peer.role; document.querySelector('#peer-avatar').textContent = peer.initial;
+      document.querySelector('#friend-tag').hidden = readOnly; document.querySelector('#readonly-note').hidden = !readOnly;
+      const special = ['empty', 'error', 'loading'].includes(state); timeline.hidden = special; document.querySelector('#chat-blank').hidden = !special; document.querySelector('#composer').hidden = state === 'empty';
+      const blank = document.querySelector('#chat-blank');
+      if (state === 'empty') blank.innerHTML = blankMarkup('还没有会话', '添加好友后，就可以在这里交流。', '<button class="pill contact-link" type="button">去通讯录</button>');
+      if (state === 'error') blank.innerHTML = blankMarkup('消息加载失败', '请稍后重试，输入内容会保留。', '<button class="pill" id="reload" type="button">重新加载</button>');
+      if (state === 'loading') blank.innerHTML = '<div style="width:80%"><p>正在加载消息…</p><div class="skeleton"></div><div class="skeleton" style="width:70%;margin-left:auto"></div><div class="skeleton" style="width:85%"></div></div>';
+      timeline.replaceChildren(); const day = document.createElement('div'); day.className = 'day'; day.innerHTML = '<span>今天 · 10 月 11 日</span>'; timeline.append(day);
+      for (const item of history.get(selected)) {
+        const row = document.createElement('article'); row.className = `message${item.own ? ' own' : ''}`;
+        const avatar = document.createElement('span'); avatar.className = `avatar${item.own ? ' self' : ''}`; avatar.textContent = item.own ? '我' : peer.initial;
+        const content = document.createElement('div'); content.className = 'message-content'; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = item.text;
+        const meta = document.createElement('div'); meta.className = 'message-meta'; meta.textContent = `${item.time}${item.own && !item.failed ? ' · 已发送' : ''}`;
+        if (item.failed) { const retry = document.createElement('button'); retry.className = 'retry'; retry.type = 'button'; retry.textContent = '发送失败 · 点击重试'; retry.addEventListener('click', () => { item.failed = false; renderChat(); toast('预览：已重试同一条消息'); }); meta.append(retry); }
+        content.append(bubble, meta); row.append(avatar, content); timeline.append(row);
+      }
+      input.disabled = readOnly || special; input.placeholder = readOnly ? '当前无法发送消息' : '写点什么，和好友聊聊…'; input.value = drafts.get(selected) || ''; updateComposer();
+      requestAnimationFrame(() => timeline.scrollTop = timeline.scrollHeight);
+    }
+    document.querySelector('#composer').addEventListener('submit', event => { event.preventDefault(); if (document.querySelector('#send').disabled) return; const text = input.value.replace(/\r\n?/g, '\n'); history.get(selected).push({ text, own: true, time: '刚刚', failed: stateControl.value === 'send-failure' }); const peer = peers.find(item => item.id === selected); peer.preview = text; peer.time = '刚刚'; drafts.set(selected, ''); renderList(); renderChat(); });
+    input.addEventListener('input', updateComposer);
+    input.addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) { event.preventDefault(); document.querySelector('#composer').requestSubmit(); } });
+    themeControl.addEventListener('change', () => document.documentElement.dataset.theme = themeControl.value);
+    stateControl.addEventListener('change', () => { drafts.set(selected, input.value); renderList(); renderChat(); });
+    document.querySelector('#search').addEventListener('input', renderList);
+    document.querySelector('#back').addEventListener('click', () => document.body.dataset.panel = 'list');
+    document.querySelector('#messages-entry').addEventListener('click', () => document.body.dataset.panel = 'list');
+    document.querySelector('#profile').addEventListener('click', () => toast('正式页面将打开当前联系人的名片'));
+    document.addEventListener('click', event => { if (event.target.closest('.contact-link')) toast('正式页面将前往现有通讯录'); if (event.target.closest('#reload')) { stateControl.value = 'normal'; renderList(); renderChat(); } });
+    renderList(); renderChat();
+  </script>
+</body>
+</html>
