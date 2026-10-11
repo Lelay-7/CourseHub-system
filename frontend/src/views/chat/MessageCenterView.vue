@@ -61,7 +61,7 @@ async function previous(done){try{await chat.loadPrevious()}catch{}finally{await
 async function send(value){await chat.sendText(value);await timeline.value?.scrollToLatest();await markRead()}
 function bottom(value){atBottom.value=value;void markRead()}
 async function markRead(){await chat.markVisibleRead({visible:document.visibilityState==='visible',atBottom:atBottom.value})}
-function measureViewport(){const viewport=window.visualViewport;const navbar=document.querySelector('.app-navbar');viewportStyle.value={'--chat-viewport-height':(viewport?.height || window.innerHeight)+'px','--chat-navbar-height':(navbar?.getBoundingClientRect().height || 66)+'px'}}
+function measureViewport(){const viewport=window.visualViewport;const navbar=document.querySelector('.app-navbar');viewportStyle.value={'--chat-viewport-height':(viewport?.height || window.innerHeight)+'px','--chat-navbar-height':Math.max(0,navbar?.getBoundingClientRect().bottom || 66)+'px'}}
 function visible(){if(document.visibilityState==='visible')void markRead()}
 onMounted(()=>{measureViewport();window.visualViewport?.addEventListener('resize',measureViewport);window.visualViewport?.addEventListener('scroll',measureViewport);window.addEventListener('resize',measureViewport);document.addEventListener('visibilitychange',visible)})
 onUnmounted(()=>{void chat.selectConversation(null);window.visualViewport?.removeEventListener('resize',measureViewport);window.visualViewport?.removeEventListener('scroll',measureViewport);window.removeEventListener('resize',measureViewport);document.removeEventListener('visibilitychange',visible)})

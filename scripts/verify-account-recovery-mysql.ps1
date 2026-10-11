@@ -1,5 +1,7 @@
 [CmdletBinding()]
 param(
+    [ValidateSet('AccountRecovery','PrivateChat')]
+    [string]$Suite = 'AccountRecovery',
     [string]$MysqlHome = 'C:\Program Files\MySQL\MySQL Server 8.0',
     [string]$MavenPath = (Join-Path $env:USERPROFILE '.m2\maven-home\bin\mvn.cmd'),
     [ValidateRange(1024, 65535)]
@@ -18,8 +20,12 @@ $backend = Join-Path $root 'backend'
 $target = Join-Path $backend 'target'
 $runId = [Guid]::NewGuid().ToString('N')
 $nonce = [Guid]::NewGuid().ToString('N')
-$database = 'coursehub_recovery_check_' + $runId
-$runName = 'coursehub-recovery-mysql-' + $runId
+$suiteSlug = if ($Suite -eq 'PrivateChat') { 'chat' } else { 'recovery' }
+$database = 'coursehub_' + $suiteSlug + '_check_' + $runId
+$runName = 'coursehub-' + $suiteSlug + '-mysql-' + $runId
+$guardTable = if ($Suite -eq 'PrivateChat') { 'private_chat_test_guard' } else { 'recovery_test_guard' }
+$envPrefix = if ($Suite -eq 'PrivateChat') { 'COURSEHUB_CHAT' } else { 'COURSEHUB_RECOVERY' }
+$testClasses = if ($Suite -eq 'PrivateChat') { @('com.bugaoshan.chat.PrivateChatMySqlIT','com.bugaoshan.chat.PrivateChatMigrationMySqlIT') } else { @('com.bugaoshan.security.AccountRecoveryMySqlIT') }
 $evidence = Join-Path $target $runName
 $summaryPath = Join-Path $evidence 'verification.log'
 $initPath = Join-Path $backend 'src\main\resources\db\init.sql'
@@ -48,8 +54,8 @@ $cleanupErrors = New-Object 'System.Collections.Generic.List[string]'
 $previousOutputEncoding = $OutputEncoding
 $previousConsoleEncoding = [Console]::OutputEncoding
 $savedEnvironment = @{}
-foreach ($name in @('MYSQL_PWD', 'COURSEHUB_RECOVERY_MYSQL_URL', 'COURSEHUB_RECOVERY_MYSQL_USER',
-        'COURSEHUB_RECOVERY_MYSQL_PASSWORD', 'COURSEHUB_RECOVERY_MYSQL_NONCE')) {
+foreach ($name in @('MYSQL_PWD', ($envPrefix+'_MYSQL_URL'), ($envPrefix+'_MYSQL_USER'),
+        ($envPrefix+'_MYSQL_PASSWORD'), ($envPrefix+'_MYSQL_NONCE'))) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
 }
 
@@ -74,7 +80,7 @@ function Assert-OwnedDirectory {
     $parent = [IO.Path]::GetFullPath($machineTemp).TrimEnd('\') + '\'
     if (-not $resolved.StartsWith($parent, [StringComparison]::OrdinalIgnoreCase) -or
             [IO.Path]::GetFileName($resolved) -cne $runName -or
-            $runName -notmatch '^coursehub-recovery-mysql-[a-f0-9]{32}$') {
+            $runName -notmatch ('^coursehub-' + $suiteSlug + '-mysql-[a-f0-9]{32}$')) {
         throw 'Refusing cleanup: temporary path is outside this run.'
     }
     if (-not (Test-Path -LiteralPath $markerPath -PathType Leaf) -or
@@ -220,7 +226,7 @@ try {
         }
     }
     if ([IO.Path]::GetExtension($maven) -ine '.cmd') { throw 'MavenPath must point to mvn.cmd.' }
-    if ($database -notmatch '^coursehub_recovery_check_[a-f0-9]{32}$') { throw 'Invalid disposable database name.' }
+    if ($database -notmatch ('^coursehub_' + $suiteSlug + '_check_[a-f0-9]{32}$')) { throw 'Invalid disposable database name.' }
     $machineTemp = [Environment]::GetEnvironmentVariable('TEMP', 'Machine')
     if ([string]::IsNullOrWhiteSpace($machineTemp)) {
         throw 'Machine TEMP is not configured; an existing ASCII machine temporary directory is required.'
@@ -388,48 +394,54 @@ try {
         if ($value -ne '0') { throw "Migration data preservation failed for $metric." }
     }
     Write-Evidence "Migration preserved $beforeCount users across $($originalColumns.Count) original columns; new fields are NULL/NULL/0."
-    [void](Invoke-OwnedSql ("USE $database; CREATE TABLE recovery_test_guard (nonce VARCHAR(64) NOT NULL); " +
-        "INSERT INTO recovery_test_guard(nonce) VALUES('$nonce');") 'test ownership guard')
+    if ($Suite -eq 'PrivateChat') {
+        $chatMigration = [IO.File]::ReadAllText((Join-Path $backend 'src\main\resources\db\migrations\2026-10-11-private-chat.sql'),$utf8)
+        Assert-DatabaseScope $chatMigration
+        [void](Invoke-OwnedSql ("USE $database;`n" + $chatMigration) 'checked-in private chat migration')
+    }
+    [void](Invoke-OwnedSql ("USE $database; CREATE TABLE $guardTable (nonce VARCHAR(64) NOT NULL); " +
+        "INSERT INTO $guardTable(nonce) VALUES('$nonce');") 'test ownership guard')
 
-    $env:COURSEHUB_RECOVERY_MYSQL_URL = "jdbc:mysql://127.0.0.1:$Port/$database" +
-        '?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai'
-    $env:COURSEHUB_RECOVERY_MYSQL_USER = 'root'
-    [Environment]::SetEnvironmentVariable('COURSEHUB_RECOVERY_MYSQL_PASSWORD', '', 'Process')
-    $env:COURSEHUB_RECOVERY_MYSQL_NONCE = $nonce
+    [Environment]::SetEnvironmentVariable(($envPrefix+'_MYSQL_URL'),("jdbc:mysql://127.0.0.1:$Port/$database" + '?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai'),'Process')
+    [Environment]::SetEnvironmentVariable(($envPrefix+'_MYSQL_USER'),'root','Process')
+    [Environment]::SetEnvironmentVariable(($envPrefix+'_MYSQL_PASSWORD'),'','Process')
+    [Environment]::SetEnvironmentVariable(($envPrefix+'_MYSQL_NONCE'),$nonce,'Process')
     if ($BrowserE2E) {
-        Write-Evidence 'Running real backend/browser account recovery E2E with this isolated database.'
+        Write-Evidence ("Running real backend/browser $Suite E2E with this isolated database.")
         Push-Location $root
         try {
             # Invoke the UTF-8 source without changing PowerShell execution policy.
-            $browserRunnerPath = Join-Path $root 'scripts\run-account-recovery-e2e.ps1'
+            $browserRunnerPath = Join-Path $root $(if ($Suite -eq 'PrivateChat') { 'scripts\run-private-chat-e2e.ps1' } else { 'scripts\run-account-recovery-e2e.ps1' })
             $browserRunner = [scriptblock]::Create([IO.File]::ReadAllText($browserRunnerPath, $utf8))
             & $browserRunner -ProjectRoot $root -EvidencePath $evidence -Nonce $nonce -NodePath $NodePath -MavenPath $maven
         }
         finally { Pop-Location }
-        Write-Evidence 'Real backend/browser account recovery E2E acceptance passed.'
+        Write-Evidence ("Real backend/browser $Suite E2E acceptance passed.")
     }
     else {
     $reports = Join-Path $evidence 'junit'
     [void](New-Item -ItemType Directory -Path $reports)
     # Surefire 3.2.5 reportsDirectory has no user-property mapping in plugin.xml.
     # Use its real default and remove only this class's old report before running.
-    $reportName = 'TEST-com.bugaoshan.security.AccountRecoveryMySqlIT.xml'
-    $freshReport = Join-Path (Join-Path $target 'surefire-reports') $reportName
-    Assert-TargetFile $freshReport
-    if (Test-Path -LiteralPath $freshReport -PathType Leaf) {
-        Copy-Item -LiteralPath $freshReport -Destination (Join-Path $reports ('previous-' + $reportName))
-        Remove-Item -LiteralPath $freshReport -Force
+    foreach ($class in $testClasses) {
+        $reportName = 'TEST-' + $class + '.xml'
+        $freshReport = Join-Path (Join-Path $target 'surefire-reports') $reportName
+        Assert-TargetFile $freshReport
+        if (Test-Path -LiteralPath $freshReport -PathType Leaf) {
+            Copy-Item -LiteralPath $freshReport -Destination (Join-Path $reports ('previous-' + $reportName))
+            Remove-Item -LiteralPath $freshReport -Force
+        }
     }
     $mavenLog = Join-Path $evidence 'maven.log'
     $mavenStartedUtc = [DateTime]::UtcNow
-    Write-Evidence 'Running AccountRecoveryMySqlIT with isolated database and fake mail sender.'
+    Write-Evidence ('Running ' + $Suite + ' with this isolated database.')
     Push-Location $backend
     $mavenErrorPreference = $ErrorActionPreference
     try {
         # Windows PowerShell 5.1 wraps native stderr as ErrorRecord objects.
         # Capture those in the log and decide success from Maven/JUnit results.
         $ErrorActionPreference = 'Continue'
-        & $maven '-Dtest=AccountRecoveryMySqlIT' 'test' 2>&1 |
+        & $maven ('-Dtest=' + (($testClasses | ForEach-Object { ($_ -split '\.')[-1] }) -join ',')) 'test' 2>&1 |
             ForEach-Object { [IO.File]::AppendAllText($mavenLog, [string]$_ + [Environment]::NewLine, $utf8) }
         $mavenExit = $LASTEXITCODE
     }
@@ -441,20 +453,19 @@ try {
     $testCount = 0
     $failedCount = 0
     $skippedCount = 0
-    if (-not (Test-Path -LiteralPath $freshReport -PathType Leaf) -or
-            (Get-Item -LiteralPath $freshReport).LastWriteTimeUtc -lt $mavenStartedUtc.AddSeconds(-2)) {
-        throw 'Maven did not create a fresh AccountRecoveryMySqlIT JUnit report.'
-    }
-    Assert-TargetFile $freshReport
-    Copy-Item -LiteralPath $freshReport -Destination (Join-Path $reports $reportName)
-    [xml]$report = [IO.File]::ReadAllText($freshReport, $utf8)
-    foreach ($suite in $report.SelectNodes('//testsuite')) {
-        if ($suite.GetAttribute('name') -ne 'com.bugaoshan.security.AccountRecoveryMySqlIT') {
-            throw 'JUnit report contains an unexpected test suite.'
+    foreach ($class in $testClasses) {
+        $reportName = 'TEST-' + $class + '.xml'
+        $freshReport = Join-Path (Join-Path $target 'surefire-reports') $reportName
+        if (-not (Test-Path -LiteralPath $freshReport -PathType Leaf) -or (Get-Item -LiteralPath $freshReport).LastWriteTimeUtc -lt $mavenStartedUtc.AddSeconds(-2)) { throw 'Maven did not create a fresh JUnit report.' }
+        Assert-TargetFile $freshReport
+        Copy-Item -LiteralPath $freshReport -Destination (Join-Path $reports $reportName)
+        [xml]$report = [IO.File]::ReadAllText($freshReport,$utf8)
+        foreach ($testSuiteXml in $report.SelectNodes('//testsuite')) {
+            if ($testSuiteXml.GetAttribute('name') -cne $class) { throw 'Unexpected JUnit suite.' }
+            $testCount += [int]$testSuiteXml.GetAttribute('tests')
+            $failedCount += [int]$testSuiteXml.GetAttribute('failures') + [int]$testSuiteXml.GetAttribute('errors')
+            $skippedCount += [int]$testSuiteXml.GetAttribute('skipped')
         }
-        $testCount += [int]$suite.GetAttribute('tests')
-        $failedCount += [int]$suite.GetAttribute('failures') + [int]$suite.GetAttribute('errors')
-        $skippedCount += [int]$suite.GetAttribute('skipped')
     }
     if ($testCount -lt 1 -or $failedCount -ne 0 -or $skippedCount -ne 0) {
         throw "JUnit acceptance failed: tests=$testCount failures/errors=$failedCount skipped=$skippedCount."

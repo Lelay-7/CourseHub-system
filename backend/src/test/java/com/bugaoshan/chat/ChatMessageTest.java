@@ -9,6 +9,13 @@ class ChatMessageTest {
     ChatTestFixture f; ChatMessageService messages; long id;
     @BeforeEach void setup() throws Exception { f=new ChatTestFixture(); f.seedUsers(); f.friend(1,2); id=Long.parseLong(f.conversations.openPrivate(f.actor(1,0),2).conversationId()); messages=f.messages; }
     SendTextRequest text(String value) { return new SendTextRequest(UUID.randomUUID(),"TEXT",value); }
+    @Test void responseAndRetryUseTheSameDatabaseMillisecondTimestamp() {
+        var precise=java.time.Clock.fixed(java.time.Instant.parse("2026-10-11T10:00:00.123456Z"),java.time.ZoneOffset.UTC);
+        var service=new ChatMessageService(f.conversations,f.relationships,f.session.getMapper(com.bugaoshan.mapper.ChatConversationMapper.class),f.session.getMapper(com.bugaoshan.mapper.ChatMessageMapper.class),f.rates,f.manager,e->{},precise);
+        var request=text("timestamp");var first=service.send(f.actor(1,0),id,request);
+        assertEquals(java.time.Instant.parse("2026-10-11T10:00:00.123Z"),first.createdAt());
+        assertEquals(first,service.send(f.actor(1,0),id,request));
+    }
     @Test void lostResponseRetryPersistsOnceAndConsumesOneQuota() {
         var request=text("😀".repeat(2000)); var first=messages.send(f.actor(1,0),id,request);
         assertNotNull(first,"send must persist and return a message");

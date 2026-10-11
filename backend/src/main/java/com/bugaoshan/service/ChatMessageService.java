@@ -44,7 +44,7 @@ public class ChatMessageService {
                 if(previous.getConversationId()!=conversationId || !"TEXT".equals(previous.getMessageType()) || !Objects.equals(normalized,view.content().text())) throw new ChatException(409,"客户端消息 ID 已用于另一条消息");
                 return view;
             }
-            Instant instant=clock.instant(); rates.reserve(actor.userId(),instant);
+            Instant instant=clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MILLIS); rates.reserve(actor.userId(),instant);
             long sequence=Math.addExact(conversation.getLastSequence(),1);
             var now=LocalDateTime.ofInstant(instant,ZoneOffset.UTC);
             ChatMessage row=new ChatMessage(); row.setConversationId(conversationId); row.setSequence(sequence); row.setSenderId(actor.userId()); row.setClientMessageId(clientId); row.setMessageType("TEXT"); row.setCreatedAt(now);

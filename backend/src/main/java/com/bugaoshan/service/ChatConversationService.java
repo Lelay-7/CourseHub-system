@@ -87,5 +87,5 @@ public class ChatConversationService {
         var member=chats.member(row.getConversationId(),actor.userId());
         return new ConversationView(""+row.getConversationId(),row.getConversationType(),peer,ChatMessageViews.view(chats.lastMessage(row.getConversationId()),80),""+row.getLastSequence(),""+member.getLastReadSequence(),chats.unread(row.getConversationId(),actor.userId()),available && accepted,available?(accepted?null:"NOT_FRIENDS"):"PEER_UNAVAILABLE");
     }
-    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant(),ZoneOffset.UTC); }
+    private LocalDateTime now() { return LocalDateTime.ofInstant(clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MILLIS),ZoneOffset.UTC); }
 }

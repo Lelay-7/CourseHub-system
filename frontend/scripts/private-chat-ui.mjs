@@ -11,9 +11,9 @@ const errors=[]; let browser
 const user={user_id:1,user_type:1,nickname:'同学甲'}
 const token=`e30.${Buffer.from(JSON.stringify({sub:'1',exp:Math.floor(Date.now()/1000)+7200})).toString('base64url')}.fixture`
 const base=server.resolvedUrls.local[0]
-async function setup(theme,width,{readonly=false,empty=false,fail=false}={}) {
+async function setup(theme,width,{readonly=false,empty=false,fail=false,role=1}={}) {
  const context=await browser.newContext({viewport:{width,height:900}})
- await context.addInitScript(({theme,token,user})=>{localStorage.setItem('coursehub-theme',theme);localStorage.setItem('access_token',token);localStorage.setItem('refresh_token',token);localStorage.setItem('user_info',JSON.stringify(user))},{theme,token,user})
+ await context.addInitScript(({theme,token,user})=>{localStorage.setItem('coursehub-theme',theme);localStorage.setItem('access_token',token);localStorage.setItem('refresh_token',token);localStorage.setItem('user_info',JSON.stringify(user))},{theme,token,user:{...user,user_type:role}})
  const writes=[], reads=[], messages=empty?[]:Array.from({length:45},(_,i)=>({message_id:''+(i+1),conversation_id:'1',sequence:''+(i+1),sender_id:i%2?'1':'2',client_message_id:'server-'+i,message_type:'TEXT',content:{text:i===44?'https://example.test/'+ 'long'.repeat(100):'课程讨论 '+(i+1)+'\n这周一起复习'},created_at:'2026-10-11T10:00:00Z'}))
  const conversation=()=>({conversation_id:'1',conversation_type:'PRIVATE',peer:{user_id:'2',nickname:'同学乙',avatar_url:null,user_type:2,department:'计算机学院'},last_message:messages.at(-1)||null,last_sequence:''+messages.length,last_read_sequence:'0',unread_count:5,can_send:!readonly,send_disabled_reason:readonly?'NOT_FRIENDS':null})
  let lost=false
@@ -74,5 +74,7 @@ try {
  try{await ro.page.goto(base+'messages/1');await ro.page.getByText('已解除好友，历史消息仍可查看',{exact:true}).waitFor();assert.equal(await ro.page.getByRole('textbox',{name:'消息内容'}).isDisabled(),true)}finally{await ro.context.close()}
  const empty=await setup('black',390,{empty:true})
  try{await empty.page.goto(base+'messages');await empty.page.getByText('还没有会话',{exact:true}).waitFor();await empty.page.goto(base+'messages/1');await empty.page.getByLabel('消息历史').getByText('发送第一条消息',{exact:true}).waitFor();await empty.page.setViewportSize({width:390,height:420});await empty.page.waitForFunction(()=>document.querySelector('.message-composer button').getBoundingClientRect().bottom<=window.innerHeight);assert.ok(await empty.page.getByRole('button',{name:'发送',exact:true}).isVisible())}finally{await empty.context.close()}
- assert.deepEqual(errors,[]);console.log('Private chat UI fixtures passed: 12 theme/viewport combinations, IME, text safety, retry, history anchor, readonly and empty states')
+ const admin=await setup('blue',320,{role:3})
+ try{await admin.page.goto(base+'messages/1');await admin.page.getByRole('heading',{name:'同学乙',exact:true}).waitFor();await admin.page.waitForFunction(()=>document.querySelector('.message-composer button').getBoundingClientRect().bottom<=window.innerHeight)}finally{await admin.page.screenshot({path:resolve(output,'admin-mobile.png'),fullPage:true});await admin.context.close()}
+ assert.deepEqual(errors,[]);console.log('Private chat UI fixtures passed: 12 theme/viewport combinations, IME, text safety, retry, history anchor, readonly, empty and admin mobile viewport states')
 }catch(error){console.error(error);throw error}finally{await browser?.close();await server.httpServer?.close()}

@@ -26,6 +26,15 @@ test('auth subscribers clear synchronously on logout and new identity but not re
   assert.notEqual(changes[1],initial)
   unsubscribe()
 })
+test('cross-tab identity replacement notifies while token renewal keeps chat identity', () => {
+  fixture(jwt(7200))
+  const events=new EventTarget();globalThis.window=events
+  const changes=[];const unsubscribe=auth.subscribeAuthSessionChange(id=>changes.push(id))
+  const event=key=>{const value=new Event('storage');value.key=key;events.dispatchEvent(value)}
+  localStorage.setItem('access_token',jwt(8000));event('access_token');assert.deepEqual(changes,[])
+  localStorage.setItem('auth_session_id','another-tab-session');event('auth_session_id');assert.deepEqual(changes,['another-tab-session'])
+  auth.clearTokens();assert.equal(changes.at(-1),null);unsubscribe();delete globalThis.window
+})
 
 test('silent background failure has no toast while unauthorized still clears credentials', async () => {
   const context = fixture(jwt(7200))

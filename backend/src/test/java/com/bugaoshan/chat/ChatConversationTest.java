@@ -27,11 +27,14 @@ class ChatConversationTest {
     }
     @Test void readCursorCannotRegressOrCrossConversations() {
         long id=open(); f.seedMessage(id,1,2,"一"); f.seedMessage(id,2,1,"二");
-        assertEquals(1,f.conversations.unread(f.actor(1,0)).unreadCount());
+        f.friend(1,3);long other=Long.parseLong(f.conversations.openPrivate(f.actor(1,0),3).conversationId());f.seedMessage(other,3,3,"其他会话");
+        assertEquals(2,f.conversations.unread(f.actor(1,0)).unreadCount());
         assertEquals("2",f.conversations.markRead(f.actor(1,0),id,2).lastReadSequence());
         assertEquals("2",f.conversations.markRead(f.actor(1,0),id,1).lastReadSequence());
         assertEquals(400,assertThrows(ChatException.class,()->f.conversations.markRead(f.actor(1,0),id,3)).status());
-        assertEquals(0,f.conversations.unread(f.actor(1,0)).unreadCount());
+        assertEquals(0,f.conversations.detail(f.actor(1,0),id).unreadCount());
+        assertEquals("0",f.conversations.detail(f.actor(1,0),other).lastReadSequence());
+        assertEquals(1,f.conversations.unread(f.actor(1,0)).unreadCount());
     }
     @Test void peerJsonContainsNoPrivateFieldsAndLargeIdsRemainStrings() throws Exception {
         long id=open(); var json=new ObjectMapper().findAndRegisterModules().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE).valueToTree(f.conversations.detail(f.actor(1,0),id));

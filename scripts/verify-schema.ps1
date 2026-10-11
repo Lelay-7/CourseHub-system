@@ -36,6 +36,12 @@ $requiredPatterns = [ordered]@{
     'user.recovery_email' = '(?is)ALTER\s+TABLE\s+`?user`?\s+ADD\s+COLUMN\s+`?recovery_email`?\b'
     'user.recovery_email_verified_at' = '(?is)ALTER\s+TABLE\s+`?user`?\s+ADD\s+COLUMN\s+`?recovery_email_verified_at`?\b'
     'user.credential_version' = '(?is)ALTER\s+TABLE\s+`?user`?\s+ADD\s+COLUMN\s+`?credential_version`?\b'
+    'friend canonical pair' = '(?is)CREATE\s+TABLE[^;]+\bfriend\b[^;]+GENERATED\s+ALWAYS\s+AS\s*\(LEAST[^;]+UNIQUE\s+KEY\s+uk_friend_pair\s*\(user_low_id\s*,\s*user_high_id\)'
+    'chat private uniqueness' = '(?is)CREATE\s+TABLE[^;]+\bchat_conversation\b[^;]+UNIQUE\s+KEY\s+uk_chat_private_pair\s*\(conversation_type\s*,\s*private_user_low_id\s*,\s*private_user_high_id\)'
+    'chat member key' = '(?is)CREATE\s+TABLE[^;]+\bchat_conversation_member\b[^;]+PRIMARY\s+KEY\s*\(conversation_id\s*,\s*user_id\)'
+    'chat sequence uniqueness' = '(?is)CREATE\s+TABLE[^;]+\bchat_message\b[^;]+UNIQUE\s+KEY\s+uk_chat_sequence\s*\(conversation_id\s*,\s*sequence\)'
+    'chat retry uniqueness' = '(?is)CREATE\s+TABLE[^;]+\bchat_message\b[^;]+UNIQUE\s+KEY\s+uk_chat_client\s*\(sender_id\s*,\s*client_message_id\)'
+    'chat quota key' = '(?is)CREATE\s+TABLE[^;]+\bchat_send_rate_window\b[^;]+PRIMARY\s+KEY\s*\(user_id\s*,\s*window_start\s*,\s*window_seconds\)'
 }
 
 foreach ($entry in $requiredPatterns.GetEnumerator()) {
