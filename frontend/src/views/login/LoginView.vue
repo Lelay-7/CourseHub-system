@@ -151,6 +151,7 @@
               <el-button native-type="button" class="submit-btn" size="large" type="primary" :loading="loading" @click="handlePasswordLogin">
                 登录
               </el-button>
+              <router-link class="forgot-password-link" to="/forgot-password">忘记密码</router-link>
             </el-form>
 
             <el-form
@@ -352,6 +353,7 @@ async function handleRegister() {
 </script>
 
 <style scoped>
+.forgot-password-link { display: block; margin-top: 14px; text-align: right; color: var(--color-primary); font-size: 14px; }
 .login-page {
   position: relative;
   min-height: 100vh;

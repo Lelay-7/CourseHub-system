@@ -11,9 +11,20 @@ public interface UserMapper {
 
     User selectByUsername(@Param("username") String username);
 
+    User selectCredentialSnapshotByUsername(@Param("username") String username);
+
     User selectByPhone(@Param("phone") String phone);
 
     User selectById(@Param("userId") Long userId);
+
+    User selectForUpdate(@Param("userId") Long userId);
+
+    int updateLastLogin(@Param("userId") Long userId);
+
+    int changePassword(@Param("userId") Long userId, @Param("passwordHash") String passwordHash,
+                       @Param("version") Integer version);
+
+    int bindRecoveryEmail(@Param("userId") Long userId, @Param("email") String email);
 
     int insert(User user);
 

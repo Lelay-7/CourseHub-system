@@ -9,6 +9,8 @@
     "build": "vite build",
     "test:contracts": "node scripts/production-hardening.test.mjs && node scripts/feature-contract.test.mjs",
     "test:auth": "node --test scripts/auth-session.test.mjs",
+    "test:recovery": "node --test scripts/account-recovery.test.mjs",
+    "test:recovery:browser": "node scripts/account-recovery-browser.mjs",
     "test:contact": "node scripts/contact-ui.test.mjs",
     "preview": "vite preview"
   },

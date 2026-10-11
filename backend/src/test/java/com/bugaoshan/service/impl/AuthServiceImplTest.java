@@ -97,6 +97,27 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void rejectsLegacyRefreshTokenWithoutCredentialVersion() {
+        var key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                "test-secret-key-that-is-long-enough-for-hs256".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String legacy = io.jsonwebtoken.Jwts.builder().subject("12").claim("type", "refresh")
+                .expiration(new java.util.Date(System.currentTimeMillis() + 60000)).signWith(key).compact();
+        lenient().when(userMapper.selectById(12L)).thenReturn(activeUser());
+        assertThrows(BusinessException.class, () -> service.refreshToken(legacy));
+    }
+
+    @Test
+    void oldRefreshVersionCannotIssueNewTokensButCurrentVersionCan() {
+        User user=activeUser(); user.setCredentialVersion(3);
+        when(userMapper.selectById(12L)).thenReturn(user);
+        assertThrows(BusinessException.class, () -> service.refreshToken(jwtUtil.generateRefreshToken(12L,2)));
+        var result=service.refreshToken(jwtUtil.generateRefreshToken(12L,3));
+        var data=(java.util.Map<?,?>)result.getData();
+        assertTrue(jwtUtil.matchesCredentialVersion((String)data.get("accessToken"),3));
+        assertTrue(jwtUtil.matchesCredentialVersion((String)data.get("refreshToken"),3));
+    }
+
+    @Test
     void passwordLoginTrimsTheAccountWithoutChangingItsIdentity() {
         User user = activeUser();
         when(userMapper.selectByUsername("student01")).thenReturn(user);

@@ -30,6 +30,10 @@ public class JwtUtil {
     }
 
     public String generateAccessToken(Long userId, Integer userType) {
+        return generateAccessToken(userId, userType, 0);
+    }
+
+    public String generateAccessToken(Long userId, Integer userType, Integer credentialVersion) {
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + expiration);
 
@@ -37,6 +41,7 @@ public class JwtUtil {
                 .subject(userId.toString())
                 .claim(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE)
                 .claim("user_type", userType)
+                .claim("credential_version", credentialVersion)
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(secretKey)
@@ -44,12 +49,17 @@ public class JwtUtil {
     }
 
     public String generateRefreshToken(Long userId) {
+        return generateRefreshToken(userId, 0);
+    }
+
+    public String generateRefreshToken(Long userId, Integer credentialVersion) {
         Date now = new Date();
         Date expirationDate = new Date(now.getTime() + refreshExpiration);
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE)
+                .claim("credential_version", credentialVersion)
                 .issuedAt(now)
                 .expiration(expirationDate)
                 .signWith(secretKey)
@@ -78,6 +88,15 @@ public class JwtUtil {
         try {
             parseToken(token);
             return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean matchesCredentialVersion(String token, Integer currentVersion) {
+        try {
+            Integer version = parseToken(token).get("credential_version", Integer.class);
+            return version != null && currentVersion != null && version.equals(currentVersion);
         } catch (Exception e) {
             return false;
         }

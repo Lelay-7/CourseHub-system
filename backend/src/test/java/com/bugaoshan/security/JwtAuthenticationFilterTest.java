@@ -13,6 +13,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -69,5 +70,23 @@ class JwtAuthenticationFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/course/list");
         request.addHeader("Authorization", "Bearer " + token);
         return request;
+    }
+
+    @Test
+    void realAccessTokensMustMatchThePersistedVersionAndLegacyTokensAreRejected() throws Exception {
+        var jwt = new JwtUtil("test-secret-key-that-is-long-enough-for-hs256", 60000, 120000);
+        User user = new User(); user.setUserId(12L); user.setStatus(1); user.setUserType(1); user.setCredentialVersion(2);
+        when(userMapper.selectById(12L)).thenReturn(user);
+        var key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                "test-secret-key-that-is-long-enough-for-hs256".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        String legacy = io.jsonwebtoken.Jwts.builder().subject("12").claim("type", "access")
+                .expiration(new java.util.Date(System.currentTimeMillis()+60000)).signWith(key).compact();
+        var filter = new JwtAuthenticationFilter(jwt, userMapper);
+        for(String token : new String[]{legacy,jwt.generateAccessToken(12L,1,1)}) {
+            filter.doFilter(requestWithToken(token),new MockHttpServletResponse(),filterChain);
+            assertNull(SecurityContextHolder.getContext().getAuthentication());
+        }
+        filter.doFilter(requestWithToken(jwt.generateAccessToken(12L,1,2)),new MockHttpServletResponse(),filterChain);
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
     }
 }

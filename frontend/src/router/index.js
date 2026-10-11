@@ -13,6 +13,18 @@ const ADMIN = 3
 const ALL = [STUDENT, TEACHER, ADMIN]
 
 const routes = [
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/login/ForgotPasswordView.vue'),
+    meta: { requiresAuth: false, title: '找回密码' }
+  },
+  {
+    path: '/profile/security',
+    name: 'AccountSecurity',
+    component: () => import('@/views/profile/AccountSecurityView.vue'),
+    meta: { requiresAuth: true, roles: ALL, title: '账号安全' }
+  },
   // ==================== 登录 ====================
   {
     path: '/login',

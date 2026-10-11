@@ -44,7 +44,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
                         .requestMatchers("/api/auth/login", "/api/auth/login/sms", "/api/auth/sms/send",
-                                "/api/auth/register", "/api/auth/refresh").permitAll()
+                                "/api/auth/register", "/api/auth/refresh",
+                                "/api/auth/password-reset/code", "/api/auth/password-reset").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/user/*/avatar").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 管理端接口 - 仅管理员

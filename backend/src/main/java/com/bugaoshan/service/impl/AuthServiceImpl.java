@@ -63,9 +63,9 @@ public class AuthServiceImpl implements AuthService {
         }
         requireActiveUser(user);
         user.setLastLoginTime(LocalDateTime.now());
-        userMapper.updateById(user);
+        userMapper.updateLastLogin(user.getUserId());
 
-        Map<String, Object> data = generateTokens(user.getUserId(), user.getUserType());
+        Map<String, Object> data = generateTokens(user);
         return Result.ok(data);
     }
 
@@ -90,9 +90,9 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("验证码错误或已过期");
         }
         user.setLastLoginTime(LocalDateTime.now());
-        userMapper.updateById(user);
+        userMapper.updateLastLogin(user.getUserId());
 
-        Map<String, Object> data = generateTokens(user.getUserId(), user.getUserType());
+        Map<String, Object> data = generateTokens(user);
         return Result.ok(data);
     }
 
@@ -168,7 +168,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException(409, "登录账号或手机号已被使用");
         }
 
-        Map<String, Object> data = generateTokens(user.getUserId(), user.getUserType());
+        Map<String, Object> data = generateTokens(user);
         return Result.ok(data);
     }
 
@@ -182,7 +182,10 @@ public class AuthServiceImpl implements AuthService {
         if (user == null || user.getStatus() == null || user.getStatus() != 1) {
             throw new BusinessException("用户不存在或已被禁用");
         }
-        Map<String, Object> data = generateTokens(userId, user.getUserType());
+        if (!jwtUtil.matchesCredentialVersion(refreshToken, user.getCredentialVersion())) {
+            throw new BusinessException(401, "登录已失效，请重新登录");
+        }
+        Map<String, Object> data = generateTokens(user);
         return Result.ok(data);
     }
 
@@ -195,9 +198,9 @@ public class AuthServiceImpl implements AuthService {
         return Result.ok(user);
     }
 
-    private Map<String, Object> generateTokens(Long userId, Integer userType) {
-        String accessToken = jwtUtil.generateAccessToken(userId, userType);
-        String refreshToken = jwtUtil.generateRefreshToken(userId);
+    private Map<String, Object> generateTokens(User user) {
+        String accessToken = jwtUtil.generateAccessToken(user.getUserId(), user.getUserType(), user.getCredentialVersion());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUserId(), user.getCredentialVersion());
         Map<String, Object> result = new HashMap<>();
         result.put("accessToken", accessToken);
         result.put("refreshToken", refreshToken);

@@ -10,6 +10,20 @@ spring:
     multipart:
       max-file-size: ${FILE_MAX_SIZE:50MB}
       max-request-size: ${FILE_MAX_REQUEST_SIZE:55MB}
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.starttls.required: ${SMTP_STARTTLS:true}
+      mail.smtp.ssl.enable: ${SMTP_SSL:false}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   jackson:
     property-naming-strategy: SNAKE_CASE
   datasource:
@@ -47,6 +61,11 @@ file:
 logging:
   level:
     com.bugaoshan: ${APP_LOG_LEVEL:INFO}
+
+recovery:
+  enabled: ${RECOVERY_ENABLED:false}
+  from: ${SMTP_FROM:}
+  hmac-secret: ${RECOVERY_HMAC_SECRET:}
 
 sms:
   mock: ${SMS_MOCK:false}

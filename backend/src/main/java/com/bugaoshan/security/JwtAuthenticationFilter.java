@@ -22,7 +22,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private static final List<String> SKIP_PATHS = List.of(
             "/api/auth/login", "/api/auth/login/sms", "/api/auth/sms/send",
-            "/api/auth/register", "/api/auth/refresh"
+            "/api/auth/register", "/api/auth/refresh", "/api/auth/password-reset/code", "/api/auth/password-reset"
     );
 
     private final JwtUtil jwtUtil;
@@ -48,7 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 && jwtUtil.isAccessToken(token) && !jwtUtil.isTokenExpired(token)) {
             Long userId = jwtUtil.getUserIdFromToken(token);
             User user = userMapper.selectById(userId);
-            if (user == null || user.getStatus() == null || user.getStatus() != 1) {
+            if (user == null || user.getStatus() == null || user.getStatus() != 1
+                    || !jwtUtil.matchesCredentialVersion(token, user.getCredentialVersion())) {
                 filterChain.doFilter(request, response);
                 return;
             }

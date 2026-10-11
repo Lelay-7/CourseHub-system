@@ -5,6 +5,9 @@
     <select id="selectByUsername" resultType="com.bugaoshan.entity.User">
         SELECT * FROM user WHERE username = #{username} AND is_deleted = 0
     </select>
+    <select id="selectCredentialSnapshotByUsername" resultType="com.bugaoshan.entity.User">
+        SELECT user_id, credential_version FROM user WHERE username = #{username} AND is_deleted = 0
+    </select>
 
     <select id="selectByPhone" resultType="com.bugaoshan.entity.User">
         SELECT * FROM user WHERE phone = #{phone} AND is_deleted = 0
@@ -13,6 +16,21 @@
     <select id="selectById" resultType="com.bugaoshan.entity.User">
         SELECT * FROM user WHERE user_id = #{userId} AND is_deleted = 0
     </select>
+
+    <select id="selectForUpdate" resultType="com.bugaoshan.entity.User">
+        SELECT * FROM user WHERE user_id = #{userId} AND is_deleted = 0 FOR UPDATE
+    </select>
+    <update id="updateLastLogin">
+        UPDATE user SET last_login_time = NOW() WHERE user_id = #{userId} AND is_deleted = 0
+    </update>
+    <update id="changePassword">
+        UPDATE user SET password_hash = #{passwordHash}, credential_version = credential_version + 1, update_time = NOW()
+        WHERE user_id = #{userId} AND credential_version = #{version} AND status = 1 AND is_deleted = 0
+    </update>
+    <update id="bindRecoveryEmail">
+        UPDATE user SET recovery_email = #{email}, recovery_email_verified_at = NOW(), update_time = NOW()
+        WHERE user_id = #{userId} AND status = 1 AND is_deleted = 0
+    </update>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="userId">
         INSERT INTO user (username, password_hash, nickname, avatar_url, avatar_storage_key, phone, email, user_type,

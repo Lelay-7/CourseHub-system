@@ -118,6 +118,7 @@ const quickEntries = computed(() => {
       { label: '订单管理', path: '/admin/orders', icon: Present },
       { label: 'Banner', path: '/admin/banners', icon: Setting },
       { label: '接受反馈', path: '/profile/feedback', icon: EditPen },
+      { label: '账号安全', path: '/profile/security', icon: Setting },
       { label: '系统设置', path: '/profile/settings', icon: Service }
     ]
   }
@@ -133,6 +134,7 @@ const quickEntries = computed(() => {
     { label: '积分商城', path: '/mall', icon: ShoppingCart },
     { label: '意见反馈', path: '/profile/feedback', icon: EditPen },
     { label: '联系客服', path: '/profile/support', icon: Service },
+    { label: '账号安全', path: '/profile/security', icon: Setting },
     { label: '系统设置', path: '/profile/settings', icon: Setting }
   ]
 })

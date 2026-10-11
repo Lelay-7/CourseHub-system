@@ -4,7 +4,8 @@ import { mockAdapter } from '../api/mock'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 const publicAuthPaths = new Set([
-  '/auth/login', '/auth/login/sms', '/auth/sms/send', '/auth/register', '/auth/refresh'
+  '/auth/login', '/auth/login/sms', '/auth/sms/send', '/auth/register', '/auth/refresh',
+  '/auth/password-reset/code', '/auth/password-reset'
 ])
 
 export function normalizeApiUrl(url) {

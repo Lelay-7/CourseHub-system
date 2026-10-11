@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.RecoveryMapper">
+    <select id="now" resultType="java.time.LocalDateTime">SELECT CURRENT_TIMESTAMP(6)</select>
+    <insert id="insert">
+        INSERT INTO recovery_code(request_id,user_id,purpose,email,credential_version,code_hash,expires_at,send_status,attempts,created_at)
+        VALUES(#{requestId},#{userId},#{purpose},#{email},#{credentialVersion},#{codeHash},#{expiresAt},'PENDING',0,#{createdAt})
+    </insert>
+    <select id="selectForUpdate" resultType="com.bugaoshan.entity.RecoveryCode">
+        SELECT * FROM recovery_code WHERE request_id=#{requestId} FOR UPDATE
+    </select>
+    <update id="invalidatePurpose">
+        UPDATE recovery_code SET send_status='INVALID' WHERE user_id=#{userId} AND purpose=#{purpose}
+        AND send_status IN ('PENDING','ACTIVE')
+    </update>
+    <update id="invalidateAll">
+        UPDATE recovery_code SET send_status='INVALID' WHERE user_id=#{userId} AND send_status IN ('PENDING','ACTIVE')
+    </update>
+    <update id="invalidateRequest">
+        UPDATE recovery_code SET send_status='INVALID' WHERE request_id=#{requestId} AND send_status='PENDING'
+    </update>
+    <update id="activate">
+        UPDATE recovery_code SET send_status='ACTIVE'
+        WHERE request_id=#{requestId} AND send_status='PENDING' AND consumed_at IS NULL AND expires_at &gt; CURRENT_TIMESTAMP(6)
+          AND EXISTS(SELECT 1 FROM user u WHERE u.user_id=recovery_code.user_id AND u.status=1 AND u.is_deleted=0
+                     AND u.credential_version=recovery_code.credential_version)
+    </update>
+    <update id="wrongAttempt">
+        UPDATE recovery_code SET attempts=attempts+1 WHERE request_id=#{requestId}
+        AND send_status='ACTIVE' AND attempts &lt; 5 AND consumed_at IS NULL AND expires_at &gt; CURRENT_TIMESTAMP(6)
+    </update>
+    <update id="consume">
+        UPDATE recovery_code SET consumed_at=CURRENT_TIMESTAMP(6), send_status='CONSUMED'
+        WHERE request_id=#{requestId} AND send_status='ACTIVE' AND consumed_at IS NULL
+          AND attempts &lt; 5 AND expires_at &gt; CURRENT_TIMESTAMP(6)
+    </update>
+    <!-- A duplicate INSERT IGNORE holds S before lockRate upgrades to X; concurrent upgrades deadlock. -->
+    <insert id="ensureRateLock">
+        INSERT INTO recovery_rate_lock(scope_key) VALUES(#{key})
+        ON DUPLICATE KEY UPDATE scope_key=#{key}
+    </insert>
+    <select id="lockRate" resultType="string">SELECT scope_key FROM recovery_rate_lock WHERE scope_key=#{key} FOR UPDATE</select>
+    <select id="recentEvents" resultType="java.time.LocalDateTime">
+        SELECT created_at FROM recovery_rate_event WHERE scope_key=#{key} AND created_at &gt; #{cutoff}
+        ORDER BY created_at DESC FOR UPDATE
+    </select>
+    <insert id="addRateEvent">INSERT INTO recovery_rate_event(scope_key,created_at) VALUES(#{key},#{now})</insert>
+    <delete id="pruneRateEvents">DELETE FROM recovery_rate_event WHERE scope_key=#{key} AND created_at &lt;= #{cutoff}</delete>
+</mapper>

@@ -16,6 +16,12 @@ public class User {
     private String avatarStorageKey;
     private String phone;
     private String email;
+    @JsonIgnore
+    private String recoveryEmail;
+    @JsonIgnore
+    private LocalDateTime recoveryEmailVerifiedAt;
+    @JsonIgnore
+    private Integer credentialVersion = 0;
     private Integer userType;
     private String realName;
     private String studentNo;

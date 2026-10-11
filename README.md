@@ -99,6 +99,12 @@ npm run dev
 
 ## 测试与构建
 
+账号安全与密码找回已实现；运行前须完成独立增量迁移。邮件验证默认关闭，配置与后续真实收件验收见 [账号找回运行说明](deploy/account-recovery.md)，本次自动验证见 [验证记录](docs/account-recovery-verification.md)。
+
+账号找回的真实 MySQL 迁移和并发验收可在项目根目录运行 `scripts/verify-account-recovery-mysql.ps1`；脚本使用全新临时实例与随机测试库，完成后清理，不配置 SMTP 或连接业务库。
+
+加上 `-BrowserE2E` 可运行前端生产产物、真实后端、临时 MySQL 和本地 SMTP 接收器的完整浏览器验收，检查绑定、找回、改密和两个旧会话的凭据失效；需要已有前端依赖与 Playwright Chromium，不使用真实邮箱凭据。
+
 后端：
 
 ```powershell
@@ -113,7 +119,11 @@ mvn clean package
 cd frontend
 npm ci
 npm run test:contracts
+npm.cmd run test:auth
+npm.cmd run test:recovery
+npm.cmd run test:contact
 npm run build
+npm.cmd run test:recovery:browser
 ```
 
 ## 常见问题
@@ -130,9 +140,9 @@ npm run build
 
 `npm audit` 报告部分中危/高危依赖，主要集中在开发依赖（Vite、Playwright 等）。这些漏洞不会影响生产构建产物的安全性，暂不执行破坏性升级（`npm audit fix --force` 可能导致兼容性问题）。在后续大版本升级时统一处理。
 
-### 后端测试依赖本地 MySQL
+### 后端测试与真实 MySQL 验收
 
-`backend/src/test` 下的单元测试直接连接本地 MySQL 数据库。当前未引入 H2 或 Testcontainers 等内存数据库方案，因此在 CI 环境中运行 `mvn test` 可能需要额外配置数据库连接。本地开发时，确保 MySQL 已启动且 `init.sql` 已执行后再运行测试。
+默认 `mvn.cmd test` 使用单元测试及独立 H2 MySQL 模式夹具，不依赖运行中的业务数据库。账号安全的 `AccountRecoveryMySqlIT` 通过上面的隔离验收脚本显式运行，要求现有 MySQL 8.0 安装和 JDK 21/Maven；脚本验证实际 MySQL 的迁移、锁、限流和并发回滚。
 
 ### 暂不包含云端部署配置
 

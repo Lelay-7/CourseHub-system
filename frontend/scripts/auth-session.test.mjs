@@ -85,6 +85,16 @@ test('a new password login bypasses an obsolete session', async () => {
   assert.equal(context.calls[0].headers.Authorization, undefined)
 })
 
+test('public password recovery bypasses expired credentials and never refreshes', async () => {
+  const context = fixture()
+  const { default: request } = await load('src/api/request.js')
+  await bounded(request.post('/api/auth/password-reset/code', { username: 'student01', email: 'safe@example.com' }))
+  await bounded(request.post('/api/auth/password-reset', { request_id: 'request', code: '123456', new_password: 'new-pass' }))
+  assert.equal(context.calls.length, 2)
+  assert.ok(context.calls.every(call => call.headers.Authorization === undefined))
+  assert.ok(context.calls.every(call => !call.url.endsWith('/auth/refresh')))
+})
+
 test('a rejected refresh fails promptly and clears the expired session', async () => {
   const context = fixture()
   context.adapter = async config => {
