@@ -15,9 +15,15 @@ public class SecurityUtils {
 
     public static Integer getCurrentUserType() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getDetails() instanceof com.bugaoshan.security.AuthenticatedSession session) return session.userType();
         if (auth != null && auth.getDetails() instanceof Integer) {
             return (Integer) auth.getDetails();
         }
         return null;
+    }
+    public static int getCurrentCredentialVersion() {
+        Authentication auth=SecurityContextHolder.getContext().getAuthentication();
+        if(auth!=null && auth.getDetails() instanceof com.bugaoshan.security.AuthenticatedSession session) return session.credentialVersion();
+        throw new ChatException(401,"登录已失效，请重新登录");
     }
 }
