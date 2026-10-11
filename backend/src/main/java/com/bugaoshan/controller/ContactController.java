@@ -11,6 +11,7 @@ import com.bugaoshan.mapper.ContactAuthMapper;
 import com.bugaoshan.mapper.FriendMapper;
 import com.bugaoshan.mapper.UserMapper;
 import com.bugaoshan.service.ContactService;
+import com.bugaoshan.service.FriendRelationshipService;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -24,13 +25,15 @@ public class ContactController {
     private final ContactAuthMapper contactAuthMapper;
     private final FriendMapper friendMapper;
     private final UserMapper userMapper;
+    private final FriendRelationshipService relationships;
 
     public ContactController(ContactService contactService, ContactAuthMapper contactAuthMapper,
-                             FriendMapper friendMapper, UserMapper userMapper) {
+                             FriendMapper friendMapper, UserMapper userMapper, FriendRelationshipService relationships) {
         this.contactService = contactService;
         this.contactAuthMapper = contactAuthMapper;
         this.friendMapper = friendMapper;
         this.userMapper = userMapper;
+        this.relationships = relationships;
     }
 
     /** 搜索用户 */
@@ -115,53 +118,21 @@ public class ContactController {
     /** 发送好友申请 */
     @PostMapping("/add/{targetId}")
     public Result<?> addFriend(@PathVariable Long targetId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (userId.equals(targetId)) throw new BusinessException("不能添加自己");
-        Friend existing = friendMapper.selectByUserAndTarget(userId, targetId);
-        Friend rev = friendMapper.selectByUserAndTarget(targetId, userId);
-        if (existing != null) {
-            if (Integer.valueOf(1).equals(existing.getStatus())) throw new BusinessException("已经是好友");
-            if (Integer.valueOf(0).equals(existing.getStatus())) throw new BusinessException("已发送申请，等待对方同意");
-            existing.setStatus(0);
-            existing.setUpdateTime(LocalDateTime.now());
-            friendMapper.updateById(existing);
-            return Result.ok();
-        }
-        if (rev != null && Integer.valueOf(0).equals(rev.getStatus())) {
-            rev.setStatus(1);
-            rev.setUpdateTime(LocalDateTime.now());
-            friendMapper.updateById(rev);
-            return Result.ok(Map.of("message", "已接受对方的好友申请"));
-        }
-        Friend f = new Friend();
-        f.setUserId(userId);
-        f.setTargetId(targetId);
-        f.setStatus(0);
-        f.setCreateTime(LocalDateTime.now());
-        f.setUpdateTime(LocalDateTime.now());
-        friendMapper.insert(f);
-        return Result.ok();
+        var result=relationships.addFriend(SecurityUtils.getCurrentUserId(),targetId);
+        return result.acceptedExistingRequest()?Result.ok(Map.of("message", "已接受对方的好友申请")):Result.ok();
     }
 
     /** 同意申请 */
     @PostMapping("/accept/{friendId}")
     public Result<?> accept(@PathVariable Long friendId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        if (friendMapper.updateStatus(friendId, userId, 1) == 0) {
-            throw new BusinessException("好友申请不存在或已处理");
-        }
+        relationships.accept(SecurityUtils.getCurrentUserId(),friendId);
         return Result.ok();
     }
 
     /** 拒绝或删除好友 */
     @DeleteMapping("/remove/{friendId}")
     public Result<?> remove(@PathVariable Long friendId) {
-        Long userId = SecurityUtils.getCurrentUserId();
-        Friend friend = friendMapper.selectById(friendId);
-        if (friend == null || (!userId.equals(friend.getUserId()) && !userId.equals(friend.getTargetId()))) {
-            throw new BusinessException("好友关系不存在或无权操作");
-        }
-        friendMapper.deleteById(friendId);
+        relationships.remove(SecurityUtils.getCurrentUserId(),friendId);
         return Result.ok();
     }
 

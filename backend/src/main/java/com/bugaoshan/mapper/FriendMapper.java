@@ -8,12 +8,13 @@ import org.apache.ibatis.annotations.Param;
 import java.util.List;
 import java.util.Map;
 
-import com.bugaoshan.entity.Friend;
-
 @Mapper
 public interface FriendMapper extends BaseMapper<Friend> {
 
     Friend selectByUserAndTarget(@Param("userId") Long userId, @Param("targetId") Long targetId);
+    Friend selectPair(@Param("lowerId") long lowerId, @Param("higherId") long higherId);
+    Friend selectPairForUpdate(@Param("lowerId") long lowerId, @Param("higherId") long higherId);
+    int deleteForParticipant(@Param("friendId") long friendId, @Param("userId") long userId);
 
     List<Map<String, Object>> selectMyFriends(@Param("userId") Long userId);
 

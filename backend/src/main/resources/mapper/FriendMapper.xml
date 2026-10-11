@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.bugaoshan.mapper.FriendMapper">
+    <select id="selectPair" resultType="com.bugaoshan.entity.Friend">
+        SELECT * FROM friend WHERE user_low_id=#{lowerId} AND user_high_id=#{higherId}
+    </select>
+    <select id="selectPairForUpdate" resultType="com.bugaoshan.entity.Friend">
+        SELECT * FROM friend WHERE user_low_id=#{lowerId} AND user_high_id=#{higherId} FOR UPDATE
+    </select>
+    <delete id="deleteForParticipant">
+        DELETE FROM friend WHERE friend_id=#{friendId} AND (user_id=#{userId} OR target_id=#{userId})
+    </delete>
 
     <select id="selectByUserAndTarget" resultType="com.bugaoshan.entity.Friend">
         SELECT * FROM friend WHERE user_id = #{userId} AND target_id = #{targetId}
@@ -37,7 +46,7 @@
 
     <update id="updateStatus">
         UPDATE friend SET status = #{status}, update_time = NOW()
-        WHERE friend_id = #{friendId} AND target_id = #{targetId}
+        WHERE friend_id = #{friendId} AND target_id = #{targetId} AND status = 0
     </update>
 
     <delete id="deleteByUserAndTarget">

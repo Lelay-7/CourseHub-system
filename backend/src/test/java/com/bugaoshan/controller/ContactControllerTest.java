@@ -8,6 +8,7 @@ import com.bugaoshan.mapper.ContactAuthMapper;
 import com.bugaoshan.mapper.FriendMapper;
 import com.bugaoshan.mapper.UserMapper;
 import com.bugaoshan.service.ContactService;
+import com.bugaoshan.service.FriendRelationshipService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +39,7 @@ class ContactControllerTest {
     @Mock private ContactAuthMapper contactAuthMapper;
     @Mock private FriendMapper friendMapper;
     @Mock private UserMapper userMapper;
+    @Mock private FriendRelationshipService relationships;
 
     @AfterEach
     void clearContext() {
@@ -48,13 +50,9 @@ class ContactControllerTest {
     void nonParticipantCannotRemoveFriendship() {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(99L, null));
-        Friend friend = new Friend();
-        friend.setFriendId(5L);
-        friend.setUserId(10L);
-        friend.setTargetId(11L);
-        when(friendMapper.selectById(5L)).thenReturn(friend);
+        org.mockito.Mockito.doThrow(new BusinessException("无权操作")).when(relationships).remove(99L,5L);
         ContactController controller = new ContactController(
-                contactService, contactAuthMapper, friendMapper, userMapper);
+                contactService, contactAuthMapper, friendMapper, userMapper, relationships);
 
         assertThrows(BusinessException.class, () -> controller.remove(5L));
         verify(friendMapper, never()).deleteById(5L);
@@ -199,7 +197,7 @@ class ContactControllerTest {
     }
 
     private ContactController controller() {
-        return new ContactController(contactService, contactAuthMapper, friendMapper, userMapper);
+        return new ContactController(contactService, contactAuthMapper, friendMapper, userMapper, relationships);
     }
 
     private void login(Long userId) {

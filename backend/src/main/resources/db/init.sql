@@ -340,7 +340,10 @@ CREATE TABLE IF NOT EXISTS friend (
     status     TINYINT NOT NULL DEFAULT 0,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    user_low_id BIGINT GENERATED ALWAYS AS (LEAST(user_id, target_id)) STORED,
+    user_high_id BIGINT GENERATED ALWAYS AS (GREATEST(user_id, target_id)) STORED,
     UNIQUE KEY uk_friend_direction (user_id, target_id),
+    UNIQUE KEY uk_friend_pair (user_low_id, user_high_id),
     INDEX idx_friend_target_status (target_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
