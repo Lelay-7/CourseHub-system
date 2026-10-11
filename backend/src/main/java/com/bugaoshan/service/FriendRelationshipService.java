@@ -36,6 +36,10 @@ public class FriendRelationshipService {
         Friend pair=friends.selectPair(Math.min(actorId,targetId),Math.max(actorId,targetId));
         return pair!=null && Integer.valueOf(1).equals(pair.getStatus());
     }
+    public boolean isAcceptedForWrite(long actorId,long targetId) {
+        Friend pair=friends.selectPairForUpdate(Math.min(actorId,targetId),Math.max(actorId,targetId));
+        return pair!=null && Integer.valueOf(1).equals(pair.getStatus());
+    }
     public AddFriendResult addFriend(long actorId, long targetId) {
         if(actorId==targetId) throw new BusinessException("不能添加自己");
         return tx.execute(status->{

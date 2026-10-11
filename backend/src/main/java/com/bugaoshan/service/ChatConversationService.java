@@ -28,7 +28,7 @@ public class ChatConversationService {
         return tx.execute(status->{
             var locked=relationships.lockUsers(actor.userId(),targetId); validateActor(actor,locked.user(actor.userId()));
             if(!active(locked.user(targetId))) throw new ChatException(404,"账号不可用");
-            if(!relationships.isAccepted(actor.userId(),targetId)) throw new ChatException(403,"只有好友可以开始聊天");
+            if(!relationships.isAcceptedForWrite(actor.userId(),targetId)) throw new ChatException(403,"只有好友可以开始聊天");
             ChatConversation row=chats.selectPair(locked.lowerId(),locked.higherId());
             if(row==null) {
                 row=new ChatConversation(); row.setPrivateUserLowId(locked.lowerId()); row.setPrivateUserHighId(locked.higherId());

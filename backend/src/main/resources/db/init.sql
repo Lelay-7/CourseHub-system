@@ -652,3 +652,9 @@ CREATE TABLE IF NOT EXISTS chat_message (
  UNIQUE KEY uk_chat_sequence(conversation_id,sequence),UNIQUE KEY uk_chat_client(sender_id,client_message_id),
  INDEX idx_chat_history(conversation_id,sequence)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS chat_send_rate_window (
+ user_id BIGINT NOT NULL,window_start DATETIME(3) NOT NULL,window_seconds INT NOT NULL,
+ used_count INT NOT NULL DEFAULT 0,expires_at DATETIME(3) NOT NULL,
+ PRIMARY KEY(user_id,window_start,window_seconds),INDEX idx_chat_rate_expiry(expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

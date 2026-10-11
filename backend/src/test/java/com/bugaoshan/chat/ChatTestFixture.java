@@ -16,6 +16,10 @@ public class ChatTestFixture {
     public FriendMapper friends;
     public FriendRelationshipService relationships;
     public ChatConversationService conversations;
+    public ChatMessageService messages;
+    public ChatSendRateLimiter rates;
+    public com.bugaoshan.config.ChatConfig config=new com.bugaoshan.config.ChatConfig();
+    public java.util.List<com.bugaoshan.chat.ChatMessageCreated> events=new java.util.concurrent.CopyOnWriteArrayList<>();
     public DataSourceTransactionManager manager;
     public DataSource source;
     public Clock clock=Clock.fixed(Instant.parse("2026-10-11T10:00:00Z"),ZoneOffset.UTC);
@@ -29,6 +33,8 @@ public class ChatTestFixture {
         var session=new SqlSessionTemplate(factory.getObject()); users=session.getMapper(UserMapper.class); friends=session.getMapper(FriendMapper.class);
         relationships=new FriendRelationshipService(users,friends,manager);
         conversations=new ChatConversationService(users,relationships,session.getMapper(ChatConversationMapper.class),manager,clock);
+        rates=new ChatSendRateLimiter(session.getMapper(ChatRateLimitMapper.class),this.config,clock);
+        messages=new ChatMessageService(conversations,relationships,session.getMapper(ChatConversationMapper.class),session.getMapper(ChatMessageMapper.class),rates,manager,e->events.add((com.bugaoshan.chat.ChatMessageCreated)e),clock);
     }
     public void seedUsers() {
         db.update("INSERT INTO user(user_id,username,nickname,status,user_type,phone,email,real_name,student_no,department) VALUES(1,'a','甲',1,1,'secret','private@example.test','hidden','secret-no','计算机'),(2,'b','乙',1,2,'secret','private@example.test','hidden','secret-no','计算机'),(3,'admin','管理员',1,3,NULL,NULL,NULL,NULL,NULL)");

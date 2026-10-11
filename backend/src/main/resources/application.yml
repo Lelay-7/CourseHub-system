@@ -70,3 +70,10 @@ recovery:
 sms:
   mock: ${SMS_MOCK:false}
   mock-code: ${SMS_MOCK_CODE:}
+
+app:
+  chat:
+    send-per-minute: ${CHAT_SEND_PER_MINUTE:30}
+    send-per-hour: ${CHAT_SEND_PER_HOUR:300}
+    rate-retention-hours: ${CHAT_RATE_RETENTION_HOURS:48}
+    cleanup-batch-size: ${CHAT_CLEANUP_BATCH_SIZE:500}
