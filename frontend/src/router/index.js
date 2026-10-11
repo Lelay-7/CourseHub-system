@@ -13,6 +13,8 @@ const ADMIN = 3
 const ALL = [STUDENT, TEACHER, ADMIN]
 
 const routes = [
+  { path: '/messages', name: 'MessageCenter', component: () => import('@/views/chat/MessageCenterView.vue'), meta: { requiresAuth: true, roles: ALL, title: '消息' } },
+  { path: '/messages/:id', name: 'PrivateChat', component: () => import('@/views/chat/MessageCenterView.vue'), meta: { requiresAuth: true, roles: ALL, title: '私聊', hideMobileTabbar: true } },
   {
     path: '/forgot-password',
     name: 'ForgotPassword',

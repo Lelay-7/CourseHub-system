@@ -13,6 +13,7 @@ async function loadView(relativePath, overrides = {}) {
     computed: callback => ({ get value() { return callback() } }),
     onMounted: callback => mounted.push(callback), onUnmounted: () => {}, watch: () => {},
     useRoute: () => ({ query: {}, params: {} }),
+    useRouter: () => ({ push: async () => {} }),
     ElMessage: { success: text => messages.push(text), error: text => messages.push(text), warning: () => {} },
     localStorage: { getItem: () => null, setItem: () => {} },
     getCacheSizeFormatted: () => '0 B',

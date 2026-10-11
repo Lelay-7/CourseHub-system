@@ -11,7 +11,7 @@
         <slot />
       </div>
     </div>
-    <MobileTabbar v-if="appStore.isMobile" class="mobile-only" />
+    <MobileTabbar v-if="appStore.isMobile && !route.meta.hideMobileTabbar" class="mobile-only" />
   </div>
 </template>
 
@@ -30,7 +30,7 @@ const route = useRoute()
 const router = useRouter()
 const isAdminRoute = computed(() => route.path.startsWith('/admin'))
 
-const frontendPaths = ['/home', '/course', '/square', '/material', '/contact', '/mall']
+const frontendPaths = ['/home', '/course', '/square', '/material', '/contact', '/mall', '/messages']
 const showAdminBanner = computed(() =>
   userStore.isAdmin && frontendPaths.some(p => route.path.startsWith(p))
 )

@@ -36,6 +36,7 @@
               <span class="card-department">{{ u.department || u.title || '' }}</span>
             </div>
             <div class="card-action">
+              <el-button v-if="u.friend_status === 'accepted'" type="primary" size="small" :loading="actions.has('chat:'+getUserId(u))" @click.stop="messageFriend(getUserId(u))">发消息</el-button>
               <el-button v-if="u.friend_status === 'none'" type="primary" size="small" :loading="actions.has(getUserId(u))" @click="handleAddFriend(getUserId(u))">添加好友</el-button>
               <el-tag v-else-if="u.friend_status === 'pending'" type="warning">等待同意</el-tag>
               <el-tag v-else-if="u.friend_status === 'pending_receive'" type="info">待你同意</el-tag>
@@ -66,6 +67,7 @@
               <span>{{ getIdentity(f) || getRoleLabel(f) || '用户' }}</span>
               <span class="card-department">{{ f.department || f.title || '' }}</span>
             </div>
+            <el-button type="primary" plain :loading="actions.has('chat:'+getUserId(f))" @click.stop="messageFriend(getUserId(f))">发消息</el-button>
           </article>
         </div>
         <EmptyState v-else-if="!loading" description="还没有好友，去搜索添加吧" />
@@ -111,7 +113,8 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { openPrivate } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
@@ -123,6 +126,15 @@ import { USER_TYPE_LABEL } from '@/utils/constants'
 import request from '@/api/request'
 
 const route = useRoute()
+const router = useRouter()
+async function messageFriend(id) {
+  const key='chat:'+id
+  if(actions.has(key))return
+  actions.add(key)
+  try { const conversation=await openPrivate(id); await router.push('/messages/'+conversation.conversation_id) }
+  catch { /* Existing request handler reports foreground errors. */ }
+  finally { actions.delete(key) }
+}
 const tab = ref(['search', 'friends', 'pending'].includes(route.query.tab) ? route.query.tab : 'search')
 const keyword = ref('')
 const loadingStates = reactive({ search: false, friends: false, pending: false })

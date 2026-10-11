@@ -20,8 +20,11 @@
       </el-dropdown>
     </nav>
     <div class="navbar-right">
-      <ThemeSwitcher />
-      <el-badge v-if="appStore.showOrderBadge" :value="appStore.orderBadgeText" :max="99">
+      <div class="navbar-theme"><ThemeSwitcher /></div>
+      <el-badge :value="chat.state.unreadCount>99?'99+':chat.state.unreadCount" :hidden="!chat.state.unreadCount">
+        <el-button class="message-entry" :icon="ChatDotRound" text aria-label="查看消息" @click="navigate('/messages')" />
+      </el-badge>
+      <el-badge v-if="appStore.showOrderBadge" class="order-entry" :value="appStore.orderBadgeText" :max="99">
         <el-button :icon="Bell" text aria-label="查看订单" @click="navigate('/profile/orders')" />
       </el-badge>
       <el-dropdown trigger="click" @command="handleCommand">
@@ -33,6 +36,7 @@
           <el-dropdown-item disabled>{{ userStore.userInfo?.nickname || '同学' }} · {{ userStore.scoreBalance }} 积分</el-dropdown-item>
           <el-dropdown-item divided command="/profile">个人中心</el-dropdown-item>
           <el-dropdown-item command="/profile/courses">我的选课</el-dropdown-item>
+          <el-dropdown-item command="/messages">我的消息</el-dropdown-item>
           <el-dropdown-item command="/profile/orders">我的订单</el-dropdown-item>
           <el-dropdown-item command="/profile/settings">设置</el-dropdown-item>
           <el-dropdown-item command="/contact">通讯录</el-dropdown-item>
@@ -48,7 +52,8 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
-import { Bell, User, ArrowDown } from '@element-plus/icons-vue'
+import { Bell, User, ArrowDown, ChatDotRound } from '@element-plus/icons-vue'
+import { useChatStore } from '@/stores/chat'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import ThemeSwitcher from './ThemeSwitcher.vue'
@@ -56,6 +61,7 @@ const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
+const chat = useChatStore()
 const navigation = [
   { path: '/home', label: '首页' }, { path: '/course', label: '课程' },
   { path: '/material', label: '资料' }, { path: '/square', label: '广场' }, { path: '/profile', label: '我的' }
@@ -87,7 +93,10 @@ async function handleCommand(command) {
 .navbar-right { display: flex; align-items: center; gap: 14px; flex: 0 0 auto; }
 .user-info { display: flex; align-items: center; gap: 9px; border: 0; padding: 4px; border-radius: 6px; color: var(--color-text-secondary); background: transparent; cursor: pointer; }
 .user-info:hover { background: var(--color-bg-soft); }
+.message-entry{min-width:44px;min-height:44px}
+@media (min-width:768px) and (max-width:900px){.navbar-theme{display:none}}
 .brand:focus-visible, .primary-nav a:focus-visible, .user-info:focus-visible, .more-trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
 @media (max-width: 1050px) { .app-navbar { padding: 0 24px; gap: 16px; } .primary-nav { gap: 18px; } .brand-copy strong { font-size: 19px; } .navbar-right { gap: 8px; } }
 @media (max-width: 767px) { .app-navbar { min-height: 66px; padding: 0 16px; } .primary-nav { display: none; } .brand-mark { width: 28px; height: 28px; } .brand-copy strong { font-size: 18px; } .brand-copy small { font-size: 10px; } .user-arrow { display: none; } }
+@media (max-width: 767px) { .navbar-theme,.order-entry{display:none}.navbar-right{gap:6px}.user-info{min-width:44px;min-height:44px;box-sizing:border-box} }
 </style>

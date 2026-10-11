@@ -119,6 +119,7 @@ const quickEntries = computed(() => {
       { label: 'Banner', path: '/admin/banners', icon: Setting },
       { label: '接受反馈', path: '/profile/feedback', icon: EditPen },
       { label: '账号安全', path: '/profile/security', icon: Setting },
+      { label: '我的消息', path: '/messages', icon: ChatDotRound },
       { label: '系统设置', path: '/profile/settings', icon: Service }
     ]
   }
@@ -126,6 +127,7 @@ const quickEntries = computed(() => {
   return [
     { label: '我的选课', path: '/profile/courses', icon: Reading },
     { label: '我的好友', path: '/contact?tab=friends', icon: UserFilled },
+    { label: '我的消息', path: '/messages', icon: ChatDotRound },
     { label: '我的上传', path: '/material?tab=my', icon: UploadFilled },
     { label: '我的下载', path: '/profile/downloads', icon: Download },
     { label: '我的收藏', path: '/profile/favorites', icon: Star },

@@ -13,6 +13,7 @@
     "test:recovery:browser": "node scripts/account-recovery-browser.mjs",
     "test:contact": "node scripts/contact-ui.test.mjs",
     "test:chat": "node --test scripts/private-chat-state.test.mjs",
+    "test:chat:ui": "node scripts/private-chat-ui.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

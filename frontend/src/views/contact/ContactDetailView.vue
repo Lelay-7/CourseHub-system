@@ -57,6 +57,7 @@
           </template>
           <template v-else-if="contact.friend_status === 'accepted'">
             <el-tag type="success" size="large">已是好友</el-tag>
+            <el-button type="primary" :loading="actionLoading" @click="messageFriend">发消息</el-button>
           </template>
           <el-tag v-else-if="contact.friend_status === 'self'" size="large">这是你的名片</el-tag>
           <el-button v-if="contact.phone" @click="callPhone">拨打电话</el-button>
@@ -71,7 +72,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { openPrivate } from '@/api/chat'
 import { ElMessage } from 'element-plus'
 import { User } from '@element-plus/icons-vue'
 import { USER_TYPE_LABEL } from '@/utils/constants'
@@ -85,6 +87,14 @@ import ErrorState from '@/components/ErrorState.vue'
 import { useAppStore } from '@/stores/app'
 
 const route = useRoute()
+const router = useRouter()
+async function messageFriend() {
+  if(actionLoading.value)return
+  actionLoading.value=true
+  try { const conversation=await openPrivate(contactId.value); await router.push('/messages/'+conversation.conversation_id) }
+  catch { /* Existing request handler reports foreground errors. */ }
+  finally { actionLoading.value=false }
+}
 const appStore = useAppStore()
 const contact = ref({})
 const loading = ref(true)
