@@ -32,4 +32,13 @@ button{height:44px;min-width:80px;padding:0 16px;border:0;border-radius:var(--ra
 button:disabled{opacity:.45;cursor:default}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
 @media(max-width:767px){.message-composer{padding:12px 12px max(12px,env(safe-area-inset-bottom))}.composer-hint{display:none}.character-count{flex:1}}
+@media(max-width:1023px) and (max-height:500px){
+.message-composer{display:flex;align-items:center;gap:12px;padding:8px 12px max(8px,env(safe-area-inset-bottom))}
+textarea{flex:1;min-width:0;min-height:44px;height:60px;max-height:88px;padding:6px 10px;font-size:13px}
+.composer-footer{flex-shrink:0;margin-top:0;gap:8px}.composer-hint{display:none}
+}
+.minimal-composer{display:flex;align-items:center;gap:8px;padding:1px 8px}
+.minimal-composer textarea{flex:1;min-width:0;min-height:0;height:44px;max-height:44px;resize:none;padding:6px 10px}
+.minimal-composer .composer-footer{flex-shrink:0;margin-top:0;gap:0}
+.minimal-composer .composer-hint,.minimal-composer .character-count{display:none}
 </style>
