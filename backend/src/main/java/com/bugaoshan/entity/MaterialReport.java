@@ -11,5 +11,10 @@ public class MaterialReport {
     private Long reporterId;
     private String reason;
     private Integer status;
+    private String materialName;
+    private String resolutionAction;
+    private String resolutionReason;
+    private Long handledBy;
+    private LocalDateTime handledTime;
     private LocalDateTime createTime;
 }

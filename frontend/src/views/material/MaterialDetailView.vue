@@ -2,16 +2,19 @@
   <AppLayout>
     <PageContainer>
       <PageHeader title="资料详情" :show-back="true">
-        <template #extra>
+        <template v-if="material.material_id" #extra>
+          <el-button v-if="isOwner && material.status === 2" type="primary" @click="openEditor">修改并重提</el-button>
           <el-button
+            v-if="material.status === 1"
             :icon="material.is_favorited ? StarFilled : Star"
             :type="material.is_favorited ? 'warning' : 'default'"
+            :loading="favoriting"
             @click="handleFavorite"
           >
             {{ material.is_favorited ? '已收藏' : '收藏' }}
           </el-button>
-          <el-button :icon="Share" @click="handleShare">分享</el-button>
-          <el-button :icon="Warning" type="danger" plain @click="showReport = true">举报</el-button>
+          <el-button v-if="material.status === 1" :icon="Share" @click="handleShare">分享</el-button>
+          <el-button v-if="material.status === 1" :icon="Warning" type="danger" plain @click="showReport = true">举报</el-button>
         </template>
       </PageHeader>
 
@@ -37,6 +40,9 @@
             </div>
           </div>
 
+          <p v-if="material.description">{{ material.description }}</p>
+          <p v-if="material.course_id"><el-button text type="primary" @click="$router.push('/course/' + material.course_id)">查看关联课程</el-button></p>
+          <el-alert v-if="material.status !== 1" :title="material.status === 0 ? '资料正在审核' : material.status === 2 ? '资料被驳回：' + (material.reject_reason || '请按审核意见修改') : '资料已下架'" type="warning" :closable="false" />
           <!-- 文件访问必须经过授权下载接口。 -->
           <div class="preview-section">
             <h3>文件预览</h3>
@@ -48,7 +54,7 @@
         </div>
 
         <!-- 下载按钮 -->
-        <div class="download-bar card">
+        <div v-if="material.status === 1" class="download-bar card">
           <div class="flex-between">
             <span class="download-score" v-if="material.download_score > 0">
               下载需消耗 <strong>{{ material.download_score }}</strong> 积分
@@ -59,12 +65,23 @@
             </el-button>
           </div>
         </div>
+        <section v-if="isOwner" class="card" style="margin-top:20px">
+          <h3>提交与审核记录 · V{{ material.revision || 1 }}</h3>
+          <el-collapse v-if="revisions.length" style="margin-bottom:16px">
+            <el-collapse-item v-for="snapshot in revisions" :key="snapshot.revision" :title="'提交版本 V' + snapshot.revision + ' · ' + (snapshot.material_name || material.material_name)">
+              <p>提交时间：{{ formatTime(snapshot.create_time) }}</p><p>文件：{{ snapshot.original_file_name || '未记录文件名' }}</p><p>下载积分：{{ snapshot.download_score ?? 0 }}</p><p v-if="snapshot.description">{{ snapshot.description }}</p>
+            </el-collapse-item>
+          </el-collapse>
+          <p v-if="!auditHistory.length">尚无审核记录</p>
+          <div v-for="(event, i) in auditHistory" :key="i" class="audit-event"><strong>V{{ event.revision }} · {{ ({ approve: '审核通过', reject: '驳回', deactivate: '下架' })[event.action] || event.action }}</strong><p>{{ event.reason || '审核通过' }}</p><small>{{ formatTime(event.create_time) }}</small></div>
+        </section>
       </template>
+      <MaterialEditor v-model="showEditor" :material="material" :courses="courseOptions" @saved="fetchDetail" />
 
-      <ErrorState v-else title="资料不存在" @retry="fetchDetail" />
+      <ErrorState v-if="!loading && !material.material_id" title="资料加载失败或已不可用" @retry="fetchDetail" />
 
       <!-- 举报弹窗 -->
-      <el-dialog v-model="showReport" title="举报资料" width="420px">
+      <el-dialog v-model="showReport" title="举报资料" width="min(420px, 94vw)" :show-close="!reporting" :close-on-click-modal="!reporting">
         <el-form :model="reportForm" label-position="top">
           <el-form-item label="举报原因">
             <el-radio-group v-model="reportForm.reason">
@@ -79,8 +96,8 @@
           </el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="showReport = false">取消</el-button>
-          <el-button type="danger" @click="submitReport">提交举报</el-button>
+          <el-button :disabled="reporting" @click="showReport = false">取消</el-button>
+          <el-button type="danger" :loading="reporting" @click="submitReport">提交举报</el-button>
         </template>
       </el-dialog>
     </PageContainer>
@@ -88,7 +105,9 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import MaterialEditor from '@/components/MaterialEditor.vue'
+import { useRequestGate } from '@/composables/useListQuery'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Star, StarFilled, Share, Warning, Download } from '@element-plus/icons-vue'
@@ -110,6 +129,9 @@ const material = ref({})
 const loading = ref(true)
 const downloading = ref(false)
 const showReport = ref(false)
+const auditHistory = ref([]), revisions = ref([]), showEditor = ref(false), courseOptions = ref([]), favoriting = ref(false), reporting = ref(false)
+const isOwner = computed(() => material.value.uploader_id === userStore.userInfo?.user_id)
+const gate = useRequestGate(() => { material.value = {}; auditHistory.value = []; revisions.value = []; showEditor.value = false; showReport.value = false })
 const reportForm = reactive({ reason: 'infringement', detail: '' })
 
 const typeIconMap = {
@@ -135,18 +157,21 @@ const previewHint = computed(() => {
 })
 const scoreLabel = computed(() => material.value.download_score === 0 ? '免费' : `${material.value.download_score} 积分`)
 const scoreType = computed(() => material.value.download_score === 0 ? 'success' : 'warning')
-const hasFile = computed(() => !!(material.value?.storage_key || material.value?.file_url))
+const hasFile = computed(() => !!(material.value?.has_file || material.value?.storage_key || material.value?.file_url))
 
 async function fetchDetail() {
+  const ticket = gate.begin()
+  material.value = {}; auditHistory.value = []; revisions.value = []
   loading.value = true
   try {
     const res = await materialApi.getMaterialDetail(route.params.id)
-    if (res.code === 200) material.value = { ...(res.data?.material || res.data || {}), is_favorited: res.data?.is_favorited }
+    if (res.code === 200 && gate.valid(ticket)) { material.value = { ...(res.data?.material || res.data || {}), is_favorited: res.data?.is_favorited }; auditHistory.value = res.data?.audit_history || []; revisions.value = res.data?.revisions || [] }
   } catch { /* handled */ }
-  finally { loading.value = false }
+  finally { if (gate.valid(ticket)) loading.value = false }
 }
 
 async function handleDownload() {
+  if (downloading.value) return
   const cost = Number(material.value.download_score || 0)
   if (cost > 0) {
     try {
@@ -180,6 +205,8 @@ async function handleDownload() {
 }
 
 async function handleFavorite() {
+  if (favoriting.value) return
+  favoriting.value = true
   try {
     if (material.value.is_favorited) {
       await favoriteApi.removeFavorite({ type: 'material', target_id: material.value.material_id })
@@ -191,6 +218,7 @@ async function handleFavorite() {
       ElMessage.success('收藏成功')
     }
   } catch { /* handled */ }
+  finally { favoriting.value = false }
 }
 
 function handleShare() {
@@ -201,6 +229,8 @@ function handleShare() {
 }
 
 async function submitReport() {
+  if (reporting.value) return
+  reporting.value = true
   try {
     const res = await materialApi.reportMaterial(route.params.id, reportForm)
     if (res.code === 200) {
@@ -210,6 +240,7 @@ async function submitReport() {
       reportForm.detail = ''
     }
   } catch { /* handled */ }
+  finally { reporting.value = false }
 }
 
 function getExt() {
@@ -227,7 +258,9 @@ function formatTime(time) {
   return new Date(time).toLocaleDateString('zh-CN')
 }
 
+async function openEditor() { try { const res = await materialApi.getCourseOptions(); courseOptions.value = res.data?.list || []; showEditor.value = true } catch { /* request displays failure */ } }
 onMounted(fetchDetail)
+watch(() => route.params.id, fetchDetail)
 </script>
 
 <style scoped>
@@ -267,4 +300,6 @@ onMounted(fetchDetail)
 .download-score { color: var(--color-text-secondary); }
 .download-score strong { color: var(--color-warning); }
 .download-score.free { color: var(--color-success); }
+.audit-event { padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+.audit-event p, .audit-event small { color: var(--color-text-secondary); }
 </style>

@@ -9,7 +9,9 @@
           </el-button>
         </el-badge>
       </div>
-      <div v-if="list.length > 0" class="course-grid-pro" v-loading="loading">
+      <ErrorState v-if="error" :title="error" @retry="fetchMyCourses" />
+      <LoadingSkeleton v-else-if="loading" type="list" :rows="3" />
+      <div v-else-if="list.length > 0" class="course-grid-pro">
         <CourseCard
           v-for="course in list"
           :key="course.course_id"
@@ -24,7 +26,7 @@
         <el-button type="primary" @click="$router.push('/course')">去选课中心</el-button>
       </EmptyState>
 
-      <el-drawer v-model="showCompareDrawer" title="课程对比" size="720px">
+      <el-drawer v-model="showCompareDrawer" title="课程对比" size="min(720px, 96vw)">
         <div v-if="compareCourses.length" class="compare-list">
           <div v-for="item in compareCourses" :key="item.course_id" class="compare-item">
             <strong>{{ item.course_name }}</strong>
@@ -39,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSelectionStore } from '@/stores/selection'
 import * as courseApi from '@/api/course'
@@ -48,21 +50,26 @@ import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import CourseCard from '@/components/CourseCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ErrorState from '@/components/ErrorState.vue'
+import LoadingSkeleton from '@/components/LoadingSkeleton.vue'
+import { useRequestGate } from '@/composables/useListQuery'
 
 const selectionStore = useSelectionStore()
-const loading = ref(false)
+const loading = ref(true), error = ref('')
 const list = ref([])
 const compareCourses = ref([])
 const showCompareDrawer = ref(false)
+const gate = useRequestGate(() => { list.value = []; compareCourses.value = []; loading.value = false; error.value = ''; showCompareDrawer.value = false })
 
 async function fetchMyCourses() {
-  loading.value = true
+  const ticket = gate.begin(); loading.value = true; error.value = ''
   try {
     const res = await courseApi.getSelectedCourses()
+    if (!gate.valid(ticket)) return
     list.value = res.data?.list || res.data || []
-    await selectionStore.refresh()
-  } catch { list.value = [] }
-  finally { loading.value = false }
+    selectionStore.selectedIds = list.value.map(item => item.course_id || item.courseId).filter(Boolean)
+  } catch (err) { if (gate.valid(ticket) && !err.sessionChanged) { list.value = []; error.value = '已选课程加载失败，请重试' } }
+  finally { if (gate.valid(ticket)) loading.value = false }
 }
 
 async function handleRemove(course) {
@@ -70,6 +77,7 @@ async function handleRemove(course) {
     await selectionStore.drop(course.course_id)
     ElMessage.success(`已取消 ${course.course_name}`)
     list.value = list.value.filter(c => c.course_id !== course.course_id)
+    removeCompare(course.course_id)
   } catch { /* handled */ }
 }
 
@@ -85,14 +93,13 @@ function removeCompare(id) {
 }
 
 onMounted(fetchMyCourses)
-onActivated(fetchMyCourses)
 </script>
 
 <style scoped>
 .toolbar-row { margin-bottom: var(--spacing-md); }
 .course-grid-pro {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: var(--spacing-lg);
 }
 .compare-list { display: grid; gap: var(--spacing-sm); }

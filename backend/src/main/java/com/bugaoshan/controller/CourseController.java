@@ -24,6 +24,9 @@ public class CourseController {
         return courseService.getCategories();
     }
 
+    @GetMapping("/teachers")
+    public Result<?> teachers() { return courseService.getTeachers(); }
+
     @GetMapping("/list")
     public Result<?> list(@RequestParam(required = false) Long categoryId,
                           @RequestParam(required = false) Integer courseType,

@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 
 public interface CourseService {
     Result getCategories();
+    Result getTeachers();
     Result getCourseList(Long categoryId, Integer courseType, BigDecimal creditMin, BigDecimal creditMax,
                          String teacherName, String keyword, String timeSlot, String sortBy, String sortOrder,
                          Integer page, Integer pageSize);

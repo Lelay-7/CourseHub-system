@@ -1,144 +1,61 @@
 <template>
-  <AppLayout>
-    <PageContainer>
-      <PageHeader title="管理后台" subtitle="课程 · 资料 · 评价 · 广场 · 用户 · 商品 · 订单 · Banner · 反馈 · 举报" />
-      <el-row :gutter="20">
-        <el-col :span="24">
-          <Card>
-            <template #header>数据概览</template>
-            <el-row :gutter="16" v-loading="statsLoading">
-              <el-col :span="6">
-                <div class="stat-box">
-                  <div class="stat-box__value">{{ stats.courseCount ?? '-' }}</div>
-                  <div class="stat-box__label">课程数</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-box">
-                  <div class="stat-box__value">{{ stats.userCount ?? '-' }}</div>
-                  <div class="stat-box__label">用户数</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-box">
-                  <div class="stat-box__value">{{ stats.pendingMaterialCount ?? '-' }}</div>
-                  <div class="stat-box__label">资料待审核数</div>
-                </div>
-              </el-col>
-              <el-col :span="6">
-                <div class="stat-box">
-                  <div class="stat-box__value">{{ stats.bannerCount ?? '-' }}</div>
-                  <div class="stat-box__label">Banner数</div>
-                </div>
-              </el-col>
-            </el-row>
-          </Card>
-        </el-col>
-      </el-row>
-      <el-row :gutter="20" style="margin-top: 20px">
-        <el-col :span="8">
-          <Card>
-            <template #header>快捷入口</template>
-            <el-menu :default-active="route.path" router>
-              <el-menu-item index="/admin/courses">
-                <el-icon><Reading /></el-icon> 课程管理
-              </el-menu-item>
-              <el-menu-item index="/admin/materials">
-                <el-icon><FolderOpened /></el-icon> 资料审核
-              </el-menu-item>
-              <el-menu-item index="/admin/reviews">
-                <el-icon><ChatDotRound /></el-icon> 评价管理
-              </el-menu-item>
-              <el-menu-item index="/admin/square">
-                <el-icon><EditPen /></el-icon> 广场管理
-              </el-menu-item>
-              <el-menu-item index="/admin/users">
-                <el-icon><User /></el-icon> 用户管理
-              </el-menu-item>
-              <el-menu-item index="/admin/goods">
-                <el-icon><ShoppingCart /></el-icon> 商品管理
-              </el-menu-item>
-              <el-menu-item index="/admin/orders">
-                <el-icon><Present /></el-icon> 订单管理
-              </el-menu-item>
-              <el-menu-item index="/admin/banners">
-                <el-icon><Setting /></el-icon> Banner管理
-              </el-menu-item>
-              <el-menu-item index="/admin/reports">
-                <el-icon><Warning /></el-icon> 举报管理
-              </el-menu-item>
-              <el-menu-item index="/profile/feedback">
-                <el-icon><EditPen /></el-icon> 反馈管理
-              </el-menu-item>
-            </el-menu>
-          </Card>
-        </el-col>
-        <el-col :span="16">
-          <Card>
-            <template #header>系统信息</template>
-            <el-descriptions :column="2" border>
-              <el-descriptions-item label="系统版本">V3.0.0</el-descriptions-item>
-              <el-descriptions-item label="当前角色">管理员</el-descriptions-item>
-              <el-descriptions-item label="管理模块">课程 · 资料 · 评价 · 广场 · 用户 · 商品 · 订单 · Banner · 反馈 · 举报</el-descriptions-item>
-            </el-descriptions>
-          </Card>
-        </el-col>
-      </el-row>
-    </PageContainer>
-  </AppLayout>
+  <AppLayout><PageContainer>
+    <PageHeader title="管理后台" subtitle="先处理待办，再维护课程与校园内容。" />
+    <ErrorState v-if="error" :title="error" @retry="fetchDashboard" />
+    <section class="dashboard-tasks" aria-label="管理待办" v-loading="loading">
+      <router-link v-for="task in tasks" :key="task.path" :to="task.path" class="task-card">
+        <span class="task-label">{{ task.title }}</span><strong>{{ task.path === '/admin/materials' ? (stats.pendingMaterialCount ?? '—') : task.action }}</strong><span>{{ task.description }}</span><span class="task-open">前往处理 →</span>
+      </router-link>
+    </section>
+    <section class="dashboard-stats"><div><strong>{{ stats.courseCount ?? '—' }}</strong><span>课程</span></div><div><strong>{{ stats.userCount ?? '—' }}</strong><span>用户</span></div><div><strong>{{ stats.bannerCount ?? '—' }}</strong><span>首页轮播</span></div></section>
+    <h2>内容与业务管理</h2>
+    <nav class="dashboard-nav" aria-label="全部管理模块">
+      <router-link v-for="entry in entries" :key="entry.path" :to="entry.path"><strong>{{ entry.title }}</strong><span>{{ entry.description }}</span></router-link>
+    </nav>
+  </PageContainer></AppLayout>
 </template>
-
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { Reading, FolderOpened, ChatDotRound, User, Setting, ShoppingCart, EditPen, Present, Warning } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { getDashboard } from '@/api/admin'
+import { useRequestGate } from '@/composables/useListQuery'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import Card from '@/components/Card.vue'
-import request from '@/api/request'
-
-const route = useRoute()
-const statsLoading = ref(false)
-const stats = reactive({
-  bannerCount: null,
-  userCount: null,
-  courseCount: null,
-  pendingMaterialCount: null
-})
-
+import ErrorState from '@/components/ErrorState.vue'
+const stats = ref({}), loading = ref(false), error = ref('')
+const gate = useRequestGate(() => { stats.value = {}; loading.value = false })
+const tasks = [
+  { title: '资料待审核', path: '/admin/materials', action: '检查文件', description: '核查文件、版本与审核历史' },
+  { title: '兑换订单', path: '/admin/orders', action: '安排交付', description: '填写领取、发放或服务说明' },
+  { title: '资料举报', path: '/admin/reports', action: '核查处理', description: '给出结论，向举报人反馈' },
+  { title: '用户反馈', path: '/profile/feedback', action: '查看回复', description: '处理问题和改进建议' }
+]
+const entries = [
+  { title: '课程管理', path: '/admin/courses', description: '课程信息、教师和上架状态' },
+  { title: '资料审核', path: '/admin/materials', description: '资料提交与修改记录' },
+  { title: '评价管理', path: '/admin/reviews', description: '课程评价内容维护' },
+  { title: '广场管理', path: '/admin/square', description: '动态与评论管理' },
+  { title: '用户管理', path: '/admin/users', description: '用户信息与账号状态' },
+  { title: '商品管理', path: '/admin/goods', description: '积分、库存与兑换限制' },
+  { title: '订单管理', path: '/admin/orders', description: '订单内容和交付结果' },
+  { title: '轮播管理', path: '/admin/banners', description: '首页图片与关联链接' },
+  { title: '举报管理', path: '/admin/reports', description: '核查结论与下架处理' },
+  { title: '反馈管理', path: '/profile/feedback', description: '用户反馈与回复' }
+]
 async function fetchDashboard() {
-  statsLoading.value = true
-  try {
-    const res = await request.get('/api/admin/dashboard')
-    if (res.data) {
-      stats.bannerCount = res.data.bannerCount
-      stats.userCount = res.data.userCount
-      stats.courseCount = res.data.courseCount
-      stats.pendingMaterialCount = res.data.pendingMaterialCount
-    }
-  } finally {
-    statsLoading.value = false
-  }
+  const ticket = gate.begin(); loading.value = true; error.value = ''
+  try { const res = await getDashboard(); if (gate.valid(ticket)) stats.value = res.data || {} }
+  catch (err) { if (gate.valid(ticket) && !err.sessionChanged) error.value = '概览加载失败' }
+  finally { if (gate.valid(ticket)) loading.value = false }
 }
-
 onMounted(fetchDashboard)
 </script>
-
 <style scoped>
-.stat-box {
-  text-align: center;
-  padding: 16px 0;
-}
-.stat-box__value {
-  font-size: 32px;
-  font-weight: 900;
-  color: var(--color-primary, #e87452);
-  line-height: 1.3;
-}
-.stat-box__label {
-  font-size: var(--font-size-xs, 12px);
-  color: var(--color-text-secondary, #909399);
-  margin-top: 4px;
-}
+.dashboard-tasks { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap:16px; }
+.task-card { display:flex; flex-direction:column; gap:12px; background:var(--color-bg-card); padding:24px; border:1px solid var(--color-border); border-radius:18px; text-decoration:none; color:var(--color-text-secondary); }
+.task-card strong { font-size:24px; color:var(--color-text-primary); }.task-label { font-weight:700; }.task-open { color:var(--color-primary); font-weight:700; }
+.dashboard-stats { display:flex; gap:32px; flex-wrap:wrap; padding:24px 0; }.dashboard-stats div { display:flex; align-items:baseline; gap:8px; }.dashboard-stats strong { font-size:24px; }.dashboard-stats span { color:var(--color-text-secondary); }
+.dashboard-nav { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }.dashboard-nav a { display:flex; flex-direction:column; gap:8px; padding:20px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-bg-card); color:var(--color-text-primary); text-decoration:none; }.dashboard-nav span { color:var(--color-text-secondary); font-size:13px; }
+@media(max-width:1024px) { .dashboard-tasks { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .task-card { padding:16px; }.dashboard-nav { grid-template-columns:1fr; } .dashboard-nav a { padding:16px; } }
 </style>

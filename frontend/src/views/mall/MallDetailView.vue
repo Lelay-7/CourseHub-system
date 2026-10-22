@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <PageContainer>
-      <PageHeader title="商品详情" :show-back="true" />
+      <PageHeader title="商品详情" :show-back="true"><template #extra><el-button @click="$router.push('/profile/orders')">我的订单</el-button></template></PageHeader>
 
       <div v-if="loading" class="detail-loading">
         <LoadingSkeleton type="list" :rows="5" />
@@ -13,7 +13,7 @@
             <el-icon><CircleCheckFilled /></el-icon>
             <div>
               <strong>兑换成功</strong>
-              <span>已生成兑换记录，可在订单中查看进度。</span>
+              <span>已生成兑换记录，可在订单中查看交付安排。</span><el-button text type="primary" @click="$router.push('/profile/orders/' + exchangedOrderId)">查看本次订单</el-button>
             </div>
           </div>
         </transition>
@@ -43,7 +43,9 @@
             </div>
             <div class="goods-desc">
               <h4>兑换说明</h4>
-              <p>{{ goods.description || '暂无说明' }}</p>
+              <p>{{ goods.description || '兑换后请在订单详情查看管理员提供的领取或发放安排。' }}</p>
+              <p>首次有效课程评价奖励 3 积分；资料首次审核通过奖励 2 积分。</p>
+              <el-button text type="primary" @click="$router.push('/profile/courses')">前往评价已选课程</el-button><el-button text type="primary" @click="$router.push('/material')">分享学习资料</el-button>
             </div>
           </div>
         </div>
@@ -72,14 +74,14 @@
 
         <!-- 兑换记录 -->
         <div class="exchange-records card" v-if="exchangeRecords.length > 0">
-          <h3>我的兑换记录</h3>
+          <h3>近期兑换记录</h3>
           <el-timeline>
             <el-timeline-item
               v-for="record in exchangeRecords"
               :key="record.order_id"
               :timestamp="formatTime(record.create_time)"
             >
-              {{ EXCHANGE_STATUS_LABEL[record.status] || '未知' }}
+              <el-button text type="primary" @click="$router.push('/profile/orders/' + record.order_id)">{{ EXCHANGE_STATUS_LABEL[record.status] || '未知' }} · 查看订单</el-button>
             </el-timeline-item>
           </el-timeline>
         </div>
@@ -112,6 +114,7 @@ const exchangeRecords = ref([])
 const loading = ref(true)
 const exchanging = ref(false)
 const exchangeSuccess = ref(false)
+const exchangedOrderId = ref(null)
 const scoreDelta = ref(0)
 
 const defaultImg = new URL('@/assets/images/default-cover.svg', import.meta.url).href
@@ -156,10 +159,11 @@ async function fetchDetail() {
 }
 
 async function handleExchange() {
+  if (exchanging.value) return
   if (!canExchange.value) {
     if (userStore.scoreBalance < (goods.value.price_score || 0)) {
       ElMessageBox.alert(
-        '积分不足！您可以通过以下方式赚取积分：\n1. 每日签到 +10分\n2. 学习课程 +5分/课时\n3. 评价课程 +3分\n4. 分享内容 +2分',
+        '积分不足。首次有效课程评价奖励 3 积分；资料首次审核通过奖励 2 积分。',
         '积分不足',
         { confirmButtonText: '知道了', type: 'warning' }
       )
@@ -185,10 +189,11 @@ async function handleExchange() {
       userStore.updateScoreBalance(after)
       goods.value.stock = Math.max(0, (goods.value.stock || 0) - 1)
       exchangeRecords.value.unshift({
-        order_id: Date.now(),
+        order_id: res.data?.orderId || res.data?.order_id,
         status: 1,
         create_time: new Date().toISOString()
       })
+      exchangedOrderId.value = res.data?.orderId || res.data?.order_id
       exchangeSuccess.value = true
       ElMessage.success('兑换成功，积分已更新')
       setTimeout(() => { scoreDelta.value = 0 }, 1800)

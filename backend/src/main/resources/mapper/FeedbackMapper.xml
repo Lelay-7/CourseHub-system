@@ -9,7 +9,12 @@
         <where>
             <if test="status != null">AND f.status = #{status}</if>
         </where>
-        ORDER BY f.create_time DESC
+        ORDER BY f.create_time DESC, f.feedback_id DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAll" resultType="long">
+        SELECT COUNT(*) FROM feedback
+        <where><if test="status != null">status = #{status}</if></where>
     </select>
 
     <update id="updateReply">

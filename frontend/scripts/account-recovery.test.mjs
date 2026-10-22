@@ -31,7 +31,8 @@ async function view(file, api = {}) {
   const run = expression => vm.runInContext(expression, context)
   return { run, state, calls, notices, navigation, mounted, cleanup }
 }
-function setupSecurity(v) {
+async function setupSecurity(v) {
+  for (const mount of v.mounted) await mount()
   v.run(`bindingFormRef.value = {validate: async()=>true, validateField: async()=>true}; passwordFormRef.value = {validate: async()=>true};
     bindingForm.old_password='old-pass'; bindingForm.email='safe@example.com';
     passwordForm.old_password='old-pass'; passwordForm.new_password='new-pass'; passwordForm.confirm_password='new-pass'`)
@@ -39,7 +40,7 @@ function setupSecurity(v) {
 test('a late password change for account A cannot log out account B', async () => {
   let complete
   const v=await view('profile/AccountSecurityView.vue', { changePassword: () => new Promise(resolve => { complete=resolve }) })
-  setupSecurity(v)
+  await setupSecurity(v)
   const pending=v.run('changePassword()')
   await new Promise(resolve => setImmediate(resolve))
   v.state.identity='account-B'; complete({ code:200 }); await pending
@@ -48,25 +49,29 @@ test('a late password change for account A cannot log out account B', async () =
 test('password change blocks repeat submissions and clears only the current session on success', async () => {
   let complete, count=0
   const v=await view('profile/AccountSecurityView.vue', { changePassword: data => { count++; return new Promise(resolve => { complete=resolve }) } })
-  setupSecurity(v)
+  await setupSecurity(v)
   const first=v.run('changePassword()'); const second=v.run('changePassword()')
   await new Promise(resolve => setImmediate(resolve)); assert.equal(count,1)
   complete({ code:200 }); await Promise.all([first,second])
   assert.equal(v.state.logouts,1); assert.equal(v.navigation[0],'/login')
 })
 test('binding failures preserve email and password and release the form', async () => {
-  const v=await view('profile/AccountSecurityView.vue', { sendBindingCode: async () => { throw new Error('mail failed') } })
-  setupSecurity(v); await v.run('sendBindingCode()')
+  let attempts = 0
+  const v=await view('profile/AccountSecurityView.vue', { sendBindingCode: async () => { attempts++; throw new Error('mail failed') } })
+  await setupSecurity(v); await v.run('sendBindingCode()')
+  assert.equal(attempts,1, 'The failure scenario must actually reach the binding API')
   assert.equal(v.run('bindingForm.email'),'safe@example.com')
   assert.equal(v.run('bindingForm.old_password'),'old-pass')
   assert.equal(v.run('busy.value'),'')
 })
 test('a sent binding request is used once with snake_case fields', async () => {
-  const v=await view('profile/AccountSecurityView.vue'); setupSecurity(v)
+  const v=await view('profile/AccountSecurityView.vue'); await setupSecurity(v)
   await v.run('sendBindingCode()'); v.run("bindingForm.code='123456'"); await v.run('bindEmail()')
   assert.equal(v.calls[1].request_id,'new-request')
   assert.equal(v.calls[1].old_password,'old-pass')
   assert.equal(v.run('bindingRequestId.value'),'')
+  await v.run('bindEmail()')
+  assert.equal(v.calls.length,2, 'A consumed binding request must not be submitted again')
 })
 test('public recovery uses the returned request ID without logging in or clearing another session', async () => {
   const v=await view('login/ForgotPasswordView.vue')

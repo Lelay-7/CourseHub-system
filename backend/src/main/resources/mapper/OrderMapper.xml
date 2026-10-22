@@ -64,6 +64,11 @@
         WHERE order_id = #{orderId} AND user_id = #{userId} AND is_deleted = 0
     </update>
 
+    <update id="completeWithNote">
+        UPDATE `order` SET status = 3, fulfillment_note = #{note}, complete_time = NOW(), update_time = NOW()
+        WHERE order_id = #{orderId} AND status IN (1, 2) AND is_deleted = 0
+    </update>
+
     <select id="countByUserIdAndGoodsId" resultType="long">
         SELECT COUNT(*) FROM `order`
         WHERE user_id = #{userId} AND goods_id = #{goodsId}

@@ -57,3 +57,9 @@ Thumbs.db
 .env.*.local
 application-local.yml
 application-dev-local.yml
+
+# Per-plan execution evidence
+.superpowers/
+
+# Local browser verification screenshots and reports
+frontend/output/

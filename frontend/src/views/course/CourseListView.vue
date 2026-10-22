@@ -27,6 +27,7 @@
         <el-select v-model="filters.courseType" placeholder="课程类型" clearable @change="applyFilters">
           <el-option label="必修" :value="1" />
           <el-option label="选修" :value="2" />
+          <el-option label="通识" :value="3" />
         </el-select>
         <el-select v-model="filters.teacherName" placeholder="授课教师" clearable filterable @change="applyFilters">
           <el-option v-for="teacher in teacherOptions" :key="teacher" :label="teacher" :value="teacher" />
@@ -73,7 +74,8 @@
         </div>
       </div>
 
-      <div v-if="courseList.length" class="course-grid-pro">
+      <ErrorState v-if="error" :title="error" @retry="fetchCourses" />
+      <div v-else-if="courseList.length" class="course-grid-pro">
         <CourseCard
           v-for="course in courseList"
           :key="course.course_id"
@@ -100,7 +102,7 @@
         @current-change="handlePageChange"
       />
 
-      <el-drawer v-model="showCompareDrawer" title="课程对比" size="720px">
+      <el-drawer v-model="showCompareDrawer" title="课程对比" size="min(720px, 100%)">
         <div v-if="compareCourses.length" class="compare-course-list">
           <div v-for="item in compareCourses" :key="item.course_id" class="compare-course-item">
             <strong>{{ item.course_name }}</strong>
@@ -116,7 +118,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Loading } from '@element-plus/icons-vue'
@@ -126,6 +128,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import CourseCard from '@/components/CourseCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ErrorState from '@/components/ErrorState.vue'
+import { useRequestGate, useListMemory } from '@/composables/useListQuery'
 import { useCourseStore } from '@/stores/course'
 import { useUserStore } from '@/stores/user'
 import { useSelectionStore } from '@/stores/selection'
@@ -137,6 +141,8 @@ const selectionStore = useSelectionStore()
 const route = useRoute()
 const courseList = ref([])
 const loading = ref(false)
+const error = ref('')
+const gate = useRequestGate(() => { courseList.value = []; courseStore.setCourseList([], 0); compareCourses.value = []; loading.value = false })
 const currentPage = ref(1)
 const pageSize = 12
 const searchKeyword = ref('')
@@ -158,10 +164,27 @@ const categoryTabs = computed(() => [
   ...categories.value.map(c => ({ label: c.category_name, value: c.category_id }))
 ])
 
-const teacherOptions = computed(() => [...new Set(courseList.value.map(item => item.teacher_name).filter(Boolean))])
+const teacherOptions = ref([])
+if (typeof route.query.keyword === 'string') searchKeyword.value = route.query.keyword
+filters.categoryId = Number(route.query.categoryId) || null
+const restoreScroll = useListMemory(
+  () => ({ searchKeyword: searchKeyword.value, filters: { ...filters }, page: currentPage.value, compare: compareCourses.value }),
+  state => { searchKeyword.value = state.searchKeyword; Object.assign(filters, state.filters); currentPage.value = state.page; compareCourses.value = state.compare || [] },
+  (to, restored) => {
+    clearTimeout(searchTimer)
+    if (!restored) {
+      searchKeyword.value = typeof to.query.keyword === 'string' ? to.query.keyword : ''
+      Object.assign(filters, { categoryId: Number(to.query.categoryId) || null, courseType: null, teacherName: '', creditMin: null, timeSlot: '', sortBy: 'selection_count' })
+      currentPage.value = 1; compareCourses.value = []
+    }
+    fetchCourses()
+  }
+)
 
 async function fetchCourses() {
+  const ticket = gate.begin()
   loading.value = true
+  error.value = ''
   try {
     const res = await courseApi.getCourseList({
       page: currentPage.value,
@@ -174,17 +197,21 @@ async function fetchCourses() {
       timeSlot: filters.timeSlot || undefined,
       sortBy: filters.sortBy
     })
-    if (res.code === 200) {
+    if (res.code === 200 && gate.valid(ticket)) {
       const data = res.data || {}
       courseList.value = data.list || data.records || []
       courseStore.setCourseList(courseList.value, data.total || courseList.value.length)
+      await restoreScroll()
     }
+  } catch (err) {
+    if (gate.valid(ticket) && !err.sessionChanged) { error.value = '课程加载失败'; courseList.value = [] }
   } finally {
-    loading.value = false
+    if (gate.valid(ticket)) loading.value = false
   }
 }
 
 function applyFilters() {
+  clearTimeout(searchTimer)
   currentPage.value = 1
   fetchCourses()
 }
@@ -196,8 +223,8 @@ function onCategorySelect(value) {
 
 let searchTimer = null
 function onSearchInput(value) {
-  if (value && value.length < 2) return
   clearTimeout(searchTimer)
+  gate.invalidate()
   searchTimer = setTimeout(() => {
     currentPage.value = 1
     fetchCourses()
@@ -205,6 +232,7 @@ function onSearchInput(value) {
 }
 
 function handleSearch() {
+  clearTimeout(searchTimer)
   currentPage.value = 1
   fetchCourses()
 }
@@ -253,21 +281,13 @@ async function fetchCategories() {
 }
 
 onMounted(() => {
-  if (route.query.keyword) {
-    searchKeyword.value = route.query.keyword
-  }
-  filters.categoryId = Number(route.query.categoryId) || null
   fetchCourses()
   fetchCategories()
+  courseApi.getTeachers().then(res => { teacherOptions.value = [...new Set((res.data?.list || res.data || []).map(t => t.teacher_name || t.real_name || t.nickname).filter(Boolean))] }).catch(() => {})
   selectionStore.refresh().catch(() => {})
 })
+onBeforeUnmount(() => clearTimeout(searchTimer))
 
-watch(() => [route.query.keyword, route.query.categoryId], ([keyword, categoryId]) => {
-  if (route.path !== '/course') return
-  searchKeyword.value = typeof keyword === 'string' ? keyword : ''
-  filters.categoryId = Number(categoryId) || null
-  applyFilters()
-})
 </script>
 
 <style scoped>

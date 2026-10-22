@@ -39,11 +39,15 @@ public class MallServiceImpl implements MallService {
     }
 
     @Override
-    public Result getGoodsList(Long categoryId, Integer page, Integer pageSize) {
-        if (page == null) page = 1;
-        if (pageSize == null) pageSize = 10;
+    public Result getGoodsList(Long categoryId, Integer page, Integer pageSize, String sortBy) {
+        page = page == null ? 1 : Math.max(page, 1);
+        pageSize = pageSize == null ? 10 : Math.min(Math.max(pageSize, 1), 100);
+        String order = sortBy == null || sortBy.isBlank() ? "create_time" : sortBy;
+        if (!"create_time".equals(order) && !"price_score".equals(order)) {
+            throw new BusinessException("不支持的商品排序方式");
+        }
         int offset = (page - 1) * pageSize;
-        List<Goods> list = goodsMapper.selectList(categoryId, offset, pageSize);
+        List<Goods> list = goodsMapper.selectList(categoryId, offset, pageSize, order);
         long total = goodsMapper.countList(categoryId);
         PageResult<Goods> pageResult = new PageResult<>(list, total);
         return Result.ok(pageResult);

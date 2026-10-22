@@ -1,402 +1,181 @@
 <template>
   <AppLayout>
-    <PageContainer>
-      <PageHeader title="个人中心" :subtitle="userStore.isAdmin ? '系统管理与维护' : '查看你的选课、资料、积分和互动记录。'" />
-
-      <section class="profile-dashboard">
-        <Card class="profile-card">
-          <input ref="avatarInput" type="file" accept="image/*" style="display:none" @change="onAvatarChange" />
-          <el-avatar :size="72" :src="userStore.userInfo?.avatar_url" style="cursor:pointer" @click="$refs.avatarInput.click()">
-            <el-icon :size="32"><User /></el-icon>
-          </el-avatar>
-          <div>
-            <h2>{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '未命名' }}</h2>
-            <p>
-              {{ roleLabel }}
-              <template v-if="userStore.isTeacher && userStore.userInfo?.title"> · {{ userStore.userInfo.title }}</template>
-              {{ ' · ' }}{{ userStore.userInfo?.department || '' }}
-            </p>
-            <span v-if="userStore.isStudent || userStore.isTeacher">
-              {{ userStore.userInfo?.username || '' }}
-              <template v-if="userStore.userInfo?.class_name"> · {{ userStore.userInfo?.class_name }}</template>
-            </span>
-            <span v-if="userStore.isAdmin">管理员账号 · 系统维护</span>
-            <template v-if="userStore.isTeacher && userStore.userInfo?.office_location">
-              <br /><span>办公室: {{ userStore.userInfo?.office_location }}</span>
-            </template>
-          </div>
-          <div class="profile-card__actions">
-            <el-button plain :icon="EditPen" @click="$router.push('/profile/edit')">编辑资料</el-button>
-            <el-button type="danger" plain @click="handleLogout">退出登录</el-button>
-          </div>
-        </Card>
-
-        <Card v-if="!userStore.isAdmin" class="profile-metrics">
-          <div class="metric-main">
-            <span>可用积分</span>
-            <strong>{{ userStore.scoreBalance }}</strong>
-          </div>
-          <div class="metric-grid">
-            <div><strong>{{ userStore.userInfo?.total_score || 0 }}</strong><span>累计积分</span></div>
-            <div><strong>{{ monthStats.earned }}</strong><span>本月获得</span></div>
-            <div><strong>{{ monthStats.spent }}</strong><span>本月消耗</span></div>
-            <div><strong>{{ monthStats.active }}</strong><span>本月活跃</span></div>
-          </div>
-          <el-button type="primary" plain @click="$router.push('/profile/score')">查看明细</el-button>
-        </Card>
-      </section>
-
-      <section class="quick-grid">
-        <button v-for="item in quickEntries" :key="item.label" type="button" class="quick-card" @click="$router.push(item.path)">
-          <span><el-icon :size="24"><component :is="item.icon" /></el-icon></span>
-          <strong>{{ item.label }}</strong>
-        </button>
-      </section>
-
-      <section v-if="!userStore.isAdmin" class="recent-panel">
-        <SectionTitle title="最近行为" subtitle="选课、下载、收藏和发帖会在这里汇总。" />
-        <div class="recent-grid">
-          <article v-for="item in recentItems" :key="item.title" class="recent-card">
-            <StatusTag>{{ item.type }}</StatusTag>
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.time }}</span>
-          </article>
+    <PageContainer class="profile-page">
+      <PageHeader title="个人中心" :subtitle="userStore.isAdmin ? '管理工作与账号服务' : '你的学习记录、积分与账号服务'" />
+      <section class="profile-overview">
+        <div class="profile-identity card">
+          <input ref="avatarInput" type="file" accept="image/*" hidden @change="onAvatarChange" />
+          <button class="avatar-button" aria-label="更换头像" :disabled="avatarSaving" :aria-busy="avatarSaving" @click="$refs.avatarInput.click()"><el-avatar :size="64" :src="userStore.userInfo?.avatar_url"><el-icon :size="28"><User /></el-icon></el-avatar></button>
+          <div class="profile-identity__copy"><h2>{{ userStore.userInfo?.nickname || userStore.userInfo?.username || '未命名' }}</h2><p>{{ roleLabel }}<template v-if="userStore.userInfo?.department"> · {{ userStore.userInfo.department }}</template></p><span>{{ userStore.userInfo?.username }}</span></div>
+          <router-link to="/profile/edit" class="text-link">编辑资料 <span aria-hidden="true">→</span></router-link>
+          <div class="profile-role-detail" v-if="userStore.isTeacher && (userStore.userInfo?.title || userStore.userInfo?.office_location)">{{ [userStore.userInfo.title, userStore.userInfo.office_location].filter(Boolean).join(' · ') }}</div>
+        </div>
+        <div v-if="!userStore.isAdmin" class="profile-balance card">
+          <div><span>可用积分</span><strong>{{ userStore.scoreBalance }}</strong></div>
+          <router-link to="/profile/score" class="text-link">积分明细 <span aria-hidden="true">→</span></router-link>
+          <p v-if="statsError" class="inline-status" role="alert">月度统计暂时无法加载。<button type="button" @click="fetchMonthStats">重试</button></p>
+          <p v-else-if="statsLoading" class="inline-status" role="status">正在读取本月统计…</p>
+          <dl v-else class="month-stats"><div><dt>本月获得</dt><dd>{{ monthStats.earned }}</dd></div><div><dt>本月消耗</dt><dd>{{ monthStats.spent }}</dd></div><div><dt>本月退回</dt><dd>{{ monthStats.refunded }}</dd></div></dl>
         </div>
       </section>
+
+      <nav class="quick-grid" aria-label="常用功能">
+        <router-link v-for="item in quickEntries" :key="item.path" :to="item.path" class="quick-entry"><el-icon :size="23"><component :is="item.icon" /></el-icon><strong>{{ item.label }}</strong><span>{{ item.description }}</span></router-link>
+      </nav>
+
+      <div class="profile-body">
+        <div class="entry-groups">
+          <section v-for="group in entryGroups" :key="group.title" class="entry-group card">
+            <h2>{{ group.title }}</h2>
+            <div class="entry-list"><router-link v-for="item in group.items" :key="item.path" :to="item.path"><el-icon :size="19"><component :is="item.icon" /></el-icon><span>{{ item.label }}</span><el-icon class="entry-arrow"><ArrowRight /></el-icon></router-link></div>
+          </section>
+        </div>
+        <section v-if="!userStore.isAdmin" class="recent-panel card">
+          <div class="recent-heading"><h2>最近积分记录</h2><router-link to="/profile/score" class="text-link">全部</router-link></div>
+          <p class="section-note">查看获得、使用与退回积分的最近变化。</p>
+          <p v-if="recentLoading" class="inline-status" role="status">正在读取记录…</p>
+          <p v-else-if="recentError" class="inline-status" role="alert">记录暂时无法加载。<button type="button" @click="fetchRecentItems">重试</button></p>
+          <ul v-else-if="recentItems.length" class="recent-list"><li v-for="(item, index) in recentItems" :key="item.record_id || index"><div><strong>{{ item.source_desc || '积分变动' }}</strong><time>{{ formatDate(item.create_time) }}</time></div><span :class="{ earned: item.change_amount > 0 }">{{ item.change_amount > 0 ? '+' : '' }}{{ item.change_amount }}</span></li></ul>
+          <div v-else class="recent-empty"><el-icon :size="25"><Document /></el-icon><p>暂时没有积分记录</p><router-link to="/course" class="text-link">从浏览课程开始</router-link></div>
+        </section>
+      </div>
+      <div class="logout-row"><el-button plain @click="handleLogout">退出登录</el-button></div>
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
-import { computed, ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  User,
-  EditPen,
-  Reading,
-  UploadFilled,
-  Download,
-  Star,
-  Present,
-  ShoppingCart,
-  Service,
-  ChatDotRound,
-  Monitor,
-  HomeFilled,
-  Setting,
-  UserFilled
-} from '@element-plus/icons-vue'
+import { User, Reading, UploadFilled, Download, Star, Present, ShoppingCart, Service, ChatDotRound, Monitor, Setting, UserFilled, Document, ArrowRight, InfoFilled, Warning } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import Card from '@/components/Card.vue'
-import SectionTitle from '@/components/SectionTitle.vue'
-import StatusTag from '@/components/StatusTag.vue'
 import { useUserStore } from '@/stores/user'
-import { useSelectionStore } from '@/stores/selection'
 import { USER_TYPE_LABEL } from '@/utils/constants'
-import request from '@/api/request'
+import { getScoreDetails, getScoreSummary } from '@/api/score'
+import { getAuthSessionId, subscribeAuthSessionChange } from '@/utils/auth'
 import * as authApi from '@/api/auth'
 
-const router = useRouter()
-const userStore = useUserStore()
-const selectionStore = useSelectionStore()
+const router = useRouter(), userStore = useUserStore()
 const roleLabel = computed(() => USER_TYPE_LABEL[userStore.userType] || '学生')
-
-const quickEntries = computed(() => {
-  if (userStore.isAdmin) {
-    return [
-      { label: '管理后台', path: '/admin/dashboard', icon: Monitor },
-      { label: '前台首页', path: '/home', icon: HomeFilled },
-      { label: '课程管理', path: '/admin/courses', icon: Reading },
-      { label: '资料审核', path: '/admin/materials', icon: UploadFilled },
-      { label: '评价管理', path: '/admin/reviews', icon: ChatDotRound },
-      { label: '广场管理', path: '/admin/square', icon: EditPen },
-      { label: '用户管理', path: '/admin/users', icon: User },
-      { label: '商品管理', path: '/admin/goods', icon: ShoppingCart },
-      { label: '订单管理', path: '/admin/orders', icon: Present },
-      { label: 'Banner', path: '/admin/banners', icon: Setting },
-      { label: '接受反馈', path: '/profile/feedback', icon: EditPen },
-      { label: '账号安全', path: '/profile/security', icon: Setting },
-      { label: '我的消息', path: '/messages', icon: ChatDotRound },
-      { label: '系统设置', path: '/profile/settings', icon: Service }
-    ]
-  }
-  // 学生/教师
-  return [
-    { label: '我的选课', path: '/profile/courses', icon: Reading },
-    { label: '我的好友', path: '/contact?tab=friends', icon: UserFilled },
-    { label: '我的消息', path: '/messages', icon: ChatDotRound },
-    { label: '我的上传', path: '/material?tab=my', icon: UploadFilled },
-    { label: '我的下载', path: '/profile/downloads', icon: Download },
-    { label: '我的收藏', path: '/profile/favorites', icon: Star },
-    { label: '我的评价', path: '/profile/reviews', icon: ChatDotRound },
-    { label: '我的订单', path: '/profile/orders', icon: Present },
-    { label: '积分商城', path: '/mall', icon: ShoppingCart },
-    { label: '意见反馈', path: '/profile/feedback', icon: EditPen },
-    { label: '联系客服', path: '/profile/support', icon: Service },
-    { label: '账号安全', path: '/profile/security', icon: Setting },
-    { label: '系统设置', path: '/profile/settings', icon: Setting }
-  ]
-})
-
-const recentItems = ref([])
-const monthStats = reactive({ earned: 0, spent: 0, active: 0 })
-
+const quickEntries = computed(() => userStore.isAdmin ? [
+  { label: '管理概览', path: '/admin/dashboard', icon: Monitor, description: '查看待办' },
+  { label: '资料审核', path: '/admin/materials', icon: UploadFilled, description: '检查与处理' },
+  { label: '举报管理', path: '/admin/reports', icon: Warning, description: '回看与处理' }
+] : [
+  { label: '我的选课', path: '/profile/courses', icon: Reading, description: '管理学习清单' },
+  { label: '我的上传', path: '/material?tab=my', icon: UploadFilled, description: '查看审核进度' },
+  { label: '我的消息', path: '/messages', icon: ChatDotRound, description: '与好友交流' }
+])
+const entryGroups = computed(() => [
+  userStore.isAdmin ? { title: '管理与运营', items: [
+    { label: '课程管理', path: '/admin/courses', icon: Reading }, { label: '评价管理', path: '/admin/reviews', icon: ChatDotRound },
+    { label: '广场管理', path: '/admin/square', icon: ChatDotRound }, { label: '用户管理', path: '/admin/users', icon: UserFilled },
+    { label: '商品管理', path: '/admin/goods', icon: ShoppingCart }, { label: '订单管理', path: '/admin/orders', icon: Present },
+    { label: '首页公告', path: '/admin/banners', icon: Document }, { label: '反馈管理', path: '/profile/feedback', icon: Service }
+  ] } : { title: '我的记录', items: [
+    { label: '下载记录', path: '/profile/downloads', icon: Download }, { label: '我的收藏', path: '/profile/favorites', icon: Star },
+    { label: '我的评价', path: '/profile/reviews', icon: ChatDotRound }, { label: '兑换订单', path: '/profile/orders', icon: Present }
+  ] },
+  { title: '交流与服务', items: [
+    { label: '我的好友', path: '/contact?tab=friends', icon: UserFilled }, { label: '积分商城', path: '/mall', icon: ShoppingCart },
+    { label: userStore.isAdmin ? '我的消息' : '反馈与举报', path: userStore.isAdmin ? '/messages' : '/profile/feedback', icon: ChatDotRound }, { label: '使用帮助', path: '/profile/support', icon: Service }
+  ] },
+  { title: '账号与设置', items: [
+    { label: '账号安全', path: '/profile/security', icon: User }, { label: '设置', path: '/profile/settings', icon: Setting },
+    { label: '关于选课通', path: '/profile/about', icon: InfoFilled }
+  ] }
+])
+const monthStats = reactive({ earned: 0, spent: 0, refunded: 0 })
+const avatarSaving = ref(false)
+const statsLoading = ref(true), statsError = ref(false), recentLoading = ref(true), recentError = ref(false), recentItems = ref([])
+let alive = true, statsRequest = 0, recentRequest = 0
 async function fetchMonthStats() {
+  const request = ++statsRequest, owner = getAuthSessionId()
+  const owns = () => alive && owner === getAuthSessionId() && request === statsRequest
+  statsLoading.value = true; statsError.value = false
   try {
-    const res = await request.get('/api/score/details', { params: { page: 1, pageSize: 100 } })
-    const data = res.data?.list || res.data?.records || []
-    const now = new Date()
-    const thisMonth = data.filter(item => {
-      const t = new Date(item.create_time || item.createTime)
-      return t.getMonth() === now.getMonth() && t.getFullYear() === now.getFullYear()
-    })
-    monthStats.earned = thisMonth.filter(i => (i.change_amount || i.changeAmount) > 0)
-      .reduce((s, i) => s + (i.change_amount || i.changeAmount), 0)
-    monthStats.spent = Math.abs(thisMonth.filter(i => (i.change_amount || i.changeAmount) < 0)
-      .reduce((s, i) => s + (i.change_amount || i.changeAmount), 0))
-    monthStats.active = new Set(thisMonth.map(i => i.source_desc || i.sourceDesc)).size
-  } catch { /* ignore */ }
+    const now = new Date(), month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const res = await getScoreSummary(month)
+    if (owns()) Object.assign(monthStats, res.data)
+  } catch { if (owns()) statsError.value = true }
+  finally { if (owns()) statsLoading.value = false }
 }
-
 async function fetchRecentItems() {
-  const items = []
-  // 选课记录
-  if (selectionStore.selectedIds.length > 0) {
-    items.push({ type: '最近选课', title: `已选 ${selectionStore.count} 门课程`, time: '' })
-  }
+  const request = ++recentRequest, owner = getAuthSessionId()
+  const owns = () => alive && owner === getAuthSessionId() && request === recentRequest
+  recentLoading.value = true; recentError.value = false
+  try { const res = await getScoreDetails({ page: 1, pageSize: 4 }); if (owns()) recentItems.value = res.data?.list || res.data?.records || [] }
+  catch { if (owns()) recentError.value = true }
+  finally { if (owns()) recentLoading.value = false }
+}
+function formatDate(value) { if (!value) return ''; const date = new Date(value); return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }
+async function onAvatarChange(event) {
+  const file = event.target.files?.[0], owner = getAuthSessionId()
+  event.target.value = ''
+  if (!file || avatarSaving.value) return
+  if (file.size > 2 * 1024 * 1024) { ElMessage.warning('头像不能超过 2MB'); return }
+  avatarSaving.value = true
   try {
-    const res = await request.get('/api/score/details', { params: { page: 1, pageSize: 4 } })
-    const data = res.data?.list || res.data?.records || []
-    data.forEach(item => {
-      items.push({
-        type: item.source_desc?.includes('下载') ? '最近下载' :
-              item.source_desc?.includes('评价') ? '最近评价' :
-              item.source_desc?.includes('上传') ? '最近上传' :
-              item.source_desc?.includes('兑换') ? '最近兑换' : '最近行为',
-        title: item.source_desc || '',
-        time: formatRelativeTime(item.create_time)
-      })
-    })
-  } catch { /* ignore */ }
-  recentItems.value = items.slice(0, 4)
+    const res = await authApi.uploadAvatar(file)
+    if (alive && owner === getAuthSessionId()) { userStore.updateUserInfo({ avatar_url: `${res.data?.avatar_url}?v=${Date.now()}` }); ElMessage.success('头像已更新') }
+  } catch { /* Request layer reports upload errors. */ }
+  finally { if (alive && owner === getAuthSessionId()) avatarSaving.value = false }
 }
-
-function formatRelativeTime(time) {
-  if (!time) return ''
-  const diff = Date.now() - new Date(time).getTime()
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff/60000)} 分钟前`
-  if (diff < 86400000) return `${Math.floor(diff/3600000)} 小时前`
-  return `${Math.floor(diff/86400000)} 天前`
-}
-
-function onAvatarChange(e) {
-  const file = e.target.files?.[0]
-  if (!file) return
-  if (file.size > 2 * 1024 * 1024) {
-    ElMessage.warning('头像文件不能超过 2MB')
-    return
-  }
-  authApi.uploadAvatar(file).then(res => {
-    userStore.updateUserInfo({ avatar_url: `${res.data?.avatar_url}?v=${Date.now()}` })
-    ElMessage.success('头像上传成功')
-  }).catch(() => {
-    ElMessage.warning('头像上传失败，请稍后重试')
-  })
-}
-
 async function handleLogout() {
-  try {
-    await ElMessageBox.confirm('确认退出登录吗？', '操作确认', {
-      confirmButtonText: '确认',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    userStore.logout()
-    router.push('/login')
-  } catch {
-    // cancelled
-  }
+  try { await ElMessageBox.confirm('确认退出登录吗？', '退出登录', { confirmButtonText: '退出', cancelButtonText: '取消' }); userStore.logout(); router.push('/login') } catch { /* Cancel leaves session active. */ }
 }
-
-onMounted(() => {
-  userStore.fetchUserInfo() // 刷新积分
-  if (!userStore.isAdmin) {
-    fetchRecentItems()
-    fetchMonthStats()
-  }
-})
+function refreshData() { userStore.fetchUserInfo(); if (!userStore.isAdmin && getAuthSessionId()) { fetchMonthStats(); fetchRecentItems() } }
+const unsubscribe = subscribeAuthSessionChange(() => { ++statsRequest; ++recentRequest; recentItems.value = []; Object.assign(monthStats, { earned: 0, spent: 0, refunded: 0 }); statsLoading.value = true; recentLoading.value = true })
+onMounted(refreshData)
+onBeforeUnmount(() => { alive = false; ++statsRequest; ++recentRequest; unsubscribe() })
 </script>
 
 <style scoped>
-.profile-dashboard {
-  display: grid;
-  grid-template-columns: 0.9fr 1.1fr;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-}
-
-.profile-card,
-.profile-metrics {
-  padding: var(--spacing-xl);
-}
-
-.profile-card {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: var(--spacing-md);
-  align-items: start;
-}
-
-.profile-card h2,
-.profile-card p,
-.profile-card span {
-  display: block;
-  margin: 0;
-}
-
-.profile-card h2 {
-  color: var(--color-text-primary);
-  font-size: 24px;
-  font-weight: 900;
-}
-
-.profile-card p {
-  margin-top: 6px;
-  color: var(--color-text-regular);
-}
-
-.profile-card span {
-  margin-top: 4px;
-  color: var(--color-text-secondary);
-}
-
-.profile-card__actions {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-lg);
-}
-
-.profile-metrics {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) auto;
-  gap: var(--spacing-lg);
-  align-items: center;
-}
-
-.metric-main {
-  padding: var(--spacing-lg);
-  border-radius: 22px;
-  background: var(--color-bg-soft);
-  text-align: center;
-}
-
-.metric-main span,
-.metric-main strong,
-.metric-grid span,
-.metric-grid strong {
-  display: block;
-}
-
-.metric-main span,
-.metric-grid span {
-  color: var(--color-text-secondary);
-}
-
-.metric-main strong {
-  color: var(--color-primary);
-  font-size: 38px;
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--spacing-sm);
-}
-
-.metric-grid div {
-  padding: var(--spacing-md);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--color-bg-card) 72%, transparent);
-  text-align: center;
-}
-
-.metric-grid strong {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xl);
-}
-
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--spacing-md);
-  margin-bottom: var(--spacing-xl);
-}
-
-.quick-card {
-  min-height: 116px;
-  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
-  border-radius: 24px;
-  background: var(--color-bg-card);
-  box-shadow: var(--shadow-sm);
-  cursor: pointer;
-}
-
-.quick-card span {
-  width: 46px;
-  height: 46px;
-  margin: 0 auto 10px;
-  border-radius: 16px;
-  color: var(--color-on-primary);
-  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.quick-card strong {
-  color: var(--color-text-primary);
-}
-
-.recent-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--spacing-md);
-}
-
-.recent-card {
-  padding: var(--spacing-lg);
-  border-radius: 24px;
-  background: var(--color-bg-card);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 8%, transparent);
-  box-shadow: var(--shadow-sm);
-}
-
-.recent-card strong,
-.recent-card span {
-  display: block;
-}
-
-.recent-card strong {
-  margin-top: var(--spacing-md);
-  color: var(--color-text-primary);
-}
-
-.recent-card span {
-  margin-top: 4px;
-  color: var(--color-text-secondary);
-}
-
-@media (max-width: 1000px) {
-  .profile-dashboard,
-  .profile-metrics,
-  .quick-grid,
-  .recent-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.profile-overview { display: grid; grid-template-columns: 1.05fr 1fr; gap: 20px; margin-bottom: 20px; }
+.profile-identity, .profile-balance, .entry-group, .recent-panel { padding: 24px; border: 1px solid var(--color-border-light); border-radius: 14px; box-shadow: none; }
+.profile-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
+.profile-identity .el-avatar { flex-shrink: 0; }
+.avatar-button { border: 0; padding: 0; background: transparent; border-radius: 50%; display: flex; cursor: pointer; flex-shrink: 0; }
+.avatar-button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+.profile-identity__copy { min-width: 0; flex: 1; }
+.profile-identity h2 { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
+.profile-identity p { margin: 7px 0 3px; color: var(--color-text-regular); font-size: 13px; }
+.profile-identity__copy > span { color: var(--color-text-secondary); font-size: 12px; }
+.profile-role-detail { width: 100%; color: var(--color-text-secondary); font-size: 13px; }
+.text-link { color: var(--color-primary); font-size: 13px; text-decoration: none; padding: 8px 0; }
+.profile-balance { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 16px; }
+.profile-balance > div > span { color: var(--color-text-secondary); font-size: 13px; }
+.profile-balance > div > strong { margin-left: 12px; color: var(--color-primary); font-size: 28px; }
+.month-stats { grid-column: 1 / -1; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding-top: 14px; border-top: 1px solid var(--color-border-light); }
+.month-stats dt { font-size: 12px; color: var(--color-text-secondary); }
+.month-stats dd { margin: 5px 0 0; font-weight: 700; font-size: 18px; }
+.quick-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.quick-entry { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 5px 10px; padding: 18px; color: var(--color-text-primary); border: 1px solid var(--color-border-light); background: var(--color-bg-card); border-radius: 12px; text-decoration: none; }
+.quick-entry .el-icon { grid-row: 1 / 3; color: var(--color-primary); }
+.quick-entry strong { font-size: 14px; }
+.quick-entry > span { font-size: 12px; color: var(--color-text-secondary); }
+.profile-body { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; align-items: start; }
+.entry-groups { display: grid; gap: 18px; }
+.entry-group h2, .recent-heading h2 { font-size: 16px; margin: 0 0 8px; }
+.entry-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 22px; }
+.entry-list a { display: flex; align-items: center; gap: 10px; min-height: 50px; color: var(--color-text-regular); text-decoration: none; border-bottom: 1px solid var(--color-border-light); font-size: 13px; }
+.entry-list a:hover, .quick-entry:hover { color: var(--color-primary); background: var(--color-bg-soft); }
+.entry-list .entry-arrow { margin-left: auto; font-size: 12px; color: var(--color-text-placeholder); }
+.recent-heading { display: flex; justify-content: space-between; align-items: center; }
+.section-note { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 12px; line-height: 1.6; }
+.recent-list { list-style: none; padding: 0; margin: 0; }
+.recent-list li { display: flex; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--color-border-light); }
+.recent-list strong { font-size: 13px; font-weight: 500; }
+.recent-list time { display: block; margin-top: 5px; font-size: 12px; color: var(--color-text-secondary); }
+.recent-list > li > span { font-size: 14px; font-weight: 650; }
+.recent-list .earned { color: var(--color-success); }
+.recent-empty { padding: 24px 0; text-align: center; color: var(--color-text-secondary); font-size: 13px; }
+.inline-status { font-size: 13px; color: var(--color-text-secondary); grid-column: 1 / -1; }
+.inline-status button { background: transparent; color: var(--color-primary); border: 0; padding: 8px; cursor: pointer; }
+.logout-row { margin-top: 24px; text-align: right; }
+@media (max-width: 1000px) { .profile-overview { grid-template-columns: 1fr; } .profile-body { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .profile-identity, .profile-balance, .entry-group, .recent-panel { padding: 16px; } .profile-overview { gap: 14px; margin-bottom: 14px; } .profile-identity { gap: 12px; } .profile-identity h2 { font-size: 19px; } .quick-grid { gap: 8px; margin-bottom: 18px; } .quick-entry { grid-template-columns: 1fr; justify-items: center; gap: 9px; padding: 14px 6px; text-align: center; } .quick-entry .el-icon { grid-row: auto; } .quick-entry strong { font-size: 13px; } .quick-entry > span { display: none; } .entry-list { column-gap: 14px; } .entry-list a { min-height: 48px; font-size: 13px; } .profile-body { gap: 18px; } }
 </style>

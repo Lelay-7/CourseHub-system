@@ -16,8 +16,8 @@
     </div>
 
     <div class="course-card-pro__links">
-      <button type="button" @click="$router.push('/material')">查看资料</button>
-      <button type="button" @click="$router.push('/square')">查看讨论</button>
+      <button type="button" @click="$router.push({ path: '/material', query: { courseId } })">查看资料</button>
+      <button type="button" @click="$router.push({ path: '/square', query: { courseId } })">查看讨论</button>
       <button type="button" @click="$router.push({ path: '/contact', query: { keyword: course.teacher_name || '' } })">联系老师</button>
     </div>
 
@@ -26,7 +26,7 @@
       <el-button v-if="showCompare" :type="isCompared ? 'warning' : 'default'" plain @click="$emit('compare-toggle', course)">
         {{ isCompared ? '✓ 已对比' : '加入对比' }}
       </el-button>
-      <el-button :type="isSelected ? 'success' : 'primary'" @click="$emit('select-course', course)">
+      <el-button :type="isSelected ? 'success' : 'primary'" :disabled="selectDisabled && !isSelected" @click="$emit('select-course', course)">
         {{ isSelected ? '✓ 已选择' : '选择课程' }}
       </el-button>
     </div>

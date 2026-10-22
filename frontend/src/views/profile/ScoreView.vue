@@ -20,13 +20,14 @@
         placeholder="选择月份"
         clearable
         style="width: 160px; margin: 12px 0"
-        @change="fetchList(true)"
+        @change="resetAndFetch()"
       >
         <el-option v-for="m in months" :key="m.value" :label="m.label" :value="m.value" />
       </el-select>
 
       <!-- 积分明细列表 -->
-      <div v-if="scoreList.length > 0" class="score-list">
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <div v-else-if="scoreList.length > 0" class="score-list">
         <div v-for="item in scoreList" :key="item.record_id" class="score-item card">
           <div class="score-item-left">
             <span class="score-source">{{ item.source_desc || item.sourceDesc }}</span>
@@ -43,22 +44,17 @@
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
       </div>
 
-      <div v-if="total > pageSize" class="score-pagination">
-        <el-pagination
-          background
-          layout="prev, pager, next"
-          :total="total"
-          :page-size="pageSize"
-          :current-page="page"
-          @current-change="handlePageChange"
-        />
-      </div>
+      <ListPagination :page="page" :page-size="pageSize" :total="total" @change="handlePageChange" />
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { usePagedList, useListMemory } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
+import ListPagination from '@/components/ListPagination.vue'
+
 import { Loading } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
@@ -68,12 +64,6 @@ import { useUserStore } from '@/stores/user'
 import * as scoreApi from '@/api/score'
 
 const userStore = useUserStore()
-const scoreList = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-const noMore = ref(false)
 const selectedMonth = ref('')
 
 // 生成最近12个月的选项
@@ -88,39 +78,15 @@ const months = (() => {
   return result
 })()
 
-async function fetchList(reset = false) {
-  if (loading.value) return
-  if (reset) { page.value = 1; scoreList.value = []; noMore.value = false }
-  loading.value = true
-  try {
-    const res = await scoreApi.getScoreDetails({
-      page: page.value, pageSize: pageSize.value,
-      month: selectedMonth.value || undefined
-    })
-    if (res.code === 200) {
-      const data = res.data || {}
-      const list = data.list || data.records || []
-      total.value = data.total || 0
-      if (reset) scoreList.value = list
-      else scoreList.value.push(...list)
-      noMore.value = scoreList.value.length >= total.value
-    }
-  } catch { /* handled */ }
-  finally { loading.value = false }
-}
-
-function handlePageChange(p) {
-  page.value = p
-  fetchList(true)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+const { list: scoreList, loading, error, page, pageSize, total, fetchList, resetAndFetch, handlePageChange } = usePagedList(scoreApi.getScoreDetails, () => ({ month: selectedMonth.value || undefined }))
+const restoreScroll = useListMemory(() => ({ filter: selectedMonth.value, page: page.value }), state => { selectedMonth.value = state.filter; page.value = state.page })
 
 function formatTime(time) {
   if (!time) return ''
   return new Date(time).toLocaleString('zh-CN')
 }
 
-onMounted(() => { fetchList(true) })
+onMounted(async () => { await fetchList(); await restoreScroll() })
 </script>
 
 <style scoped>

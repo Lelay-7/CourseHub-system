@@ -28,4 +28,9 @@ public class ScoreController {
         Long userId = SecurityUtils.getCurrentUserId();
         return scoreService.getScoreDetails(userId, page, pageSize, month);
     }
+
+    @GetMapping("/summary")
+    public Result<?> summary(@RequestParam(required = false) String month) {
+        return scoreService.getScoreSummary(SecurityUtils.getCurrentUserId(), month);
+    }
 }

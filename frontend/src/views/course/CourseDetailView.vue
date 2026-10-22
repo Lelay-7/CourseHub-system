@@ -3,6 +3,8 @@
     <PageContainer>
       <PageHeader title="课程详情" :show-back="true">
         <template #extra>
+          <el-button @click="$router.push({ path: '/material', query: { courseId: $route.params.id } })">课程资料</el-button>
+          <el-button @click="$router.push({ path: '/square', query: { courseId: $route.params.id } })">课程讨论</el-button>
           <el-button
             :icon="course.is_favorited ? StarFilled : Star"
             :type="course.is_favorited ? 'warning' : 'default'"
@@ -139,7 +141,7 @@
 
       <ErrorState v-else title="课程不存在" @retry="fetchDetail" />
 
-      <el-dialog v-model="showReviewDialog" title="写课程评价" width="520px">
+      <el-dialog v-model="showReviewDialog" title="写课程评价" width="min(520px, 94vw)">
         <el-form label-position="top">
           <el-form-item label="评分">
             <StarRating v-model="reviewForm.rating" :size="22" />

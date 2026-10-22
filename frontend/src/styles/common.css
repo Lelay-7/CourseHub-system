@@ -71,7 +71,8 @@ button,
   background: var(--color-on-primary);
 }
 
-.el-radio-button__original-radio:checked + .el-radio-button__inner {
+.el-radio-button { --el-radio-button-checked-text-color: var(--color-on-primary); }
+.el-radio-button.is-active .el-radio-button__original-radio:not(:disabled) + .el-radio-button__inner {
   color: var(--color-on-primary);
 }
 

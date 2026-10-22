@@ -4,17 +4,18 @@
       <PageHeader title="商品管理" subtitle="管理积分商城兑换商品" />
       <div class="toolbar">
         <div class="filters">
-          <el-input v-model="keyword" placeholder="搜索商品名称" clearable @clear="fetchList" @keyup.enter="fetchList" />
-          <el-select v-model="filterStatus" placeholder="商品状态" clearable @change="fetchList">
+          <el-input v-model="keyword" placeholder="搜索商品名称" clearable @clear="resetAndFetch" @keyup.enter="resetAndFetch" />
+          <el-select v-model="filterStatus" placeholder="商品状态" clearable @change="resetAndFetch">
             <el-option label="上架" :value="1" />
             <el-option label="下架" :value="0" />
           </el-select>
         </div>
         <el-button type="primary" @click="openDialog()">新增商品</el-button>
       </div>
-      <el-table :data="list" border stripe v-loading="loading">
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <el-table v-else :data="list" border stripe v-loading="loading">
         <el-table-column prop="goods_id" label="ID" width="60" />
-        <el-table-column prop="goods_name" label="商品名称" />
+        <el-table-column prop="goods_name" label="商品名称" min-width="140" />
         <el-table-column label="分类" width="80">
           <template #default="{ row }">{{ row.category === 1 ? '实物' : row.category === 2 ? '虚拟' : '服务' }}</template>
         </el-table-column>
@@ -26,7 +27,7 @@
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '上架' : '下架' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240">
+        <el-table-column label="操作" fixed="right" width="240">
           <template #default="{ row }">
             <el-button size="small" @click="openDialog(row)">编辑</el-button>
             <el-button size="small" :type="row.status === 1 ? 'warning' : 'success'" @click="handleStatus(row)">
@@ -36,10 +37,11 @@
           </template>
         </el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && list.length === 0" description="暂无数据" />
+      <EmptyState v-if="!error && !loading && list.length === 0" description="暂无数据" />
+      <ListPagination :page="page" :page-size="pageSize" :total="total" @change="handlePageChange" />
 
-      <el-dialog v-model="showDialog" :title="editingId ? '编辑商品' : '新增商品'" width="450px">
-        <el-form :model="form" label-width="80px">
+      <el-dialog v-model="showDialog" :close-on-click-modal="!saving" :close-on-press-escape="!saving" :show-close="!saving" :title="editingId ? '编辑商品' : '新增商品'" width="min(450px, 94vw)">
+        <el-form :model="form" label-width="min(80px, 94vw)">
           <el-form-item label="商品名称"><el-input v-model="form.goods_name" /></el-form-item>
           <el-form-item label="分类">
             <el-select v-model="form.category">
@@ -55,8 +57,8 @@
           <el-form-item label="描述"><el-input v-model="form.description" type="textarea" /></el-form-item>
         </el-form>
         <template #footer>
-          <el-button @click="showDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleSave">保存</el-button>
+          <el-button :disabled="saving" @click="showDialog = false">取消</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
         </template>
       </el-dialog>
     </PageContainer>
@@ -64,6 +66,9 @@
 </template>
 
 <script setup>
+import { usePagedList } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
+import ListPagination from '@/components/ListPagination.vue'
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listGoods, createGoods, updateGoods, updateGoodsStatus, deleteGoods } from '@/api/admin'
@@ -72,22 +77,14 @@ import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
-const list = ref([])
-const loading = ref(false)
 const showDialog = ref(false)
+const saving = ref(false)
 const editingId = ref(null)
 const keyword = ref('')
 const filterStatus = ref(undefined)
 const form = reactive({ goods_name: '', category: 1, price_score: 0, stock: 0, exchange_limit: 0, status: 1, description: '' })
 
-async function fetchList() {
-  loading.value = true
-  try {
-    const res = await listGoods({ keyword: keyword.value.trim() || undefined, status: filterStatus.value, page: 1, pageSize: 50 })
-    list.value = res.data?.list || []
-  }
-  finally { loading.value = false }
-}
+const { list, loading, error, page, pageSize, total, fetchList, resetAndFetch, handlePageChange } = usePagedList(listGoods, () => ({ keyword: keyword.value.trim() || undefined, status: filterStatus.value === "" ? undefined : filterStatus.value }))
 
 function openDialog(row) {
   if (row) {
@@ -107,10 +104,12 @@ function openDialog(row) {
 }
 
 async function handleSave() {
+  if (saving.value) return
   if (!form.goods_name.trim()) { ElMessage.warning('请输入商品名称'); return }
   if (Number(form.price_score) < 0) { ElMessage.warning('积分不能小于 0'); return }
   if (Number(form.stock) < 0) { ElMessage.warning('库存不能小于 0'); return }
   if (Number(form.exchange_limit) < 0) { ElMessage.warning('限兑次数不能小于 0'); return }
+  saving.value = true
   try {
     if (editingId.value) {
       await updateGoods(editingId.value, form)
@@ -121,14 +120,20 @@ async function handleSave() {
     }
     showDialog.value = false
     fetchList()
-  } catch { /* handled */ }
+  } catch { /* handled */ } finally { saving.value = false }
 }
 
+const statusBusy = new Set()
 async function handleStatus(row) {
-  const status = row.status === 1 ? 0 : 1
-  await updateGoodsStatus(row.goods_id, status)
-  ElMessage.success(status === 1 ? '商品已上架' : '商品已下架')
-  fetchList()
+  if (statusBusy.has(row.goods_id)) return
+  statusBusy.add(row.goods_id)
+  try {
+    const status = row.status === 1 ? 0 : 1
+    await updateGoodsStatus(row.goods_id, status)
+    ElMessage.success(status === 1 ? '已上架' : '已下架')
+    fetchList()
+  } catch { /* keep current status on failure */ }
+  finally { statusBusy.delete(row.goods_id) }
 }
 
 async function handleDelete(id) {
@@ -148,4 +153,7 @@ onMounted(fetchList)
 .filters { display: flex; gap: 12px; }
 .filters .el-input { width: 240px; }
 .filters .el-select { width: 130px; }
+.toolbar, .filters { flex-wrap: wrap; gap: 12px; }
+.filters .el-input { max-width: 100%; }
+@media (max-width: 767px) { .toolbar { align-items: stretch; } .filters { width: 100%; } .filters .el-input, .filters .el-select { width: 100%; max-width: 100%; } }
 </style>

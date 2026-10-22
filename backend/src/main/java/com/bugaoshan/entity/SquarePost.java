@@ -12,6 +12,7 @@ public class SquarePost {
     private Long postId;
     private Long userId;
     private String content;
+    private Long courseId;
     private String courseName;
     private String materialName;
     private String tags;

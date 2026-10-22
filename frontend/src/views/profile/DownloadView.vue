@@ -2,8 +2,9 @@
   <AppLayout>
     <PageContainer>
       <PageHeader :show-back="true" title="我的下载" subtitle="所有下载记录，含免费和积分下载" />
-      <el-table :data="list" border stripe v-loading="loading">
-        <el-table-column prop="material_name" label="资料名称" />
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <el-table v-else :data="list" border stripe v-loading="loading">
+        <el-table-column label="资料名称" min-width="180"><template #default="{ row }"><el-button text type="primary" @click="$router.push('/material/' + row.material_id)">{{ row.material_name || '查看资料' }}</el-button></template></el-table-column>
         <el-table-column label="消耗积分" width="100">
           <template #default="{ row }">
             <span :class="row.score_cost > 0 ? 'text-warning' : 'text-success'">
@@ -15,7 +16,7 @@
           <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
         </el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && list.length === 0" description="暂无下载记录" />
+      <EmptyState v-if="!error && !loading && list.length === 0" description="暂无下载记录" />
       <div v-if="total > pageSize" class="pagination-wrap">
         <el-pagination
           background
@@ -31,33 +32,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
+import { usePagedList } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import * as materialApi from '@/api/material'
 
-const list = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-
-async function fetchList() {
-  loading.value = true
-  try {
-    const res = await materialApi.getMyDownloads({ page: page.value, pageSize: pageSize.value })
-    const data = res.data || {}
-    list.value = data.list || data.records || []
-    total.value = data.total || 0
-  } finally { loading.value = false }
-}
-
-function handlePageChange(p) {
-  page.value = p
-  fetchList()
-}
+const { list, loading, error, page, pageSize, total, fetchList, handlePageChange } = usePagedList(materialApi.getMyDownloads)
 
 function formatTime(time) {
   if (!time) return ''

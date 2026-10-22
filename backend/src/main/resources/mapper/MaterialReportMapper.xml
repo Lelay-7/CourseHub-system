@@ -12,18 +12,38 @@
     </select>
 
     <select id="selectAll" resultType="com.bugaoshan.entity.MaterialReport">
-        SELECT r.* FROM material_report r
-        JOIN material m ON r.material_id = m.material_id
-          AND m.is_deleted = 0 AND m.status = 1
-        ORDER BY r.create_time DESC
+        SELECT r.*, m.material_name FROM material_report r
+        LEFT JOIN material m ON r.material_id = m.material_id
+        <if test="status != null">WHERE r.status = #{status}</if>
+        ORDER BY r.create_time DESC, r.report_id DESC
         <if test="offset != null and limit != null">LIMIT #{limit} OFFSET #{offset}</if>
     </select>
 
     <select id="countAll" resultType="long">
-        SELECT COUNT(*) FROM material_report r
-        JOIN material m ON r.material_id = m.material_id
-          AND m.is_deleted = 0 AND m.status = 1
+        SELECT COUNT(*) FROM material_report
+        <if test="status != null">WHERE status = #{status}</if>
     </select>
+
+    <select id="selectForUpdate" resultType="com.bugaoshan.entity.MaterialReport">
+        SELECT * FROM material_report WHERE report_id = #{reportId} FOR UPDATE
+    </select>
+
+    <select id="selectByReporter" resultType="com.bugaoshan.entity.MaterialReport">
+        SELECT r.*, m.material_name FROM material_report r
+        LEFT JOIN material m ON r.material_id = m.material_id
+        WHERE r.reporter_id = #{reporterId}
+        ORDER BY r.create_time DESC, r.report_id DESC LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByReporter" resultType="long">
+        SELECT COUNT(*) FROM material_report WHERE reporter_id = #{reporterId}
+    </select>
+
+    <update id="resolvePending">
+        UPDATE material_report SET status = #{status}, resolution_action = #{action},
+            resolution_reason = #{reason}, handled_by = #{actorId}, handled_time = NOW()
+        WHERE report_id = #{reportId} AND status = 0
+    </update>
 
     <select id="existsPending" resultType="boolean">
         SELECT COUNT(*) > 0 FROM material_report

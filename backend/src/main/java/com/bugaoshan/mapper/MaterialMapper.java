@@ -18,7 +18,8 @@ public interface MaterialMapper extends BaseMapper<Material> {
                               @Param("sortBy") String sortBy,
                               @Param("sortOrder") String sortOrder,
                               @Param("offset") Integer offset,
-                              @Param("limit") Integer limit);
+                              @Param("limit") Integer limit,
+                              @Param("viewerId") Long viewerId);
 
     long countList(@Param("materialType") Integer materialType,
                    @Param("courseId") Long courseId,
@@ -26,6 +27,12 @@ public interface MaterialMapper extends BaseMapper<Material> {
                    @Param("priceFilter") String priceFilter);
 
     Material selectById(@Param("materialId") Long materialId);
+    Material selectForUpdate(@Param("materialId") Long materialId);
+    Long selectActiveCourse(@Param("courseId") Long courseId);
+    int reviewRevision(@Param("materialId") Long materialId,@Param("revision") Integer revision,
+                       @Param("status") Integer status,@Param("reason") String reason);
+    int markUploadRewarded(@Param("materialId") Long materialId);
+    int updateRejectedSubmission(Material material);
 
     int insert(Material material);
 

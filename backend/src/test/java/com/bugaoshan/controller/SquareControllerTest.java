@@ -28,12 +28,13 @@ class SquareControllerTest {
     @Mock private SquarePostMapper postMapper;
     @Mock private SquareCommentMapper commentMapper;
     @Mock private SquareLikeMapper likeMapper;
+    @Mock private com.bugaoshan.mapper.CourseMapper courseMapper;
 
     private SquareController controller;
 
     @BeforeEach
     void setUp() {
-        controller = new SquareController(postMapper, commentMapper, likeMapper);
+        controller = new SquareController(postMapper, commentMapper, likeMapper, courseMapper);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(7L, null));
     }

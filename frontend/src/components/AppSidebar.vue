@@ -2,9 +2,10 @@
   <aside class="app-sidebar">
     <div class="sidebar-logo">
       <el-icon :size="24"><School /></el-icon>
+      <strong>管理工作台</strong>
     </div>
 
-    <nav class="sidebar-menu">
+    <nav class="sidebar-menu" aria-label="后台导航">
       <template v-for="item in menus" :key="item.path || 'divider'">
         <div v-if="item.type === 'divider'" class="sidebar-divider"></div>
         <el-tooltip
@@ -16,9 +17,11 @@
             type="button"
             class="sidebar-item"
             :class="{ active: activeMenu === item.path }"
+            :aria-current="activeMenu === item.path ? 'page' : undefined"
             @click="$router.push(item.path)"
           >
             <el-icon :size="22"><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
           </button>
         </el-tooltip>
       </template>
@@ -97,6 +100,7 @@ const activeMenu = computed(() => {
   if (path.startsWith('/material')) return '/material'
   if (path.startsWith('/contact')) return '/contact'
   if (path.startsWith('/mall')) return '/mall'
+  if (path.startsWith('/profile/feedback') && userStore.isAdmin) return '/profile/feedback'
   if (path.startsWith('/profile')) return '/profile'
   return '/home'
 })
@@ -104,9 +108,11 @@ const activeMenu = computed(() => {
 
 <style scoped>
 .app-sidebar {
-  width: 72px;
+  position: sticky;
+  top: 0;
+  width: 184px;
   height: 100vh;
-  flex: 0 0 72px;
+  flex: 0 0 184px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -116,8 +122,10 @@ const activeMenu = computed(() => {
 }
 
 .sidebar-logo {
-  width: 72px;
-  height: 64px;
+  width: 100%;
+  height: 80px;
+  flex-shrink: 0;
+  gap: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -126,24 +134,29 @@ const activeMenu = computed(() => {
 
 .sidebar-menu {
   width: 100%;
-  padding: 10px 0;
+  padding: 8px 12px 18px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
 .sidebar-item {
   appearance: none;
-  width: 48px;
-  height: 48px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  gap: 12px;
+  font: inherit;
+  font-size: 13px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 8px;
   color: var(--color-text-secondary);
   background: transparent;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -160,8 +173,10 @@ const activeMenu = computed(() => {
 }
 
 .sidebar-divider {
-  width: 32px;
+  width: 100%;
   margin: 6px 0;
   border-top: 1px solid var(--color-border-light);
 }
+.sidebar-item:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.sidebar-logo strong { font-size: 15px; }
 </style>

@@ -6,6 +6,8 @@ import com.bugaoshan.common.SecurityUtils;
 import com.bugaoshan.entity.*;
 import com.bugaoshan.mapper.*;
 import com.bugaoshan.service.CourseService;
+import com.bugaoshan.service.MaterialReviewService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,7 @@ public class AdminController {
     private final OrderMapper orderMapper;
     private final MaterialReportMapper materialReportMapper;
     private final CourseService courseService;
+    private final MaterialReviewService materialReviewService;
 
     public AdminController(UserMapper userMapper, CourseMapper courseMapper,
                            CourseReviewMapper courseReviewMapper, MaterialMapper materialMapper,
@@ -42,7 +45,7 @@ public class AdminController {
                            SquareCommentMapper squareCommentMapper,
                            ScoreRecordMapper scoreRecordMapper, OrderMapper orderMapper,
                            MaterialReportMapper materialReportMapper,
-                           CourseService courseService) {
+                           CourseService courseService, MaterialReviewService materialReviewService) {
         this.userMapper = userMapper;
         this.courseMapper = courseMapper;
         this.courseReviewMapper = courseReviewMapper;
@@ -56,6 +59,7 @@ public class AdminController {
         this.orderMapper = orderMapper;
         this.materialReportMapper = materialReportMapper;
         this.courseService = courseService;
+        this.materialReviewService = materialReviewService;
     }
 
     // ==================== 仪表盘 ====================
@@ -80,6 +84,8 @@ public class AdminController {
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
         String normalizedKeyword = normalizeKeyword(keyword);
         long total = courseMapper.countAllForAdmin(normalizedKeyword);
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         List<Course> list = courseMapper.selectAllForAdmin(normalizedKeyword, offset, pageSize);
         Map<String, Object> result = new LinkedHashMap<>();
@@ -102,7 +108,11 @@ public class AdminController {
         if (course.getStatus() == null) course.setStatus(1);
         if (course.getSelectionCount() == null) course.setSelectionCount(0);
         if (course.getRatingCount() == null) course.setRatingCount(0);
-        courseMapper.insert(course);
+        try {
+            courseMapper.insert(course);
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException("课程代码已存在，包括已删除课程使用的代码");
+        }
         return Result.ok(course);
     }
 
@@ -146,7 +156,11 @@ public class AdminController {
         validateCourseRelations(course);
         course.setCourseId(id);
         course.setUpdateTime(LocalDateTime.now());
-        courseMapper.updateById(course);
+        try {
+            courseMapper.updateById(course);
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException("课程代码已存在，包括已删除课程使用的代码");
+        }
         return Result.ok();
     }
 
@@ -173,11 +187,15 @@ public class AdminController {
     public Result<?> listReviews(@RequestParam(required = false) Long courseId,
                                   @RequestParam(defaultValue = "1") Integer page,
                                   @RequestParam(defaultValue = "20") Integer pageSize) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         List<CourseReview> reviews = courseId == null
                 ? courseReviewMapper.selectAllForAdmin(offset, pageSize)
                 : courseReviewMapper.selectByCourseId(courseId, offset, pageSize);
-        return Result.ok(reviews);
+        long total = courseId == null ? courseReviewMapper.countAllForAdmin()
+                : courseReviewMapper.countByCourseId(courseId);
+        return Result.ok(Map.of("list", reviews, "total", total));
     }
 
     @DeleteMapping("/reviews/{id}")
@@ -194,6 +212,8 @@ public class AdminController {
     public Result<?> listMaterials(@RequestParam(required = false) Integer status,
                                     @RequestParam(defaultValue = "1") Integer page,
                                     @RequestParam(defaultValue = "20") Integer pageSize) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         List<Material> list = materialMapper.selectAllForAdmin(status, offset, pageSize);
         long total = materialMapper.countAllForAdmin(status);
@@ -203,57 +223,10 @@ public class AdminController {
         return Result.ok(result);
     }
 
-    @PutMapping("/materials/{id}/approve")
-    @Transactional
-    public Result<?> approveMaterial(@PathVariable Long id) {
-        Material material = materialMapper.selectById(id);
-        if (material == null) throw new BusinessException("资料不存在");
-        if (materialMapper.transitionStatus(id, 0, 1) != 1) {
-            throw new BusinessException("资料状态已变化，无法重复审核");
-        }
-
-        // 发放积分
-        User uploader = userMapper.selectById(material.getUploaderId());
-        if (uploader != null) {
-            if (userMapper.earnScore(uploader.getUserId(), 2) != 1) {
-                throw new BusinessException("上传奖励发放失败");
-            }
-            uploader = userMapper.selectById(material.getUploaderId());
-            int newBalance = uploader.getScoreBalance();
-
-            ScoreRecord record = new ScoreRecord();
-            record.setUserId(uploader.getUserId());
-            record.setChangeType(1);
-            record.setChangeAmount(2);
-            record.setBalanceAfter(newBalance);
-            record.setSourceDesc("上传资料审核通过：" + material.getMaterialName());
-            record.setRelatedId(id);
-            record.setCreateTime(LocalDateTime.now());
-            record.setUpdateTime(LocalDateTime.now());
-            scoreRecordMapper.insert(record);
-        }
-        return Result.ok();
-    }
-
-    @PutMapping("/materials/{id}/reject")
-    @Transactional
-    public Result<?> rejectMaterial(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
-        Material material = materialMapper.selectById(id);
-        if (material == null) throw new BusinessException("资料不存在");
-        String reason = body != null ? body.getOrDefault("reason", "") : "";
-        if (materialMapper.rejectPending(id, reason) != 1) {
-            throw new BusinessException("资料状态已变化，无法重复审核");
-        }
-        return Result.ok();
-    }
-
     @PutMapping("/materials/{id}/deactivate")
-    public Result<?> deactivateMaterial(@PathVariable Long id) {
-        Material material = materialMapper.selectById(id);
-        if (material == null) throw new BusinessException("资料不存在");
-        if (materialMapper.transitionStatus(id, 1, 3) != 1) {
-            throw new BusinessException("仅可下架已发布资料");
-        }
+    public Result<?> deactivateMaterial(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        materialReviewService.deactivate(id, SecurityUtils.getCurrentUserId(),
+                requireText(body.get("reason"), "请填写下架说明", 500));
         return Result.ok();
     }
 
@@ -378,17 +351,17 @@ public class AdminController {
     // ==================== 反馈管理 ====================
 
     @GetMapping("/feedback")
-    public Result<?> listFeedback(@RequestParam(required = false) Integer status) {
-        return Result.ok(feedbackMapper.selectAllWithUser(status));
+    public Result<?> listFeedback(@RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") Integer page, @RequestParam(defaultValue = "20") Integer pageSize) {
+        page = Math.max(page, 1); pageSize = Math.min(Math.max(pageSize, 1), 100);
+        return Result.ok(Map.of("list", feedbackMapper.selectAllWithUser(status, (page-1)*pageSize, pageSize),
+                "total", feedbackMapper.countAll(status)));
     }
 
     @PutMapping("/feedback/{id}/reply")
     public Result<?> replyFeedback(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        String reply = body.get("reply");
-        if (reply == null || reply.trim().isEmpty()) {
-            throw new BusinessException("回复内容不能为空");
-        }
-        feedbackMapper.updateReply(id, reply, LocalDateTime.now());
+        String reply = requireText(body.get("reply"), "回复内容不能为空", 1000);
+        if (feedbackMapper.updateReply(id, reply, LocalDateTime.now()) != 1) throw new BusinessException("反馈不存在或状态已变化");
         return Result.ok();
     }
 
@@ -398,6 +371,8 @@ public class AdminController {
     public Result<?> listOrders(@RequestParam(required = false) Integer status,
                                  @RequestParam(defaultValue = "1") Integer page,
                                  @RequestParam(defaultValue = "20") Integer pageSize) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         List<Order> list = orderMapper.selectAll(status != null ? status : null, offset, pageSize);
         long total = orderMapper.countAll(status != null ? status : null);
@@ -408,7 +383,7 @@ public class AdminController {
     }
 
     @PutMapping({"/orders/{id}/complete", "/orders/{id}/ship"})
-    public Result<?> completeOrder(@PathVariable Long id) {
+    public Result<?> completeOrder(@PathVariable Long id, @RequestBody Map<String, String> body) {
         Order order = orderMapper.selectById(id);
         if (order == null) throw new BusinessException("订单不存在");
         if (order.getStatus() == 4) throw new BusinessException("已取消订单不能完成");
@@ -416,10 +391,25 @@ public class AdminController {
         if (order.getStatus() != 1 && order.getStatus() != 2) {
             throw new BusinessException("当前订单状态不能完成");
         }
-        if (orderMapper.completeIfProcessable(id) != 1) {
+        String note = requireText(body.get("fulfillment_note"), "请填写订单交付或处理说明", 1000);
+        if (orderMapper.completeWithNote(id, note) != 1) {
             throw new BusinessException("订单状态已变化，请刷新后重试");
         }
         return Result.ok();
+    }
+
+    @GetMapping("/orders/{id}")
+    public Result<?> orderDetail(@PathVariable Long id) {
+        Order order = orderMapper.selectById(id);
+        if (order == null) throw new BusinessException("订单不存在");
+        return Result.ok(order);
+    }
+
+    private String requireText(String value, String message, int maxLength) {
+        if (value == null || value.isBlank()) throw new BusinessException(message);
+        String text = value.trim();
+        if (text.length() > maxLength) throw new BusinessException("内容不能超过 " + maxLength + " 个字符");
+        return text;
     }
 
     private void normalizeCourse(Course course) {
@@ -476,6 +466,8 @@ public class AdminController {
     public Result<?> listSquarePosts(@RequestParam(required = false) Integer status,
                                       @RequestParam(defaultValue = "1") Integer page,
                                       @RequestParam(defaultValue = "20") Integer pageSize) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         List<SquarePost> list = squarePostMapper.selectAllWithUser(status, null, null, offset, pageSize);
         long total = squarePostMapper.countAllWithUser(status, null, null);
@@ -516,10 +508,14 @@ public class AdminController {
 
     @GetMapping("/reports")
     public Result<?> listReports(@RequestParam(defaultValue = "1") Integer page,
-                                  @RequestParam(defaultValue = "20") Integer pageSize) {
+                                  @RequestParam(defaultValue = "20") Integer pageSize,
+                                  @RequestParam(required = false) Integer status) {
+        if (status != null && (status < 0 || status > 2)) throw new BusinessException("举报状态无效");
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
-        List<MaterialReport> list = materialReportMapper.selectAll(offset, pageSize);
-        long total = materialReportMapper.countAll();
+        List<MaterialReport> list = materialReportMapper.selectAll(status, offset, pageSize);
+        long total = materialReportMapper.countAll(status);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("list", list);
         result.put("total", total);
@@ -527,10 +523,26 @@ public class AdminController {
     }
 
     @PutMapping("/reports/{id}/handle")
-    public Result<?> handleReport(@PathVariable Long id) {
-        if (materialReportMapper.updateStatus(id, 1) == 0) {
-            throw new BusinessException("举报不存在");
+    @Transactional
+    public Result<?> handleReport(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String action = body.get("action");
+        if (!"deactivate".equals(action) && !"dismiss".equals(action)) {
+            throw new BusinessException("请选择下架资料或不予下架");
         }
+        String reason = requireText(body.get("reason"), "请填写举报处理说明", 500);
+        MaterialReport report = materialReportMapper.selectForUpdate(id);
+        if (report == null) throw new BusinessException("举报不存在");
+        if (!Integer.valueOf(0).equals(report.getStatus())) throw new BusinessException("举报已处理，请刷新后查看");
+        Long actorId = SecurityUtils.getCurrentUserId();
+        if ("deactivate".equals(action)) {
+            Material material = materialMapper.selectForUpdate(report.getMaterialId());
+            if (material == null) throw new BusinessException("资料已不存在，请选择不予下架并说明原因");
+            if (!Integer.valueOf(3).equals(material.getStatus())) {
+                materialReviewService.deactivate(report.getMaterialId(), actorId, reason);
+            }
+        }
+        if (materialReportMapper.resolvePending(id, "deactivate".equals(action) ? 1 : 2,
+                action, reason, actorId) != 1) throw new BusinessException("举报状态已变化，请刷新后重试");
         return Result.ok();
     }
 }

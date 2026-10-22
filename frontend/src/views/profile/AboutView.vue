@@ -1,39 +1,15 @@
 <template>
   <AppLayout>
-    <PageContainer>
-      <PageHeader title="关于我们" :show-back="true" />
-
-      <div class="about-card card">
-        <div class="about-header">
-          <el-icon :size="64" color="var(--color-primary)"><School /></el-icon>
-          <h2>不高山选课通</h2>
-          <el-tag>V{{ appVersion }}</el-tag>
-        </div>
-
-        <el-descriptions :column="1" border class="about-info">
-          <el-descriptions-item label="项目名称">不高山选课通</el-descriptions-item>
-          <el-descriptions-item label="简介">
-            一款基于Web技术的高校学习服务应用，旨在为学生和教师提供便捷的课程信息浏览、学习资料共享、通讯录查询和积分激励机制。
-          </el-descriptions-item>
-          <el-descriptions-item label="技术栈">
-            Vue 3 + Element Plus + Pinia + Vue Router + Axios + Vite
-          </el-descriptions-item>
-          <el-descriptions-item label="版本号">{{ appVersion }}</el-descriptions-item>
-          <el-descriptions-item label="编制单位">成都信息工程大学</el-descriptions-item>
-          <el-descriptions-item label="编制人">张义彬</el-descriptions-item>
-        </el-descriptions>
-
-        <div class="contact-support">
-          <h4>联系客服</h4>
-          <el-button :icon="Message" @click="copyEmail">
-            复制客服邮箱
-          </el-button>
-        </div>
-
-        <div class="copyright">
-          <p>© 2026 不高山选课通. All rights reserved.</p>
-        </div>
-      </div>
+    <PageContainer class="about-page">
+      <PageHeader title="关于选课通" :show-back="true" />
+      <section class="about-card card">
+        <div class="about-identity"><el-icon :size="42"><School /></el-icon><div><h2>不高山选课通</h2><p>CourseHub · 版本 {{ appVersion }}</p></div></div>
+        <p class="about-description">为学生和教师提供课程信息浏览、学习资料共享、同学交流与个人学习记录服务。</p>
+        <div class="about-scope"><h3>让课程信息与学习资源更好找</h3><p>浏览课程和评价，整理自己的学习清单，分享资料，与好友交流课程与学习。积分用于资料下载和商城兑换，变动均可查看明细。</p><p>本应用的学习清单不替代学校教务系统。正式选课、退课及学分认定以学校安排为准。</p></div>
+        <dl class="project-info"><div><dt>编制单位</dt><dd>成都信息工程大学</dd></div><div><dt>编制人</dt><dd>张义彬</dd></div></dl>
+        <div class="about-links"><router-link :to="supportPath">使用帮助 <span aria-hidden="true">→</span></router-link><router-link :to="feedbackPath">反馈与处理记录 <span aria-hidden="true">→</span></router-link><el-button v-if="supportEmail" plain :icon="Message" @click="copyEmail">复制联系邮箱</el-button></div>
+        <p class="copyright">© 2026 不高山选课通</p>
+      </section>
     </PageContainer>
   </AppLayout>
 </template>
@@ -44,50 +20,29 @@ import { School, Message } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
-
-const appVersion = import.meta.env.VITE_APP_VERSION || '3.0.0'
-
+import { supportEmail, supportPath, feedbackPath, appVersion } from '@/utils/support'
 async function copyEmail() {
-  try {
-    await navigator.clipboard.writeText('support@bugaoshan.com')
-    ElMessage.success('客服邮箱已复制到剪贴板')
-  } catch {
-    ElMessage.info('客服邮箱：support@bugaoshan.com')
-  }
+  try { await navigator.clipboard.writeText(supportEmail); ElMessage.success('联系邮箱已复制') }
+  catch { ElMessage.info(`联系邮箱：${supportEmail}`) }
 }
 </script>
 
 <style scoped>
-.about-card {
-  text-align: center;
-}
-
-.about-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
-}
-.about-header h2 { margin: 0; }
-
-.about-info {
-  margin-bottom: var(--spacing-lg);
-  text-align: left;
-}
-
-.contact-support {
-  margin-bottom: var(--spacing-lg);
-}
-.contact-support h4 { margin: 0 0 var(--spacing-sm); }
-
-.copyright {
-  padding-top: var(--spacing-md);
-  border-top: 1px solid var(--color-border-light);
-}
-.copyright p {
-  margin: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-placeholder);
-}
+.about-page { --content-max-width: 820px; }
+.about-card { padding: 32px; border: 1px solid var(--color-border-light); border-radius: 16px; box-shadow: none; }
+.about-identity { display: flex; align-items: center; gap: 18px; color: var(--color-primary); }
+.about-identity h2 { margin: 0; font-size: 24px; color: var(--color-text-primary); }
+.about-identity p { margin: 7px 0 0; font-size: 12px; color: var(--color-text-secondary); }
+.about-description { margin: 26px 0; font-size: 15px; line-height: 1.8; color: var(--color-text-regular); }
+.about-scope { padding: 20px; border-radius: 10px; background: var(--color-bg-soft); }
+.about-scope h3 { margin: 0 0 10px; font-size: 16px; }
+.about-scope p { color: var(--color-text-secondary); font-size: 13px; line-height: 1.8; margin: 8px 0 0; }
+.project-info { margin: 20px 0; }
+.project-info > div { display: flex; justify-content: space-between; gap: 20px; padding: 14px 0; font-size: 13px; border-bottom: 1px solid var(--color-border-light); }
+.project-info dt { color: var(--color-text-secondary); }
+.project-info dd { margin: 0; text-align: right; }
+.about-links { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 28px; }
+.about-links a { padding: 10px 0; color: var(--color-primary); font-size: 13px; text-decoration: none; }
+.copyright { font-size: 12px; color: var(--color-text-secondary); margin: 26px 0 0; }
+@media (max-width: 767px) { .about-card { padding: 20px 16px; } .about-identity h2 { font-size: 21px; } }
 </style>

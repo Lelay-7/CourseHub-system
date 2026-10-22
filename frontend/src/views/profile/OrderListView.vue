@@ -4,14 +4,16 @@
       <PageHeader title="我的订单" :show-back="true" />
 
       <!-- 状态筛选 -->
-      <el-radio-group v-model="statusFilter" size="small" @change="fetchList(true)" class="status-filter">
+      <el-radio-group v-model="statusFilter" size="small" @change="resetAndFetch()" class="status-filter">
         <el-radio-button value="">全部</el-radio-button>
-        <el-radio-button :value="1">待发货</el-radio-button>
+        <el-radio-button :value="1">待处理</el-radio-button>
+        <el-radio-button :value="2">处理中</el-radio-button>
         <el-radio-button :value="3">已完成</el-radio-button>
         <el-radio-button :value="4">已取消</el-radio-button>
       </el-radio-group>
 
-      <div v-if="orderList.length > 0" class="order-list">
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <div v-else-if="orderList.length > 0" class="order-list">
         <div v-for="order in orderList" :key="order.order_id" class="order-card card" @click="goDetail(order.order_id)">
           <div class="order-header flex-between">
             <span class="order-id">订单号：{{ order.order_no }}</span>
@@ -48,22 +50,17 @@
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
       </div>
 
-      <div v-if="total > pageSize" class="order-pagination">
-        <el-pagination
-          background
-          layout="prev, pager, next"
-          :total="total"
-          :page-size="pageSize"
-          :current-page="page"
-          @current-change="handlePageChange"
-        />
-      </div>
+      <ListPagination :page="page" :page-size="pageSize" :total="total" @change="handlePageChange" />
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { usePagedList, useListMemory } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
+import ListPagination from '@/components/ListPagination.vue'
+
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, StarFilled } from '@element-plus/icons-vue'
@@ -72,15 +69,11 @@ import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { ORDER_STATUS_LABEL } from '@/utils/constants'
+import { useUserStore } from '@/stores/user'
 import * as orderApi from '@/api/order'
 
 const router = useRouter()
-const orderList = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-const noMore = ref(false)
+const userStore = useUserStore()
 const statusFilter = ref('')
 
 function statusTag(status) {
@@ -88,26 +81,8 @@ function statusTag(status) {
   return map[status] || ''
 }
 
-async function fetchList(reset = false) {
-  if (loading.value) return
-  if (reset) { page.value = 1; orderList.value = []; noMore.value = false }
-  loading.value = true
-  try {
-    const res = await orderApi.getOrderList({
-      page: page.value, pageSize: pageSize.value,
-      status: statusFilter.value || undefined
-    })
-    if (res.code === 200) {
-      const data = res.data || {}
-      const list = data.list || data.records || []
-      total.value = data.total || 0
-      if (reset) orderList.value = list
-      else orderList.value.push(...list)
-      noMore.value = orderList.value.length >= total.value
-    }
-  } catch { /* handled */ }
-  finally { loading.value = false }
-}
+const { list: orderList, loading, error, page, pageSize, total, fetchList, resetAndFetch, handlePageChange } = usePagedList(orderApi.getOrderList, () => ({ status: statusFilter.value === '' ? undefined : statusFilter.value }))
+const restoreScroll = useListMemory(() => ({ filter: statusFilter.value, page: page.value }), state => { statusFilter.value = state.filter; page.value = state.page })
 
 async function handleCancel(order) {
   try {
@@ -116,9 +91,11 @@ async function handleCancel(order) {
     })
   } catch { return }
   try {
-    await orderApi.cancelOrder(order.order_id)
+    const res = await orderApi.cancelOrder(order.order_id)
+    if (res.data?.score_balance !== undefined) userStore.updateScoreBalance(Number(res.data.score_balance))
     ElMessage.success('订单已取消，积分已退回')
     order.status = 4
+    fetchList()
   } catch {
     ElMessage.error('取消失败，请稍后重试')
   }
@@ -128,18 +105,14 @@ function goDetail(id) {
   router.push(`/profile/orders/${id}`)
 }
 
-function handlePageChange(p) {
-  page.value = p
-  fetchList(true)
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+
 
 function formatTime(time) {
   if (!time) return ''
   return new Date(time).toLocaleString('zh-CN')
 }
 
-onMounted(() => { fetchList(true) })
+onMounted(async () => { await fetchList(); await restoreScroll() })
 </script>
 
 <style scoped>

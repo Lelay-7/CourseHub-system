@@ -57,11 +57,14 @@ public class CourseServiceImpl implements CourseService {
     }
 
     @Override
+    public Result getTeachers() { return Result.ok(courseMapper.selectTeachers()); }
+
+    @Override
     public Result getCourseList(Long categoryId, Integer courseType, BigDecimal creditMin, BigDecimal creditMax,
                                  String teacherName, String keyword, String timeSlot, String sortBy, String sortOrder,
                                  Integer page, Integer pageSize) {
-        if (page == null) page = 1;
-        if (pageSize == null) pageSize = 10;
+        page = page == null ? 1 : Math.max(page, 1);
+        pageSize = pageSize == null ? 10 : Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
         String normalizedSortBy = sortBy != null
                 && Set.of("selection_count", "avg_rating", "credit", "create_time").contains(sortBy)

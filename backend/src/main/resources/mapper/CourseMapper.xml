@@ -9,7 +9,7 @@
     </select>
 
     <select id="selectByCourseCode" resultType="com.bugaoshan.entity.Course">
-        SELECT * FROM course WHERE course_code = #{courseCode} AND is_deleted = 0 LIMIT 1
+        SELECT * FROM course WHERE course_code = #{courseCode} LIMIT 1
     </select>
 
     <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Course">
@@ -216,4 +216,8 @@
         SELECT category_id, category_name FROM category WHERE is_deleted = 0 ORDER BY sort_order
     </select>
 
+    <select id="selectTeachers" resultType="map">
+        SELECT user_id, COALESCE(NULLIF(real_name,''), NULLIF(nickname,''), username) AS teacher_name
+        FROM user WHERE user_type=2 AND status=1 AND is_deleted=0 ORDER BY user_id
+    </select>
 </mapper>
