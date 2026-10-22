@@ -32,6 +32,24 @@ class MaterialReviewWorkflowTest {
         try(var stream=file.resource().getInputStream()) { return new String(stream.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8); }
     }
 
+    @Test void advertisedCsvTypeSupportsUploadReplacementReviewAndDownload() throws Exception {
+        var original = new MockMultipartFile("file", "课程.csv", "text/csv", "课程,学分\n数学,3".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var result = f.service.uploadMaterial(1L, original, "课程表格", 3, 1L, 0, "", "");
+        long id = ((Material)((Map<?,?>)result.getData()).get("material")).getMaterialId();
+        assertEquals("课程,学分\n数学,3", contents(f.review.file(id, 1, 3L)));
+        f.review.reject(id, 1, 3L, "请补充课程");
+        var replacement = new MockMultipartFile("file", "课程V2.csv", "text/csv", "课程,学分\n数学,4".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        f.service.resubmitMaterial(id, 1L, 1, replacement, "课程表格", 3, 1L, 0, "", "已修正");
+        f.review.approve(id, 2, 3L);
+        assertEquals("课程,学分\n数学,4", contents(f.service.downloadMaterial(id, 2L)));
+        assertEquals("text/csv", f.materials.selectById(id).getContentType());
+    }
+
+    @Test void csvSupportDoesNotAcceptOtherTextMimeTypes() {
+        var html = new MockMultipartFile("file", "page.html", "text/html", "<p>not a supported upload</p>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThrows(BusinessException.class, () -> f.service.uploadMaterial(1L, html, "网页", 3, 1L, 0, "", ""));
+    }
+
     @Test void completeLifecycleKeepsBothFilesHistoryAndExactlyOneReward() throws Exception {
         long id=upload();
         assertEquals("original",contents(f.review.file(id,1,3L)));

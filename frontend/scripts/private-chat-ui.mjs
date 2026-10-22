@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { preview } from 'vite'
 import { chromium } from 'playwright'
+import { THEMES } from '../src/utils/theme.js'
 
 // Production UI with bounded HTTP fixtures. Real HTTP/MySQL acceptance is a separate runner.
 const output=resolve('output/playwright/private-chat-ui'); await mkdir(output,{recursive:true})
@@ -43,7 +44,7 @@ async function setup(theme,width,{readonly=false,empty=false,fail=false,role=1,h
 }
 try {
  browser=await chromium.launch({headless:true})
- for(const theme of ['blue','wine','black'])for(const width of [1440,768,390,320]) {
+ for(const { id: theme } of THEMES)for(const width of [1440,768,390,320]) {
   const {context,page}=await setup(theme,width)
   try{
    await page.goto(base+'messages/1');await page.getByRole('heading',{name:'同学乙',exact:true}).waitFor();await page.getByRole('textbox',{name:'消息内容'}).waitFor()
@@ -99,7 +100,7 @@ try {
   assert.ok(await page.locator('.app-navbar').isVisible(),'portrait restores the app navbar')
   assert.equal(await page.getByRole('textbox',{name:'消息内容'}).inputValue(),'旋转后保留的草稿🙂')
  }finally{await landscape.context.close()}
- const minimal=await setup('black',800,{height:218})
+ const minimal=await setup('navy',800,{height:218})
  try{
   await minimal.context.addInitScript(()=>{
    const viewport=new EventTarget()
@@ -147,7 +148,7 @@ try {
   await page.getByRole('heading',{name:'同学乙',exact:true}).waitFor()
   assert.ok(await page.locator('.chat-list').isVisible(),'large layout returns to desktop columns after keyboard closes')
  }finally{await minimal.context.close()}
- const keyboard=await setup('blue',390)
+ const keyboard=await setup('sage',390)
  try{
   await keyboard.context.addInitScript(()=>{
    const viewport=new EventTarget()
@@ -181,5 +182,5 @@ try {
  }finally{await keyboard.context.close()}
  const admin=await setup('blue',320,{role:3})
  try{await admin.page.goto(base+'messages/1');await admin.page.getByRole('heading',{name:'同学乙',exact:true}).waitFor();await admin.page.waitForFunction(()=>document.querySelector('.message-composer button').getBoundingClientRect().bottom<=window.innerHeight)}finally{await admin.page.screenshot({path:resolve(output,'admin-mobile.png'),fullPage:true});await admin.context.close()}
- assert.deepEqual(errors,[]);console.log('Private chat UI fixtures passed: 12 theme/viewport combinations, IME, text safety, retry, history anchor, readonly, empty, short landscape/portrait restore, 47px keyboard and hidden-history unread protection, keyboard pan/restore and admin mobile viewport states')
+ assert.deepEqual(errors,[]);console.log(`Private chat UI fixtures passed: ${THEMES.length * 4} theme/viewport combinations, IME, text safety, retry, history anchor, readonly, empty, short landscape/portrait restore, 47px keyboard and hidden-history unread protection, keyboard pan/restore and admin mobile viewport states`)
 }catch(error){console.error(error);throw error}finally{await browser?.close();await server.httpServer?.close()}

@@ -33,6 +33,18 @@ button,
 }
 
 /* Element Plus 轻量主题覆盖 */
+@media (pointer: coarse), (max-width: 767px) {
+  .el-drawer__close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+  }
+}
+
 .el-button {
   border-radius: 999px;
   font-weight: 700;
@@ -58,6 +70,31 @@ button,
   --el-button-hover-text-color: var(--color-on-primary);
   --el-button-hover-bg-color: var(--color-primary);
   --el-button-hover-border-color: var(--color-primary);
+}
+
+/* Semantic buttons need the same light/dark foreground treatment as primary buttons. */
+.el-button--success { --status-color: var(--color-success); --status-light: var(--color-success-light); }
+.el-button--warning { --status-color: var(--color-warning); --status-light: var(--color-warning-light); }
+.el-button--danger { --status-color: var(--color-danger); --status-light: var(--color-danger-light); }
+.el-button--info { --status-color: var(--color-info); --status-light: var(--color-bg-soft); }
+.el-button:is(.el-button--success, .el-button--warning, .el-button--danger, .el-button--info):not(.is-text):not(.is-link) {
+  --el-button-hover-text-color: var(--color-on-status);
+  --el-button-hover-bg-color: color-mix(in srgb, var(--status-color) 88%, var(--color-status-hover-mix));
+  --el-button-hover-border-color: var(--el-button-hover-bg-color);
+  --el-button-active-text-color: var(--color-on-status);
+  --el-button-active-bg-color: var(--el-button-hover-bg-color);
+  --el-button-active-border-color: var(--el-button-hover-bg-color);
+}
+.el-button:is(.el-button--success, .el-button--warning, .el-button--danger, .el-button--info):not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-text-color: var(--color-on-status);
+  --el-button-bg-color: var(--status-color);
+  --el-button-border-color: var(--status-color);
+  --el-button-disabled-text-color: var(--color-on-status);
+}
+.el-button:is(.el-button--success, .el-button--warning, .el-button--danger, .el-button--info).is-plain:not(.is-text):not(.is-link) {
+  --el-button-text-color: var(--status-color);
+  --el-button-bg-color: var(--status-light);
+  --el-button-border-color: var(--status-color);
 }
 
 .el-checkbox__input.is-checked .el-checkbox__inner::after,

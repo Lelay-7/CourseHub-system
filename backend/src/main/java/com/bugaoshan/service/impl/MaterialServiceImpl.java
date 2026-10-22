@@ -213,7 +213,7 @@ public class MaterialServiceImpl implements MaterialService {
         if (file.getOriginalFilename() != null && file.getOriginalFilename().length() > 255) throw new BusinessException("文件名不能超过255字");
         String contentType = file.getContentType();
         if (contentType == null || !(contentType.startsWith("application/") || contentType.startsWith("image/")
-                || contentType.equals("text/plain"))) {
+                || contentType.equals("text/plain") || contentType.equals("text/csv"))) {
             throw new BusinessException("不支持的文件类型");
         }
     }

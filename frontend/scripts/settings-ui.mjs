@@ -3,6 +3,7 @@ import { mkdir, writeFile, realpath } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { createServer } from 'vite'
 import { chromium } from 'playwright'
+import { THEMES } from '../src/utils/theme.js'
 
 // Production views, bounded HTTP fixtures. Database acceptance is run separately.
 const output = resolve('output/playwright/settings-ui')
@@ -125,7 +126,7 @@ try {
     results.push('隐私独立保存/失败保留/父子选项/主题独立/离开提示/单入口/刷新保留登录')
   } finally { await f.page.screenshot({ path: resolve(output, 'settings-interaction.png'), fullPage: true, animations: 'disabled' }); await f.context.close() }
 
-  for (const role of [1, 2, 3]) for (const theme of ['blue', 'wine', 'black']) {
+  for (const role of [1, 2, 3]) for (const { id: theme } of THEMES) {
     const f = await fixture({ role, theme, width: role === 3 ? 1440 : 390 })
     try {
       await f.page.goto(base + 'profile/settings')
@@ -138,7 +139,7 @@ try {
   }
   }
   if (!process.argv.includes('--settings') && !process.argv.includes('--ancillary')) {
-    for (const theme of ['blue', 'wine', 'black']) {
+    for (const { id: theme } of THEMES) {
       const auth = await fixture({ theme }), guest = await fixture({ theme, authenticated: false })
       try {
         for (const width of [1440, 1024, 768, 390, 320]) {
