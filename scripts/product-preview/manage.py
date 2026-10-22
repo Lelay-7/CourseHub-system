@@ -195,6 +195,7 @@ def worker():
                 return response.status == 200
         wait_for(servers_ready, 20, "Web and mailbox")
         env = os.environ.copy()
+        env["APP_CORS_ADDITIONAL_ORIGINS"] = f"http://localhost:{config['web_port']},http://127.0.0.1:{config['web_port']}"
         env.update({"DB_URL": f"jdbc:mysql://127.0.0.1:{config['mysql_port']}/{config['database']}?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai", "DB_USERNAME": "product_preview", "DB_PASSWORD": config["db_password"], "JWT_SECRET": config["jwt_secret"], "RECOVERY_ENABLED": "true", "RECOVERY_HMAC_SECRET": config["recovery_secret"], "SMS_MOCK": "false", "SMTP_HOST": "127.0.0.1", "SMTP_PORT": str(config["smtp_port"]), "SMTP_USERNAME": "", "SMTP_PASSWORD": "", "SMTP_FROM": "coursehub@example.test", "SMTP_STARTTLS": "false", "SMTP_SSL": "false", "FILE_UPLOAD_PATH": str(HERE / "uploads")})
         # Run an owned snapshot: rebuilding target/ must not rewrite a live JVM's jar.
         jar = HERE / "backend-runtime.jar"
