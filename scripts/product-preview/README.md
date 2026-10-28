@@ -1,5 +1,7 @@
 # 本地产品体验环境
 
+本机演示优先双击项目根目录 `start-local-demo.cmd`，启动就绪后自动打开网页；运行时再点会复用环境。`local-demo-status.cmd` 检查状态，`stop-local-demo.cmd` 停止并保留数据，`backup-local-demo.cmd` 保存代码/数据库/文件快照。入口调用 Codex 自带 Python，不需要执行 PowerShell 脚本或修改执行策略。参阅[演示指南](../../docs/local-demo-guide.md)。下文保留开发维护命令。
+
 从工作区根目录运行 `scripts/start-product-preview.ps1`，使用 `-Status` 查看状态；`scripts/stop-product-preview.ps1` 停止本环境并保留全部数据。再次启动会沿用同一数据库、上传文件、账号和收件箱，不重复灌入种子。
 
 依赖已安装的 MySQL 8.0、Java 21 和 Codex 自带 Python、Node。先构建 `backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar` 与 `frontend/dist`。前端构建必须使用同源 API（`VITE_API_BASE_URL` 为空或 `/api`），此环境自行转发 `/api`。

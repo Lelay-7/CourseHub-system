@@ -63,3 +63,7 @@ application-dev-local.yml
 
 # Local browser verification screenshots and reports
 frontend/output/
+
+# Local demo snapshots include private runtime configuration and test data
+.demo-backups/
+**/__pycache__/

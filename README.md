@@ -2,11 +2,11 @@
 
 一个面向学生、教师和管理员的校园课程与学习资源平台。前端使用 Vue 3、Vite、Pinia 和 Element Plus，后端使用 Spring Boot 3、MyBatis-Plus、MySQL 与 Redis。
 
-## 本轮网页体验版本
+## 本机演示版本
 
-本工作区正在交付功能闭环与 UI 整改的第一轮版本。体验入口为 [localhost:3001](http://localhost:3001)，本地收件箱为 [localhost:3002](http://localhost:3002)。账号、各角色页面和完整操作顺序见[网页体验清单](docs/product-web-experience-checklist.md)；启动、停止与数据保留方式见[隔离环境说明](scripts/product-preview/README.md)。请使用这套专属环境体验，下面的通用初始化与旧开发启动说明不适用于已有体验数据。
+本工作区已完成功能闭环与 UI 整改，用户已确认网页体验，现用于本机演示。双击根目录 `start-local-demo.cmd` 启动并打开 [localhost:3001](http://localhost:3001)，`stop-local-demo.cmd` 停止并保留数据，`local-demo-status.cmd` 查看状态，`backup-local-demo.cmd` 保存本机备份。本地收件箱为 [localhost:3002](http://localhost:3002)。账号及约 10 分钟操作顺序见[本机演示指南](docs/local-demo-guide.md)，详细环境说明见[隔离环境说明](scripts/product-preview/README.md)。请使用这套专属环境；下面的通用初始化与旧开发启动说明不适用于已有演示数据。
 
-资料支持管理员受控检查、驳回后修改/换文件、按提交版本审核和历史回看；举报有处理结果，订单有交付说明；设置统一为账号安全、隐私、界面和帮助维护四区。当前选课是学习辅助清单，兑换是本地演示。正式教务、完整物流、群聊与平台通知仍待网页体验后决定，未进行线上部署。最终手机核验在用户明确确认网页体验后执行。
+资料支持管理员受控检查、驳回后修改/换文件、按提交版本审核和历史回看；举报有处理结果，订单有交付说明；设置统一为账号安全、隐私、界面和帮助维护四区，提供六套配色。当前选课是学习辅助清单，兑换是本地演示。移动模拟及真实后端核验已完成，当前版本真机未测，详见[核验记录](docs/product-mobile-and-themes-2026-10-22.md)。正式教务、完整物流、群聊、平台通知与线上部署另行安排。
 
 验证结果与范围记录见[本轮进度](docs/product-completion-progress-2026-10-16.md)。
 
