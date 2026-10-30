@@ -45,6 +45,7 @@ class AdminControllerTest {
     @Mock ScoreRecordMapper scoreRecordMapper;
     @Mock OrderMapper orderMapper;
     @Mock MaterialReportMapper materialReportMapper;
+    @Mock com.bugaoshan.service.MaterialReviewService materialReviewService;
 
     private AdminController controller() {
         return new AdminController(userMapper, courseMapper, courseReviewMapper,
@@ -53,7 +54,7 @@ class AdminControllerTest {
                 scoreRecordMapper, orderMapper, materialReportMapper,
                 new com.bugaoshan.service.impl.CourseServiceImpl(courseMapper, courseReviewMapper,
                         org.mockito.Mockito.mock(CourseSelectionMapper.class),
-                        org.mockito.Mockito.mock(FavoriteMapper.class), userMapper, scoreRecordMapper));
+                        org.mockito.Mockito.mock(FavoriteMapper.class), userMapper, scoreRecordMapper), materialReviewService);
     }
 
     @Test
@@ -94,20 +95,6 @@ class AdminControllerTest {
     }
 
     @Test
-    void approvalDoesNotRewardWhenPendingTransitionAffectsNoRows() {
-        Material material = new Material();
-        material.setMaterialId(3L);
-        material.setUploaderId(7L);
-        material.setStatus(0);
-        when(materialMapper.selectById(3L)).thenReturn(material);
-        when(materialMapper.transitionStatus(3L, 0, 1)).thenReturn(0);
-        AdminController controller = controller();
-
-        assertThrows(BusinessException.class, () -> controller.approveMaterial(3L));
-        verify(userMapper, never()).earnScore(anyLong(), anyInt());
-    }
-
-    @Test
     void reviewListWithoutCourseFilterReturnsAllReviews() {
         CourseReview review = new CourseReview();
         review.setReviewId(8L);
@@ -116,7 +103,9 @@ class AdminControllerTest {
 
         var result = controller.listReviews(null, 1, 20);
 
-        assertEquals(List.of(review), result.getData());
+        org.junit.jupiter.api.Assertions.assertInstanceOf(Map.class, result.getData());
+        assertEquals(List.of(review), ((Map<?, ?>) result.getData()).get("list"));
+        org.junit.jupiter.api.Assertions.assertTrue(((Map<?, ?>) result.getData()).containsKey("total"));
         verify(courseReviewMapper, never()).selectByCourseId(anyLong(), anyInt(), anyInt());
     }
 
@@ -144,30 +133,13 @@ class AdminControllerTest {
     }
 
     @Test
-    void rejectingMaterialPersistsReason() {
-        Material material = new Material();
-        material.setMaterialId(3L);
-        material.setStatus(0);
-        when(materialMapper.selectById(3L)).thenReturn(material);
-        when(materialMapper.rejectPending(3L, "缺少课程说明")).thenReturn(1);
-
-        controller().rejectMaterial(3L, java.util.Map.of("reason", "缺少课程说明"));
-
-        verify(materialMapper).rejectPending(3L, "缺少课程说明");
-    }
-
-    @Test
     void deactivatingPublishedMaterialUsesSeparateStatus() {
-        Material material = new Material();
-        material.setMaterialId(3L);
-        material.setStatus(1);
-        when(materialMapper.selectById(3L)).thenReturn(material);
-        when(materialMapper.transitionStatus(3L, 1, 3)).thenReturn(1);
-
-        controller().deactivateMaterial(3L);
-
-        verify(materialMapper).transitionStatus(eq(3L), eq(1), eq(3));
-        verify(materialMapper, never()).updateStatus(3L, 2);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(1L, null, List.of()));
+        try {
+            controller().deactivateMaterial(3L, Map.of("reason", "版权核实后下架"));
+            verify(materialReviewService).deactivate(3L, 1L, "版权核实后下架");
+        } finally { SecurityContextHolder.clearContext(); }
     }
 
     @Test
@@ -196,9 +168,9 @@ class AdminControllerTest {
         order.setStatus(4);
         when(orderMapper.selectById(4L)).thenReturn(order);
 
-        assertThrows(BusinessException.class, () -> controller().completeOrder(4L));
+        assertThrows(BusinessException.class, () -> controller().completeOrder(4L, Map.of("fulfillment_note", "请到服务台领取")));
 
-        verify(orderMapper, never()).completeIfProcessable(anyLong());
+        verify(orderMapper, never()).completeWithNote(anyLong(), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -207,11 +179,11 @@ class AdminControllerTest {
         order.setOrderId(4L);
         order.setStatus(1);
         when(orderMapper.selectById(4L)).thenReturn(order);
-        when(orderMapper.completeIfProcessable(4L)).thenReturn(1);
+        when(orderMapper.completeWithNote(4L, "请到服务台领取")).thenReturn(1);
 
-        controller().completeOrder(4L);
+        controller().completeOrder(4L, Map.of("fulfillment_note", "请到服务台领取"));
 
-        verify(orderMapper).completeIfProcessable(4L);
+        verify(orderMapper).completeWithNote(4L, "请到服务台领取");
     }
 
     @Test
@@ -354,6 +326,39 @@ class AdminControllerTest {
         controller().listSquareComments(3L);
 
         verify(squareCommentMapper).selectByPostId(3L);
+    }
+
+    @Test
+    void resolvingAnotherReportOnAlreadyDeactivatedMaterialDoesNotFailOrDeactivateTwice() {
+        var report = new com.bugaoshan.entity.MaterialReport();
+        report.setReportId(4L); report.setMaterialId(3L); report.setStatus(0);
+        var material = new Material(); material.setMaterialId(3L); material.setStatus(3);
+        when(materialReportMapper.selectForUpdate(4L)).thenReturn(report);
+        when(materialMapper.selectForUpdate(3L)).thenReturn(material);
+        when(materialReportMapper.resolvePending(4L, 1, "deactivate", "重复举报核实成立", 1L)).thenReturn(1);
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(1L, null));
+        try {
+            controller().handleReport(4L, Map.of("action", "deactivate", "reason", "重复举报核实成立"));
+            verify(materialReviewService, never()).deactivate(anyLong(), anyLong(), org.mockito.ArgumentMatchers.anyString());
+            verify(materialReportMapper).resolvePending(4L, 1, "deactivate", "重复举报核实成立", 1L);
+        } finally { SecurityContextHolder.clearContext(); }
+    }
+
+    @Test
+    void repeatReportHandlingCannotOverwriteTheDecision() {
+        var report = new com.bugaoshan.entity.MaterialReport(); report.setStatus(2);
+        when(materialReportMapper.selectForUpdate(4L)).thenReturn(report);
+        assertThrows(BusinessException.class, () -> controller().handleReport(4L,
+                Map.of("action", "deactivate", "reason", "second decision")));
+        verify(materialReviewService, never()).deactivate(anyLong(), anyLong(), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void completedOrderRequiresDeliveryExplanation() {
+        Order order = new Order(); order.setStatus(1);
+        when(orderMapper.selectById(4L)).thenReturn(order);
+        assertThrows(BusinessException.class, () -> controller().completeOrder(4L, Map.of("fulfillment_note", " ")));
+        verify(orderMapper, never()).completeWithNote(anyLong(), org.mockito.ArgumentMatchers.anyString());
     }
 
     private Course validCourse() {

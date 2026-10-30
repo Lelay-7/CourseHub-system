@@ -12,3 +12,8 @@ export function getScoreBalance() {
 export function getScoreDetails(params) {
   return request.get('/api/score/details', { params })
 }
+
+/** 当前账号的月度汇总，不受明细分页影响。退款与奖励分开统计。 */
+export function getScoreSummary(month) {
+  return request.get('/api/score/summary', { params: { month } })
+}

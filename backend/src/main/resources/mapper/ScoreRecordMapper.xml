@@ -19,6 +19,14 @@
         </if>
     </select>
 
+    <select id="summarizeMonth" resultType="map">
+        SELECT COALESCE(SUM(CASE WHEN change_type = 1 THEN change_amount ELSE 0 END), 0) AS earned,
+               COALESCE(SUM(CASE WHEN change_type = 2 THEN -change_amount ELSE 0 END), 0) AS spent,
+               COALESCE(SUM(CASE WHEN change_type = 3 THEN change_amount ELSE 0 END), 0) AS refunded
+        FROM score_record WHERE user_id = #{userId}
+          AND create_time &gt;= #{start} AND create_time &lt; #{end}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="recordId">
         INSERT INTO score_record (user_id, change_type, change_amount, balance_after, source_desc,
                                   related_id, create_time, update_time)

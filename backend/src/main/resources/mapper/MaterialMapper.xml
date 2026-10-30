@@ -3,11 +3,21 @@
 <mapper namespace="com.bugaoshan.mapper.MaterialMapper">
 
     <select id="selectById" resultType="com.bugaoshan.entity.Material">
-        SELECT * FROM material WHERE material_id = #{materialId} AND is_deleted = 0
+        SELECT m.*,COALESCE(NULLIF(u.nickname,''),u.username,'已注销用户') AS uploader_name
+        FROM material m LEFT JOIN user u ON m.uploader_id=u.user_id AND u.is_deleted=0
+        WHERE m.material_id = #{materialId} AND m.is_deleted = 0
+    </select>
+    <select id="selectForUpdate" resultType="com.bugaoshan.entity.Material">
+        SELECT * FROM material WHERE material_id=#{materialId} AND is_deleted=0 FOR UPDATE
+    </select>
+    <select id="selectActiveCourse" resultType="long">
+        SELECT course_id FROM course WHERE course_id=#{courseId} AND status=1 AND is_deleted=0
     </select>
 
     <select id="selectList" resultType="com.bugaoshan.entity.Material">
-        SELECT m.* FROM material m
+        SELECT m.*,COALESCE(NULLIF(u.nickname,''),u.username,'已注销用户') AS uploader_name,
+        EXISTS(SELECT 1 FROM favorite f WHERE f.user_id=#{viewerId} AND f.target_type=2 AND f.target_id=m.material_id) AS is_favorited
+        FROM material m LEFT JOIN user u ON m.uploader_id=u.user_id AND u.is_deleted=0
         <where>
             m.is_deleted = 0 AND m.status = 1
             <if test="materialType != null">
@@ -18,7 +28,8 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
+                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%')
+                     OR COALESCE(NULLIF(u.nickname,''),u.username) LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="priceFilter == 'free'">
                 AND (m.download_score IS NULL OR m.download_score = 0)
@@ -37,13 +48,14 @@
             <when test="sortOrder == 'asc'">ASC</when>
             <otherwise>DESC</otherwise>
         </choose>
+        , m.material_id DESC
         <if test="offset != null and limit != null">
             LIMIT #{limit} OFFSET #{offset}
         </if>
     </select>
 
     <select id="countList" resultType="long">
-        SELECT COUNT(*) FROM material m
+        SELECT COUNT(*) FROM material m LEFT JOIN user u ON m.uploader_id=u.user_id AND u.is_deleted=0
         <where>
             m.is_deleted = 0 AND m.status = 1
             <if test="materialType != null">
@@ -54,7 +66,8 @@
             </if>
             <if test="keyword != null and keyword != ''">
                 AND (m.material_name LIKE CONCAT('%', #{keyword}, '%')
-                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%'))
+                     OR m.keyword LIKE CONCAT('%', #{keyword}, '%')
+                     OR COALESCE(NULLIF(u.nickname,''),u.username) LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="priceFilter == 'free'">
                 AND (m.download_score IS NULL OR m.download_score = 0)
@@ -69,12 +82,26 @@
         INSERT INTO material (material_name, material_type, course_id, uploader_id, file_url, storage_key,
                               original_file_name, content_type, file_size,
                               download_score, download_count, description, reject_reason, status, keyword,
-                              create_time, update_time, is_deleted)
+                              create_time, update_time, is_deleted, revision, upload_rewarded)
         VALUES (#{materialName}, #{materialType}, #{courseId}, #{uploaderId}, #{fileUrl}, #{storageKey},
                 #{originalFileName}, #{contentType}, #{fileSize},
                 #{downloadScore}, #{downloadCount}, #{description}, #{rejectReason}, #{status}, #{keyword},
-                #{createTime}, #{updateTime}, #{isDeleted})
+                #{createTime}, #{updateTime}, #{isDeleted}, #{revision}, #{uploadRewarded})
     </insert>
+    <update id="reviewRevision">
+        UPDATE material SET status=#{status},reject_reason=#{reason},update_time=NOW()
+        WHERE material_id=#{materialId} AND revision=#{revision} AND status=0 AND is_deleted=0
+    </update>
+    <update id="markUploadRewarded">
+        UPDATE material SET upload_rewarded=1 WHERE material_id=#{materialId} AND upload_rewarded=0
+    </update>
+    <update id="updateRejectedSubmission">
+        UPDATE material SET material_name=#{materialName},material_type=#{materialType},course_id=#{courseId},
+          file_url=#{fileUrl},storage_key=#{storageKey},original_file_name=#{originalFileName},content_type=#{contentType},
+          file_size=#{fileSize},download_score=#{downloadScore},description=#{description},keyword=#{keyword},
+          revision=#{revision},status=0,reject_reason=NULL,update_time=#{updateTime}
+        WHERE material_id=#{materialId} AND revision=#{revision}-1 AND status=2 AND is_deleted=0
+    </update>
 
     <update id="incrementDownloadCount">
         UPDATE material SET download_count = download_count + 1, update_time = NOW()
@@ -119,12 +146,13 @@
     </select>
 
     <select id="selectAllForAdmin" resultType="com.bugaoshan.entity.Material">
-        SELECT m.* FROM material m
+        SELECT m.*,COALESCE(NULLIF(u.nickname,''),u.username,'已注销用户') AS uploader_name
+        FROM material m LEFT JOIN user u ON m.uploader_id=u.user_id AND u.is_deleted=0
         <where>
             m.is_deleted = 0
             <if test="status != null">AND m.status = #{status}</if>
         </where>
-        ORDER BY m.create_time DESC
+        ORDER BY m.create_time DESC,m.material_id DESC
         <if test="offset != null and limit != null">
             LIMIT #{limit} OFFSET #{offset}
         </if>

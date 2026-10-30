@@ -35,6 +35,8 @@ DROP TABLE IF EXISTS `order`;
 DROP TABLE IF EXISTS favorite;
 DROP TABLE IF EXISTS course_selection;
 DROP TABLE IF EXISTS course_review;
+DROP TABLE IF EXISTS material_audit_log;
+DROP TABLE IF EXISTS material_revision;
 DROP TABLE IF EXISTS material;
 DROP TABLE IF EXISTS goods;
 DROP TABLE IF EXISTS banner;
@@ -160,6 +162,8 @@ CREATE TABLE IF NOT EXISTS material (
     download_count INT          DEFAULT 0,
     description    VARCHAR(500),
     reject_reason  VARCHAR(500),
+    revision       INT NOT NULL DEFAULT 1,
+    upload_rewarded TINYINT NOT NULL DEFAULT 0,
     keyword        VARCHAR(100),
     status         TINYINT      DEFAULT 1,
     create_time    DATETIME     DEFAULT CURRENT_TIMESTAMP,
@@ -170,12 +174,48 @@ CREATE TABLE IF NOT EXISTS material (
     INDEX idx_material_name (material_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE material_revision (
+    material_id BIGINT NOT NULL,
+    revision INT NOT NULL,
+    material_name VARCHAR(200) NOT NULL,
+    material_type TINYINT NOT NULL,
+    course_id BIGINT,
+    uploader_id BIGINT NOT NULL,
+    file_url VARCHAR(500),
+    storage_key VARCHAR(255),
+    original_file_name VARCHAR(255),
+    content_type VARCHAR(100),
+    file_size BIGINT,
+    download_score INT DEFAULT 0,
+    description VARCHAR(500),
+    keyword VARCHAR(100),
+    status TINYINT NOT NULL,
+    reject_reason VARCHAR(500),
+    create_time DATETIME NOT NULL,
+    PRIMARY KEY (material_id, revision)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE material_audit_log (
+    audit_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    material_id BIGINT NOT NULL,
+    revision INT NOT NULL,
+    reviewer_id BIGINT NOT NULL,
+    action VARCHAR(20) NOT NULL,
+    reason VARCHAR(500),
+    create_time DATETIME NOT NULL,
+    INDEX idx_material_audit (material_id, revision, audit_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS material_report (
     report_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
     material_id BIGINT NOT NULL,
     reporter_id BIGINT NOT NULL,
     reason      VARCHAR(500) NOT NULL,
     status      TINYINT NOT NULL DEFAULT 0 COMMENT '0-待处理 1-已处理 2-已驳回',
+    resolution_action VARCHAR(20),
+    resolution_reason VARCHAR(500),
+    handled_by BIGINT,
+    handled_time DATETIME,
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_material_report_material (material_id),
     INDEX idx_material_report_status (status),
@@ -224,6 +264,7 @@ CREATE TABLE IF NOT EXISTS `order` (
     score_amount  INT          NOT NULL,
     status        TINYINT      DEFAULT 1 COMMENT '1-待处理 2-处理中 3-已完成 4-已取消',
     remark        VARCHAR(200),
+    fulfillment_note VARCHAR(1000),
     cancel_time   DATETIME,
     complete_time DATETIME,
     create_time   DATETIME     DEFAULT CURRENT_TIMESTAMP,
@@ -373,6 +414,7 @@ CREATE TABLE IF NOT EXISTS square_post (
     post_id       BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id       BIGINT NOT NULL,
     content       VARCHAR(2000) NOT NULL,
+    course_id BIGINT,
     course_name   VARCHAR(100),
     material_name VARCHAR(200),
     tags          VARCHAR(500),
@@ -381,7 +423,8 @@ CREATE TABLE IF NOT EXISTS square_post (
     update_time   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted    TINYINT NOT NULL DEFAULT 0,
     INDEX idx_square_post_status_time (status, create_time),
-    INDEX idx_square_post_user (user_id)
+    INDEX idx_square_post_user (user_id),
+    INDEX idx_square_course (course_id, status, is_deleted)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS square_comment (
@@ -638,6 +681,11 @@ INSERT INTO square_like
 (3, 2, 5, '2026-04-22 10:20:00');
 
 -- Database users and grants are managed outside this schema through deployment tooling.
+UPDATE square_post p JOIN (
+    SELECT course_name, MIN(course_id) AS course_id FROM course
+    WHERE is_deleted=0 AND status=1 GROUP BY course_name HAVING COUNT(*)=1
+) c ON p.course_name=c.course_name
+SET p.course_id=c.course_id WHERE p.course_id IS NULL;
 
 CREATE TABLE IF NOT EXISTS chat_conversation (
  conversation_id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -665,3 +713,17 @@ CREATE TABLE IF NOT EXISTS chat_send_rate_window (
  used_count INT NOT NULL DEFAULT 0,expires_at DATETIME(3) NOT NULL,
  PRIMARY KEY(user_id,window_start,window_seconds),INDEX idx_chat_rate_expiry(expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Initialize review snapshots for seed materials.
+-- Published and deactivated legacy uploads have already passed review. Recorded rewards are also respected.
+UPDATE material m SET upload_rewarded=1
+WHERE m.status IN (1,3) OR EXISTS (
+    SELECT 1 FROM score_record s WHERE s.related_id=m.material_id AND s.user_id=m.uploader_id
+      AND s.change_type=1 AND s.source_desc LIKE '上传资料审核通过：%'
+);
+
+INSERT INTO material_revision(material_id,revision,material_name,material_type,course_id,uploader_id,
+    file_url,storage_key,original_file_name,content_type,file_size,download_score,description,keyword,status,reject_reason,create_time)
+SELECT material_id,revision,material_name,material_type,course_id,uploader_id,
+    file_url,storage_key,original_file_name,content_type,file_size,download_score,description,keyword,status,reject_reason,
+    COALESCE(update_time,create_time,NOW()) FROM material;

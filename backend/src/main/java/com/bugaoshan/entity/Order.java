@@ -14,6 +14,7 @@ public class Order {
     private Integer scoreAmount;
     private Integer status;
     private String remark;
+    private String fulfillmentNote;
     private LocalDateTime cancelTime;
     private LocalDateTime completeTime;
     private LocalDateTime createTime;

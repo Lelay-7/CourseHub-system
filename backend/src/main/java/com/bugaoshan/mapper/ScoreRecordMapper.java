@@ -13,5 +13,8 @@ public interface ScoreRecordMapper {
 
     long countByUserId(@Param("userId") Long userId, @Param("month") String month);
 
+    java.util.Map<String, Object> summarizeMonth(@Param("userId") Long userId,
+            @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
     int insert(ScoreRecord record);
 }

@@ -24,13 +24,15 @@ public class SquareController {
     private final SquarePostMapper squarePostMapper;
     private final SquareCommentMapper commentMapper;
     private final SquareLikeMapper likeMapper;
+    private final com.bugaoshan.mapper.CourseMapper courseMapper;
 
     public SquareController(SquarePostMapper squarePostMapper,
                             SquareCommentMapper commentMapper,
-                            SquareLikeMapper likeMapper) {
+                            SquareLikeMapper likeMapper, com.bugaoshan.mapper.CourseMapper courseMapper) {
         this.squarePostMapper = squarePostMapper;
         this.commentMapper = commentMapper;
         this.likeMapper = likeMapper;
+        this.courseMapper = courseMapper;
     }
 
     /** 获取帖子列表（带评论数和点赞数，支持 keyword/tag 搜索和分页） */
@@ -38,10 +40,13 @@ public class SquareController {
     public Result<?> list(@RequestParam(defaultValue = "1") Integer page,
                            @RequestParam(defaultValue = "10") Integer pageSize,
                            @RequestParam(required = false) String keyword,
-                           @RequestParam(required = false) String tag) {
+                           @RequestParam(required = false) String tag,
+                           @RequestParam(required = false) Long courseId) {
+        page = Math.max(page, 1);
+        pageSize = Math.min(Math.max(pageSize, 1), 100);
         int offset = (page - 1) * pageSize;
-        List<SquarePost> posts = squarePostMapper.selectAllWithUser(1, keyword, tag, offset, pageSize);
-        long total = squarePostMapper.countAllWithUser(1, keyword, tag);
+        List<SquarePost> posts = squarePostMapper.selectAllWithUser(1, keyword, tag, courseId, offset, pageSize);
+        long total = squarePostMapper.countAllWithUser(1, keyword, tag, courseId);
         Long userId = SecurityUtils.getCurrentUserId();
         List<Map<String, Object>> result = new ArrayList<>();
         for (SquarePost p : posts) {
@@ -51,6 +56,7 @@ public class SquareController {
             item.put("nickname", p.getNickname());
             item.put("avatar_url", p.getAvatarUrl());
             item.put("content", p.getContent());
+            item.put("course_id", p.getCourseId());
             item.put("course_name", p.getCourseName());
             item.put("material_name", p.getMaterialName());
             item.put("tags", p.getTags());
@@ -70,6 +76,18 @@ public class SquareController {
     @PostMapping
     public Result<?> create(@Valid @RequestBody SquarePost post) {
         Long userId = SecurityUtils.getCurrentUserId();
+        if (post.getContent() == null || post.getContent().isBlank() || post.getContent().trim().length() > 2000) {
+            throw new BusinessException("动态内容应为 1 至 2000 字");
+        }
+        post.setContent(post.getContent().trim());
+        if (post.getCourseId() != null) {
+            var course = courseMapper.selectById(post.getCourseId());
+            if (course == null || !Integer.valueOf(1).equals(course.getStatus()) || Integer.valueOf(1).equals(course.getIsDeleted())) {
+                throw new BusinessException("关联课程不存在或已停用");
+            }
+            post.setCourseName(course.getCourseName());
+        }
+        post.setPostId(null);
         post.setUserId(userId);
         post.setStatus(1);
         post.setIsDeleted(0);

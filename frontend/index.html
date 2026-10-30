@@ -3,6 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script id="theme-bootstrap">
+      // Restore the saved palette before styles and the application download.
+      // theme-state.test.mjs keeps this small bootstrap aligned with theme.js.
+      ;(() => {
+        const themes = {
+          blue: ['light', '#fafbfc'], wine: ['light', '#f8f6f2'], black: ['dark', '#101216'],
+          sage: ['light', '#f4f7f2'], lavender: ['light', '#f7f5fa'], navy: ['dark', '#101923']
+        }
+        let saved
+        try { saved = localStorage.getItem('coursehub-theme') } catch { /* Storage may be blocked. */ }
+        const id = Object.prototype.hasOwnProperty.call(themes, saved) ? saved : 'blue'
+        const root = document.documentElement
+        root.dataset.theme = id
+        root.classList.toggle('dark', themes[id][0] === 'dark')
+        root.style.colorScheme = themes[id][0]
+        root.style.backgroundColor = themes[id][1]
+      })()
+    </script>
     <meta name="description" content="不高山选课通 - 高校学习服务应用" />
     <meta name="keywords" content="选课,课程,学习资料,高校" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

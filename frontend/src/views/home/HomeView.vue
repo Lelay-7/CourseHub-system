@@ -23,7 +23,7 @@
           <LoadingSkeleton v-if="coursesLoading" type="list" :rows="4" />
           <ErrorState v-else-if="coursesError" title="课程加载失败" @retry="fetchCourses" />
           <div v-else-if="courses.length" class="discovery-courses">
-            <button v-for="course in courses" :key="course.course_id" class="discovery-course" :class="{ selected: selectedCourseId === course.course_id }" :aria-pressed="selectedCourseId === course.course_id" @click="selectedCourseId = course.course_id">
+            <button v-for="course in courses" :key="course.course_id" class="discovery-course" :class="{ selected: selectedCourseId === course.course_id }" :aria-pressed="selectedCourseId === course.course_id" @click="chooseCourse(course)">
               <span class="course-marker" aria-hidden="true"><el-icon><Reading /></el-icon></span>
               <span class="course-copy"><strong>{{ course.course_name }}</strong><small>{{ categoryName(course) }}<span>·</span>{{ course.credit ?? '—' }} 学分<span>·</span>{{ course.teacher_name || '教师待定' }}</small></span>
               <el-icon class="course-arrow"><Right /></el-icon>
@@ -158,6 +158,10 @@ const listFrom = data => Array.isArray(data) ? data : (data?.list || data?.recor
 const previewCourse = computed(() => courseDetail.value || courses.value.find(course => course.course_id === selectedCourseId.value))
 const outlineText = computed(() => DOMPurify.sanitize(previewCourse.value?.outline || previewCourse.value?.description || '', { ALLOWED_TAGS: [], ALLOWED_ATTR: [] }).replace(/\s+/g, ' ').trim())
 function categoryName(course) { return course.category_name || categories.value.find(item => item.category_id === course.category_id)?.category_name || (course.course_type === 1 ? '必修课程' : '选修课程') }
+function chooseCourse(course) {
+  if (window.matchMedia('(max-width: 850px)').matches) router.push(`/course/${course.course_id}`)
+  else selectedCourseId.value = course.course_id
+}
 
 async function fetchCourses() {
   const request = ++courseRequest
@@ -384,6 +388,6 @@ onUnmounted(() => { clearTimeout(searchTimer); clearTimeout(hideTimer); ++search
 .home-footer a { color: inherit; text-decoration: none; }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
 @media (max-width: 1050px) { .course-preview { padding: 24px; } .discovery-course { padding: 18px 16px; gap: 14px; } .course-copy strong { font-size: 17px; } .preview-identity { min-height: 140px; } .course-graph { flex-basis: 24%; width: 24%; } .course-symbol { font-size: 64px; } .preview-facts { gap: 10px; } .preview-facts > div + div { padding-left: 10px; } }
-@media (max-width: 850px) { .discovery-workspace { grid-template-columns: 1fr; } .course-preview { min-height: 410px; } .preview-identity { min-height: 120px; } .course-graph { max-width: 140px; } .resource-row { grid-template-columns: 28px minmax(0, 1fr) 72px 20px; gap: 12px; } .resource-source { display: none; } }
+@media (max-width: 850px) { .discovery-workspace { grid-template-columns: 1fr; } .course-preview { display: none; } .discovery-course.selected { background: transparent; border-bottom-color: var(--color-border-light); } .discovery-course.selected::before { display: none; } .resource-row { grid-template-columns: 28px minmax(0, 1fr) 72px 20px; gap: 12px; } .resource-source { display: none; } }
 @media (max-width: 767px) { .home-page { padding-top: 24px; } .discovery-heading { align-items: stretch; flex-direction: column; gap: 18px; margin-bottom: 20px; } .home-search-wrapper { width: 100%; } .discovery-heading h1 { font-size: 32px; } .category-filters { gap: 4px; margin-bottom: 14px; } .category-filters button { padding: 7px 12px; font-size: 12px; } .discovery-course { min-height: 92px; } .course-copy strong { font-size: 17px; } .course-copy small { font-size: 11px; } .course-preview { padding: 22px; } .preview-title-block h2 { font-size: 34px; } .preview-facts dd { font-size: 13px; } .preview-actions .el-button { min-width: 0; flex: 1; } .resource-row strong { font-size: 12px; } .section-heading h2 { font-size: 20px; } .home-footer { align-items: flex-start; flex-direction: column; gap: 16px; } .home-footer nav { gap: 20px; } }
 </style>

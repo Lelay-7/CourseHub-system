@@ -10,7 +10,12 @@ import java.util.List;
 @Mapper
 public interface GoodsMapper extends BaseMapper<Goods> {
 
-    List<Goods> selectList(@Param("categoryId") Long categoryId, @Param("offset") Integer offset, @Param("limit") Integer limit);
+    List<Goods> selectList(@Param("categoryId") Long categoryId, @Param("offset") Integer offset,
+                           @Param("limit") Integer limit, @Param("sortBy") String sortBy);
+
+    default List<Goods> selectList(Long categoryId, Integer offset, Integer limit) {
+        return selectList(categoryId, offset, limit, "create_time");
+    }
 
     long countList(@Param("categoryId") Long categoryId);
 

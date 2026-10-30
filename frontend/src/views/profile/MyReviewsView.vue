@@ -3,7 +3,8 @@
     <PageContainer>
       <PageHeader title="我的评价" :show-back="true" />
 
-      <div v-if="reviewList.length > 0" class="review-list">
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <div v-else-if="reviewList.length > 0" class="review-list">
         <div v-for="item in reviewList" :key="item.review_id" class="review-item card">
           <div class="review-item-left">
             <router-link class="review-source" :to="`/course/${item.course_id}`">
@@ -18,16 +19,7 @@
       </div>
       <EmptyState v-else-if="!loading" description="暂无评价记录" />
 
-      <div v-if="total > pageSize" class="review-pagination">
-        <el-pagination
-          background
-          layout="prev, pager, next"
-          :total="total"
-          :page-size="pageSize"
-          :current-page="page"
-          @current-change="handlePageChange"
-        />
-      </div>
+      <ListPagination :page="page" :page-size="pageSize" :total="total" @change="handlePageChange" />
 
       <div v-if="loading" class="load-more">
         <el-icon class="is-loading"><Loading /></el-icon> 加载中...
@@ -37,7 +29,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
+import { usePagedList, useListMemory } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
+import ListPagination from '@/components/ListPagination.vue'
 import { Loading } from '@element-plus/icons-vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
@@ -45,40 +40,20 @@ import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import * as courseApi from '@/api/course'
 
-const reviewList = ref([])
-const loading = ref(false)
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-
-async function fetchList(reset = false) {
-  if (loading.value) return
-  if (reset) { page.value = 1; reviewList.value = [] }
-  loading.value = true
-  try {
-    const res = await courseApi.getMyReviews()
-    if (res.code === 200) {
-      const data = res.data || {}
-      const list = data.list || data.records || data || []
-      total.value = list.length
-      reviewList.value = list.slice((page.value - 1) * pageSize.value, page.value * pageSize.value)
-    }
-  } catch { /* handled */ }
-  finally { loading.value = false }
-}
-
-function handlePageChange(p) {
-  page.value = p
-  fetchList()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
+const { list: reviewList, loading, error, page, pageSize, total, fetchList, handlePageChange } = usePagedList(async params => {
+  const res = await courseApi.getMyReviews()
+  const data = res.data?.list || res.data?.records || res.data || []
+  const items = Array.isArray(data) ? data : []
+  return { ...res, data: { list: items.slice((params.page - 1) * params.pageSize, params.page * params.pageSize), total: items.length } }
+})
+const restoreScroll = useListMemory(() => ({ page: page.value }), state => { page.value = state.page })
 
 function formatTime(time) {
   if (!time) return ''
   return new Date(time).toLocaleString('zh-CN')
 }
 
-onMounted(() => { fetchList(true) })
+onMounted(async () => { await fetchList(); await restoreScroll() })
 </script>
 
 <style scoped>
@@ -121,4 +96,5 @@ onMounted(() => { fetchList(true) })
   padding: var(--spacing-md);
   color: var(--color-text-secondary);
 }
+@media (max-width: 600px) { .review-item { flex-direction: column; align-items: flex-start; gap: 14px; } .review-item-left { min-width: 0; overflow-wrap: anywhere; } }
 </style>

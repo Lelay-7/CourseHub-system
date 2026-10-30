@@ -125,7 +125,8 @@ class ReviewConcurrencyTest {
         AdminController admin = new AdminController(users, courses, reviews, mock(MaterialMapper.class),
                 mock(BannerMapper.class), mock(GoodsMapper.class), mock(FeedbackMapper.class),
                 mock(SquarePostMapper.class), mock(SquareCommentMapper.class), scoreRecords,
-                mock(OrderMapper.class), mock(MaterialReportMapper.class), transactionalService);
+                mock(OrderMapper.class), mock(MaterialReportMapper.class), transactionalService,
+                mock(com.bugaoshan.service.MaterialReviewService.class));
         var executor = Executors.newFixedThreadPool(2);
         try {
             var first = executor.submit(() -> admin.deleteReview(8L));

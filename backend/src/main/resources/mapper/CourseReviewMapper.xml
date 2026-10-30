@@ -25,6 +25,10 @@
         WHERE course_id = #{courseId} AND is_deleted = 0
     </select>
 
+    <select id="countAllForAdmin" resultType="long">
+        SELECT COUNT(*) FROM course_review WHERE is_deleted = 0
+    </select>
+
     <select id="existsByUserIdAndCourseId" resultType="boolean">
         SELECT COUNT(*) > 0 FROM course_review
         WHERE user_id = #{userId} AND course_id = #{courseId} AND is_deleted = 0

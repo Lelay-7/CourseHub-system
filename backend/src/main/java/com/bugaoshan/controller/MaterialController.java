@@ -70,10 +70,11 @@ public class MaterialController {
                             @RequestParam Integer materialType,
                             @RequestParam(required = false) Long courseId,
                             @RequestParam(required = false, defaultValue = "0") Integer downloadScore,
-                            @RequestParam(required = false) String keyword) {
+                            @RequestParam(required = false) String keyword,
+                            @RequestParam(required = false) String description) {
         Long userId = SecurityUtils.getCurrentUserId();
         return materialService.uploadMaterial(userId, file, materialName, materialType,
-                courseId, downloadScore, keyword);
+                courseId, downloadScore, keyword, description);
     }
 
     @PostMapping("/{id}/report")
@@ -90,10 +91,18 @@ public class MaterialController {
     }
 
     /** 重新提交（驳回后） */
-    @PutMapping("/{id}/resubmit")
-    public Result<?> resubmit(@PathVariable Long id) {
+    @PutMapping(value = "/{id}/resubmit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Result<?> resubmit(@PathVariable Long id,
+                              @RequestParam("expected_revision") Integer expectedRevision,
+                              @RequestPart(value = "file", required = false) MultipartFile file,
+                              @RequestParam String materialName, @RequestParam Integer materialType,
+                              @RequestParam(required = false) Long courseId,
+                              @RequestParam(defaultValue = "0") Integer downloadScore,
+                              @RequestParam(required = false) String keyword,
+                              @RequestParam(required = false) String description) {
         Long userId = SecurityUtils.getCurrentUserId();
-        return materialService.resubmitMaterial(id, userId);
+        return materialService.resubmitMaterial(id, userId, expectedRevision, file,
+                materialName, materialType, courseId, downloadScore, keyword, description);
     }
 
     /** 我的下载记录 */

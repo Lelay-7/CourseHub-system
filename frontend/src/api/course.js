@@ -8,6 +8,10 @@ export function getCategories() {
   return request.get('/api/course/categories')
 }
 
+export function getTeachers() {
+  return request.get('/api/course/teachers')
+}
+
 /** 分页获取课程列表 */
 export function getCourseList(params) {
   return request.get('/api/course/list', { params })

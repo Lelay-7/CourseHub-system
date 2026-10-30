@@ -57,4 +57,5 @@ public interface CourseMapper extends BaseMapper<Course> {
     int decrementSelectionCountSafely(@Param("courseId") Long courseId);
 
     List<Map<String, Object>> selectCategories();
+    List<Map<String, Object>> selectTeachers();
 }

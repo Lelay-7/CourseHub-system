@@ -15,13 +15,14 @@
         <el-radio-button :value="2">教师</el-radio-button>
         <el-radio-button :value="3">管理员</el-radio-button>
       </el-radio-group>
-      <el-table :data="list" border stripe v-loading="loading">
+      <ErrorState v-if="error" :title="error" @retry="fetchList" />
+      <el-table v-else :data="list" border stripe v-loading="loading">
         <el-table-column prop="user_id" label="ID" width="60" />
-        <el-table-column prop="username" label="用户名" />
-        <el-table-column prop="real_name" label="真实姓名" />
-        <el-table-column prop="student_no" label="学号/工号" />
-        <el-table-column prop="email" label="邮箱" />
-        <el-table-column prop="phone" label="手机号" />
+        <el-table-column prop="username" label="用户名" min-width="140" />
+        <el-table-column prop="real_name" label="真实姓名" min-width="140" />
+        <el-table-column prop="student_no" label="学号/工号" min-width="140" />
+        <el-table-column prop="email" label="邮箱" min-width="140" />
+        <el-table-column prop="phone" label="手机号" min-width="140" />
         <el-table-column label="角色" width="80">
           <template #default="{ row }">
             <el-tag :type="row.user_type === 3 ? 'danger' : row.user_type === 2 ? 'warning' : ''">
@@ -29,7 +30,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="department" label="院系" />
+        <el-table-column prop="department" label="院系" min-width="140" />
         <el-table-column prop="score_balance" label="积分" width="70" />
         <el-table-column prop="create_time" label="注册时间" width="170">
           <template #default="{ row }">{{ formatTime(row.create_time) }}</template>
@@ -39,7 +40,7 @@
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" fixed="right" width="100">
           <template #default="{ row }">
             <el-button size="small" :type="row.status === 1 ? 'danger' : 'success'" @click="handleToggle(row)">
               {{ row.status === 1 ? '禁用' : '启用' }}
@@ -47,21 +48,16 @@
           </template>
         </el-table-column>
       </el-table>
-      <EmptyState v-if="!loading && list.length === 0" description="暂无数据" />
-      <el-pagination
-        v-if="total > pageSize"
-        background
-        layout="prev, pager, next"
-        :current-page="page"
-        :page-size="pageSize"
-        :total="total"
-        @current-change="handlePageChange"
-      />
+      <EmptyState v-if="!error && !loading && list.length === 0" description="暂无数据" />
+      <ListPagination :page="page" :page-size="pageSize" :total="total" @change="handlePageChange" />
     </PageContainer>
   </AppLayout>
 </template>
 
 <script setup>
+import { usePagedList } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
+import ListPagination from '@/components/ListPagination.vue'
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listUsers, toggleUserStatus } from '@/api/admin'
@@ -70,30 +66,11 @@ import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
-const list = ref([])
-const loading = ref(false)
 const filterType = ref(undefined)
 const filterStatus = ref(undefined)
 const keyword = ref('')
-const page = ref(1)
-const pageSize = 10
-const total = ref(0)
-async function fetchList() {
-  loading.value = true
-  try {
-    const res = await listUsers({
-      userType: filterType.value,
-      status: filterStatus.value,
-      keyword: keyword.value.trim() || undefined,
-      page: page.value,
-      size: pageSize
-    })
-    list.value = res.data?.list || []
-    total.value = Number(res.data?.total || 0)
-  } finally { loading.value = false }
-}
-function resetAndFetch() { page.value = 1; fetchList() }
-function handlePageChange(value) { page.value = value; fetchList() }
+const { list, loading, error, page, pageSize, total, fetchList, resetAndFetch, handlePageChange } = usePagedList(listUsers, () => ({ userType: filterType.value, status: filterStatus.value === "" ? undefined : filterStatus.value, keyword: keyword.value.trim() || undefined }))
+
 async function handleToggle(row) {
   try {
     const action = row.status === 1 ? '禁用' : '启用'
@@ -113,4 +90,7 @@ onMounted(fetchList)
 .filters .el-input { max-width: 360px; }
 .filters .el-select { width: 140px; }
 .el-pagination { justify-content: center; margin-top: 16px; }
+.toolbar, .filters { flex-wrap: wrap; gap: 12px; }
+.filters .el-input { max-width: 100%; }
+@media (max-width: 767px) { .toolbar { align-items: stretch; } .filters { width: 100%; } .filters .el-input, .filters .el-select { width: 100%; max-width: 100%; } }
 </style>

@@ -18,9 +18,11 @@ export const deleteReview = (id) => request.delete(`${BASE}/reviews/${id}`)
 
 // 资料审核
 export const listMaterials = (params) => request.get(`${BASE}/materials`, { params })
-export const approveMaterial = (id) => request.put(`${BASE}/materials/${id}/approve`)
-export const rejectMaterial = (id, reason) => request.put(`${BASE}/materials/${id}/reject`, { reason: reason || '' })
-export const deactivateMaterial = (id) => request.put(`${BASE}/materials/${id}/deactivate`)
+export const getAdminMaterial = (id) => request.get(`${BASE}/materials/${id}`)
+export const getAdminMaterialFile = (id, revision) => request.get(`${BASE}/materials/${id}/file`, { params: { revision }, responseType: 'blob', rawResponse: true })
+export const approveMaterial = (id, revision) => request.put(`${BASE}/materials/${id}/approve`, { expected_revision: revision })
+export const rejectMaterial = (id, reason, revision) => request.put(`${BASE}/materials/${id}/reject`, { reason, expected_revision: revision })
+export const deactivateMaterial = (id, reason) => request.put(`${BASE}/materials/${id}/deactivate`, { reason })
 
 // 用户管理
 export const listUsers = (params) => request.get(`${BASE}/users`, { params })
@@ -47,7 +49,9 @@ export const deleteSquareComment = (id) => request.delete(`${BASE}/square/commen
 
 // 订单管理
 export const listAdminOrders = (params) => request.get(`${BASE}/orders`, { params })
-export const completeOrder = (id) => request.put(`${BASE}/orders/${id}/complete`)
+export const getAdminOrder = (id) => request.get(`${BASE}/orders/${id}`)
+export const completeOrder = (id, fulfillment_note) => request.put(`${BASE}/orders/${id}/complete`, { fulfillment_note })
+export const shipOrder = (id, fulfillment_note) => request.put(`${BASE}/orders/${id}/ship`, { fulfillment_note })
 
 // 反馈管理
 export const listFeedback = (params) => request.get(`${BASE}/feedback`, { params })
@@ -58,4 +62,4 @@ export const getDashboard = () => request.get(`${BASE}/dashboard`)
 
 // 举报管理
 export const listReports = (params) => request.get(`${BASE}/reports`, { params })
-export const handleReport = (id) => request.put(`${BASE}/reports/${id}/handle`)
+export const handleReport = (id, data) => request.put(`${BASE}/reports/${id}/handle`, data)

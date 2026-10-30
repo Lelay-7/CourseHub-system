@@ -10,7 +10,8 @@ import java.util.List;
 @Mapper
 public interface FeedbackMapper extends BaseMapper<Feedback> {
 
-    List<Feedback> selectAllWithUser(@Param("status") Integer status);
+    List<Feedback> selectAllWithUser(@Param("status") Integer status, @Param("offset") int offset, @Param("limit") int limit);
+    long countAll(@Param("status") Integer status);
 
     int updateReply(@Param("feedbackId") Long feedbackId,
                     @Param("reply") String reply,

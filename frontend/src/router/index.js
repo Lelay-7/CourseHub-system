@@ -173,13 +173,13 @@ const routes = [
     path: '/profile/support',
     name: 'Support',
     component: () => import('@/views/profile/SupportView.vue'),
-    meta: { requiresAuth: true, roles: ALL, title: '联系客服' }
+    meta: { requiresAuth: true, roles: ALL, title: '使用帮助' }
   },
   {
     path: '/profile/about',
     name: 'About',
     component: () => import('@/views/profile/AboutView.vue'),
-    meta: { requiresAuth: true, roles: ALL, title: '关于我们' }
+    meta: { requiresAuth: true, roles: ALL, title: '关于选课通' }
   },
   {
     path: '/profile/reviews',

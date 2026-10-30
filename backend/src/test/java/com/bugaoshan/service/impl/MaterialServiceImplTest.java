@@ -7,6 +7,7 @@ import com.bugaoshan.entity.MaterialReport;
 import com.bugaoshan.entity.User;
 import com.bugaoshan.mapper.FavoriteMapper;
 import com.bugaoshan.mapper.MaterialMapper;
+import com.bugaoshan.mapper.MaterialHistoryMapper;
 import com.bugaoshan.mapper.MaterialDownloadMapper;
 import com.bugaoshan.mapper.MaterialReportMapper;
 import com.bugaoshan.mapper.ScoreRecordMapper;
@@ -17,6 +18,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.mock.web.MockMultipartFile;
+import org.junit.jupiter.api.io.TempDir;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import com.bugaoshan.storage.LocalFileStorageService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -27,8 +33,27 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MaterialServiceImplTest {
+    @TempDir Path uploadDirectory;
+
+    @Test void failedUploadDoesNotLeaveAnOrphanFile() throws Exception {
+        var files = new LocalFileStorageService(uploadDirectory.toString());
+        when(materialMapper.insert(any(Material.class))).thenThrow(new IllegalStateException("database failure"));
+        var service = new MaterialServiceImpl(materialMapper, favoriteMapper, userMapper,
+                scoreRecordMapper, materialDownloadMapper, materialReportMapper, files, historyMapper);
+        assertThrows(IllegalStateException.class, () -> service.uploadMaterial(11L,
+                new MockMultipartFile("file", "notes.pdf", "application/pdf", new byte[]{1,2}),
+                "Notes", 1, null, 0, "", ""));
+        try(var paths=Files.walk(uploadDirectory)) {
+            assertEquals(0,paths.filter(Files::isRegularFile).count(), "An uncommitted new file must be removed");
+        }
+    }
+
+    @Test void undefinedRatingSortIsRejectedInsteadOfPretendingItWorks() {
+        assertThrows(BusinessException.class, () -> service().getMaterialList(null,null,null,null,"rating","desc",1,10));
+    }
 
     @Mock private MaterialMapper materialMapper;
+    @Mock private MaterialHistoryMapper historyMapper;
     @Mock private FavoriteMapper favoriteMapper;
     @Mock private UserMapper userMapper;
     @Mock private ScoreRecordMapper scoreRecordMapper;
@@ -45,7 +70,7 @@ class MaterialServiceImplTest {
         when(materialMapper.selectById(3L)).thenReturn(material);
         MaterialServiceImpl service = new MaterialServiceImpl(
                 materialMapper, favoriteMapper, userMapper, scoreRecordMapper,
-                materialDownloadMapper, materialReportMapper, fileStorageService);
+                materialDownloadMapper, materialReportMapper, fileStorageService, historyMapper);
 
         assertThrows(BusinessException.class, () -> service.downloadMaterial(3L, 11L));
     }
@@ -71,7 +96,7 @@ class MaterialServiceImplTest {
                 .thenReturn(new ByteArrayResource(new byte[]{1}));
         MaterialServiceImpl service = new MaterialServiceImpl(
                 materialMapper, favoriteMapper, userMapper, scoreRecordMapper,
-                materialDownloadMapper, materialReportMapper, fileStorageService);
+                materialDownloadMapper, materialReportMapper, fileStorageService, historyMapper);
 
         var download = service.downloadMaterial(5L, 11L);
 
@@ -85,16 +110,21 @@ class MaterialServiceImplTest {
         material.setMaterialId(6L);
         material.setUploaderId(11L);
         material.setStatus(2);
+        material.setRevision(1);
         material.setRejectReason("内容不完整");
-        when(materialMapper.selectById(6L)).thenReturn(material);
-        when(materialMapper.resubmitRejected(6L)).thenReturn(1);
+        when(materialMapper.selectForUpdate(6L)).thenReturn(material);
+        when(materialMapper.updateRejectedSubmission(any(Material.class))).thenReturn(1);
+        User user=new User(); user.setScoreBalance(0);
+        when(userMapper.selectById(11L)).thenReturn(user);
         MaterialServiceImpl service = new MaterialServiceImpl(
                 materialMapper, favoriteMapper, userMapper, scoreRecordMapper,
-                materialDownloadMapper, materialReportMapper, fileStorageService);
+                materialDownloadMapper, materialReportMapper, fileStorageService, historyMapper);
 
-        service.resubmitMaterial(6L, 11L);
+        service.resubmitMaterial(6L, 11L, 1, null, "Revised", 1, null, 0, "", "");
 
-        verify(materialMapper).resubmitRejected(6L);
+        assertEquals(2, material.getRevision());
+        assertEquals(null, material.getRejectReason());
+        verify(materialMapper).updateRejectedSubmission(material);
         verify(materialMapper, never()).updateStatus(6L, 0);
     }
 
@@ -148,7 +178,7 @@ class MaterialServiceImplTest {
                 "download_count", "desc", 2, 5);
 
         verify(materialMapper).selectList(1, 2L, "exam", "score",
-                "download_count", "desc", 5, 5);
+                "download_count", "desc", 5, 5, null);
         verify(materialMapper).countList(1, 2L, "exam", "score");
     }
 
@@ -158,14 +188,14 @@ class MaterialServiceImplTest {
                 null, null, 1, 10);
 
         verify(materialMapper).selectList(null, null, null, null,
-                null, "desc", 0, 10);
+                null, "desc", 0, 10, null);
         verify(materialMapper).countList(null, null, null, null);
     }
 
     private MaterialServiceImpl service() {
         return new MaterialServiceImpl(
                 materialMapper, favoriteMapper, userMapper, scoreRecordMapper,
-                materialDownloadMapper, materialReportMapper, fileStorageService);
+                materialDownloadMapper, materialReportMapper, fileStorageService, historyMapper);
     }
 
     private MaterialReportDTO report(String reason) {

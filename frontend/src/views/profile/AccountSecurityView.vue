@@ -23,12 +23,12 @@
             <el-form-item label="邮箱验证码" prop="code">
               <div class="code-row">
                 <el-input v-model.trim="bindingForm.code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="六位验证码" />
-                <el-button :loading="busy === 'send'" :disabled="cooldown > 0" native-type="button" @click="sendBindingCode">
+                <el-button :loading="busy === 'send'" :disabled="!!busy || securityLoading || loadError || cooldown > 0" native-type="button" @click="sendBindingCode">
                   {{ cooldown > 0 ? `${cooldown}秒后重发` : '发送验证码' }}
                 </el-button>
               </div>
             </el-form-item>
-            <el-button type="primary" native-type="submit" :loading="busy === 'bind'" :disabled="!bindingRequestId">
+            <el-button type="primary" native-type="submit" :loading="busy === 'bind'" :disabled="!!busy || securityLoading || loadError || !bindingRequestId">
               验证并保存找回邮箱
             </el-button>
           </el-form>
@@ -112,7 +112,7 @@ async function loadSecurity() {
   finally { if (ownsSession()) securityLoading.value = false }
 }
 async function sendBindingCode() {
-  if (busy.value || cooldown.value > 0 || !ownsSession()) return
+  if (busy.value || securityLoading.value || loadError.value || cooldown.value > 0 || !ownsSession()) return
   busy.value = 'send'
   try {
     await bindingFormRef.value.validateField(['old_password', 'email'])
@@ -128,7 +128,7 @@ async function sendBindingCode() {
   finally { if (ownsSession()) busy.value = '' }
 }
 async function bindEmail() {
-  if (busy.value || !bindingRequestId.value || !ownsSession()) return
+  if (busy.value || securityLoading.value || loadError.value || !bindingRequestId.value || !ownsSession()) return
   busy.value = 'bind'
   try {
     await bindingFormRef.value.validate()

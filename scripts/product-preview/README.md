@@ -1,0 +1,35 @@
+# 本地产品体验环境
+
+本机演示优先双击项目根目录 `start-local-demo.cmd`，启动就绪后自动打开网页；运行时再点会复用环境。`local-demo-status.cmd` 检查状态，`stop-local-demo.cmd` 停止并保留数据，`backup-local-demo.cmd` 保存代码/数据库/文件快照。入口调用 Codex 自带 Python，不需要执行 PowerShell 脚本或修改执行策略。参阅[演示指南](../../docs/local-demo-guide.md)。下文保留开发维护命令。
+
+从工作区根目录运行 `scripts/start-product-preview.ps1`，使用 `-Status` 查看状态；`scripts/stop-product-preview.ps1` 停止本环境并保留全部数据。再次启动会沿用同一数据库、上传文件、账号和收件箱，不重复灌入种子。
+
+依赖已安装的 MySQL 8.0、Java 21 和 Codex 自带 Python、Node。先构建 `backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar` 与 `frontend/dist`。前端构建必须使用同源 API（`VITE_API_BASE_URL` 为空或 `/api`），此环境自行转发 `/api`。
+
+默认入口：
+
+- 网页：<http://localhost:3001>
+- 测试收件箱：<http://localhost:3002>
+- API：`127.0.0.1:8081`；MySQL：`127.0.0.1:33363`；SMTP：`127.0.0.1:2526`
+
+所有服务只监听本机。SMTP 只接收 `example.test` 地址，不连接外部邮件服务。收件箱可查看绑定或找回密码验证码；绑定新邮箱时可输入任意未占用的 `@example.test` 测试地址。
+
+四个体验账号为 `product_student_a`、`product_student_b`、`product_teacher`、`product_admin`，初始密码均为 `Product-local-2026!`。均已绑定各自的 `用户名@example.test` 找回邮箱。改密码、改邮箱和其他操作会在重启后保留。
+
+种子包括 61 门课程、33 个商品、42 份可打开的真实 PDF 资料及其审核历史、41 个用户、300 条积分记录、待处理与已处理的举报/反馈/订单、好友申请和 36 条私聊记录。学生甲拥有驳回资料 `1000`、重提待审的第 2 版资料 `1001`；学生乙拥有已通过的收费资料 `1002`。兑换品及交付说明均为本地演示，不实际发货或发券。
+
+配置、凭据、日志、上传文件和状态统一存放在 `C:\ProgramData\CourseHubLocalDemo\<仓库标识>\runtime\`，MySQL 数据位于同一固定根目录的 `mysql/coursehub-product-preview-<run_id>/`。仓库标识由共享 Git 元数据路径派生，各工作区指向同一环境。使用英文固定路径避开本机 MySQL 的中文路径启动问题，同时避开临时目录及构建清理。脚本继续核对数据目录、全部父路径的 reparse point、PID 文件、端口和数据库 nonce，只停止自己捕获了句柄与启动时间的服务。
+
+旧 `backend/target/product-preview/` 和 `C:\Windows\Temp` 目录不会自动删除或重新初始化。旧版迁移由维护者运行 `migrate_storage.py`：先保全并逐文件核对原始数据，再启动独立工作副本。旧表文件若已缺失，不能用新建归属标记假装库完整；需要保全残留数据后受控恢复备份。
+
+备份在固定根目录 `backups/`，恢复演练在 `rehearsals/<随机标识>/`。`restore_rehearsal.py --backup latest` 使用五个独立端口，恢复备份数据库、文件、构建及数据库用户权限，校验各表行数与哈希、真实网页登录，并在结束后停止所属进程、检查端口关闭；运行结果单独保存，演示库继续可用。演练只接受带完整哈希清单及数据库指纹的新备份。Python 入口沿用 Codex 自带运行时，命令不需要更改系统执行策略。
+
+后端启动时复制构建产物到该环境的 `backend-runtime.jar`，避免 Windows 文件锁或后续构建改写运行中的 JAR。后端代码更新后先停止本环境、构建、再启动；前端静态页面来自 `frontend/dist`，构建完成后刷新网页即可。
+
+启动器按 `web_port` 设置后端的 `APP_CORS_ADDITIONAL_ORIGINS`，仅增加当前端口的 localhost 与 127.0.0.1 两个精确来源，保证保留 Origin 的 API 代理可接受浏览器表单提交。该配置默认没有附加来源，不修改全局环境变量。
+
+已有数据库迁移依次使用 `2026-10-15-material-review-closure.sql` 和 `2026-10-15-interaction-closure.sql`，不要对已有数据重新运行 `init.sql`。迁移只为旧资料建立初始版本和已有奖励标记，保留状态、积分及驳回原因；旧举报/订单没有可靠的处理人、时间或交付说明时保持空值。当前与历史版本文件继续保留，数据库失败只清理本次未引用的新文件。回退需同时恢复迁移前数据库和上传文件备份，不可只删除新表或重置积分。本轮迁移仅应用到专属测试数据库。
+
+`GET /__preview` 返回本环境的 `run_id/database/nonce`，供自动体验脚本在写入前校验归属。`manage.py prepare-material-check` 可在同一独立 MySQL 实例生成另外的受保护资料事务测试库，连接参数仅写入忽略目录的 `material-check-env.json`。该库和产品体验库互不相同。
+
+若某默认端口被占用，启动会失败且不停止占用者。可在尚未启动的忽略目录配置中调整 `web_port/api_port/mysql_port/mailbox_port/smtp_port`，再启动。停止不会删除任何目录；如需要清理，先确认状态为 stopped，再单独核对带随机运行标识的数据目录。

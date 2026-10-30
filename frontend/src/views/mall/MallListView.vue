@@ -18,16 +18,17 @@
           <el-radio-button :value="3">服务</el-radio-button>
         </el-radio-group>
         <el-radio-group v-model="sortBy" size="small">
-          <el-radio-button value="hot">热度</el-radio-button>
-          <el-radio-button value="score">积分</el-radio-button>
-          <el-radio-button value="new">最新</el-radio-button>
+
+          <el-radio-button value="price_score">积分从低到高</el-radio-button>
+          <el-radio-button value="create_time">最新</el-radio-button>
         </el-radio-group>
       </Toolbar>
 
-      <div v-loading="loading" class="goods-grid-pro">
-        <GoodsCard v-for="goods in visibleGoods" :key="goods.goods_id" :goods="goods" />
+      <ErrorState v-if="error" :title="error" @retry="fetchGoods" />
+      <div v-else v-loading="loading" class="goods-grid-pro">
+        <GoodsCard v-for="goods in goodsList" :key="goods.goods_id" :goods="goods" />
       </div>
-      <EmptyState v-if="!loading && visibleGoods.length === 0" description="暂无商品" />
+      <EmptyState v-if="!error && !loading && goodsList.length === 0" description="暂无商品" />
 
       <div v-if="total > pageSize" class="goods-pagination">
         <el-pagination
@@ -44,57 +45,23 @@
 </template>
 
 <script setup>
-import { computed, ref, watch, onMounted, onActivated } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import AppLayout from '@/components/AppLayout.vue'
 import PageContainer from '@/components/PageContainer.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import Toolbar from '@/components/Toolbar.vue'
 import GoodsCard from '@/components/GoodsCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ErrorState from '@/components/ErrorState.vue'
 import { useUserStore } from '@/stores/user'
-import request from '@/api/request'
-
-const userStore = useUserStore()
-const category = ref(null)
-const sortBy = ref('hot')
-const goodsList = ref([])
-const loading = ref(false)
-const total = ref(0)
-const pageSize = ref(12)
-const currentPage = ref(1)
-
-async function fetchGoods() {
-  loading.value = true
-  try {
-    const res = await request.get('/api/mall/goods', { params: { page: currentPage.value, pageSize: pageSize.value, categoryId: category.value } })
-    goodsList.value = res.data?.list || []
-    total.value = res.data?.total ?? res.data?.totalCount ?? 0
-  } catch { goodsList.value = [] }
-  finally { loading.value = false }
-}
-
-function handlePageChange(page) {
-  currentPage.value = page
-  fetchGoods()
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
-const visibleGoods = computed(() => {
-  let list = [...goodsList.value]
-  // 分类筛选
-  if (category.value != null) {
-    list = list.filter(g => g.category === category.value)
-  }
-  // 排序
-  if (sortBy.value === 'score') list = list.sort((a, b) => (a.price_score ?? 0) - (b.price_score ?? 0))
-  if (sortBy.value === 'new') list = list.sort((a, b) => b.goods_id - a.goods_id)
-  return list
-})
-
-watch([category, sortBy], () => { currentPage.value = 1; fetchGoods() })
-
+import { usePagedList, useListMemory } from '@/composables/useListQuery'
+import { getGoodsList } from '@/api/mall'
+const userStore = useUserStore(), category = ref(null), sortBy = ref('create_time')
+const { list: goodsList, loading, error, total, pageSize, page: currentPage, fetchList, resetAndFetch, handlePageChange } = usePagedList(getGoodsList, () => ({ categoryId: category.value, sortBy: sortBy.value }), 12)
+const restoreScroll = useListMemory(() => ({ category: category.value, sort: sortBy.value, page: currentPage.value }), state => { category.value = state.category; sortBy.value = state.sort; currentPage.value = state.page })
+async function fetchGoods() { await fetchList(); await restoreScroll() }
+watch([category, sortBy], resetAndFetch)
 onMounted(fetchGoods)
-onActivated(fetchGoods)
 </script>
 
 <style scoped>
@@ -116,7 +83,7 @@ onActivated(fetchGoods)
 
 .goods-grid-pro {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
   gap: var(--spacing-lg);
 }
 

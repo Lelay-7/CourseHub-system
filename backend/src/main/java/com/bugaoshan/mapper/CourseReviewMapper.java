@@ -19,6 +19,8 @@ public interface CourseReviewMapper extends BaseMapper<CourseReview> {
 
     List<CourseReview> selectAllForAdmin(@Param("offset") Integer offset, @Param("limit") Integer limit);
 
+    long countAllForAdmin();
+
     int insert(CourseReview review);
 
     int countByCourseId(@Param("courseId") Long courseId);

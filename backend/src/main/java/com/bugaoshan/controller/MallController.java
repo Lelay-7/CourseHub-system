@@ -20,8 +20,9 @@ public class MallController {
     @GetMapping("/goods")
     public Result<?> goods(@RequestParam(required = false) Long categoryId,
                            @RequestParam(required = false, defaultValue = "1") Integer page,
-                           @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
-        return mallService.getGoodsList(categoryId, page, pageSize);
+                           @RequestParam(required = false, defaultValue = "10") Integer pageSize,
+                           @RequestParam(required = false) String sortBy) {
+        return mallService.getGoodsList(categoryId, page, pageSize, sortBy);
     }
 
     @GetMapping("/goods/{id}")

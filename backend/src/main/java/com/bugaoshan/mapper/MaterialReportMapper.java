@@ -12,9 +12,16 @@ public interface MaterialReportMapper {
 
     List<MaterialReport> selectByMaterialId(@Param("materialId") Long materialId);
 
-    List<MaterialReport> selectAll(@Param("offset") Integer offset, @Param("limit") Integer limit);
+    List<MaterialReport> selectAll(@Param("status") Integer status, @Param("offset") Integer offset, @Param("limit") Integer limit);
 
-    long countAll();
+    long countAll(@Param("status") Integer status);
+
+    MaterialReport selectForUpdate(@Param("reportId") Long reportId);
+    List<MaterialReport> selectByReporter(@Param("reporterId") Long reporterId,
+            @Param("offset") Integer offset, @Param("limit") Integer limit);
+    long countByReporter(@Param("reporterId") Long reporterId);
+    int resolvePending(@Param("reportId") Long reportId, @Param("status") Integer status,
+            @Param("action") String action, @Param("reason") String reason, @Param("actorId") Long actorId);
 
     boolean existsPending(@Param("materialId") Long materialId, @Param("reporterId") Long reporterId);
 

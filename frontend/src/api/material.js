@@ -9,8 +9,18 @@ export function getCategories() {
 }
 
 /** 获取课程列表（用于上传时选择关联课程） */
-export function getCourseOptions() {
-  return request.get('/api/course/list', { params: { page: 1, pageSize: 100 } })
+export async function getCourseOptions() {
+  const list = []
+  let page = 1, total = 0
+  do {
+    const res = await request.get('/api/course/list', { params: { page, pageSize: 100 } })
+    const batch = res.data?.list || []
+    list.push(...batch)
+    total = Number(res.data?.total || 0)
+    if (!batch.length) break
+    page++
+  } while (list.length < total)
+  return { code: 200, data: { list, total } }
 }
 
 /** 分页获取资料列表 */
@@ -40,6 +50,7 @@ export function uploadMaterial(data) {
   if (data.course_id != null) form.append('courseId', data.course_id)
   form.append('downloadScore', data.download_score ?? 0)
   if (data.keyword) form.append('keyword', data.keyword)
+  if (data.description) form.append('description', data.description)
   return request.post('/api/material/upload', form)
 }
 
@@ -73,8 +84,17 @@ export function getMyUploads() {
 }
 
 /** 重新提交已驳回的资料 */
-export function resubmitMaterial(id) {
-  return request.put(`/api/material/${id}/resubmit`)
+export function resubmitMaterial(id, data) {
+  const form = new FormData()
+  if (data.file) form.append('file', data.file)
+  form.append('materialName', data.material_name)
+  form.append('materialType', data.material_type)
+  if (data.course_id != null) form.append('courseId', data.course_id)
+  form.append('downloadScore', data.download_score ?? 0)
+  form.append('keyword', data.keyword || '')
+  form.append('description', data.description || '')
+  form.append('expected_revision', data.revision)
+  return request.put(`/api/material/${id}/resubmit`, form)
 }
 
 /** 我的下载记录 */

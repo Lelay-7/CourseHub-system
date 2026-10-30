@@ -48,11 +48,15 @@ public class LocalFileStorageService implements FileStorageService {
         Path target = resolveSafe(storageKey);
         try {
             Files.createDirectories(target.getParent());
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+            try (var input = file.getInputStream()) {
+                Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING);
+            }
             return new StoredFile(storageKey, originalFilename,
                     file.getContentType() == null ? "application/octet-stream" : file.getContentType(),
                     file.getSize());
         } catch (IOException e) {
+            try { Files.deleteIfExists(target); }
+            catch (IOException cleanup) { e.addSuppressed(cleanup); }
             throw new BusinessException("文件保存失败");
         }
     }

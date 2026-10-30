@@ -8,7 +8,7 @@
       </svg>
       <span class="brand-copy"><strong>CourseHub</strong><small>不高山选课通</small></span>
     </router-link>
-    <nav class="primary-nav" aria-label="主导航">
+    <nav v-if="!isAdminRoute" class="primary-nav" aria-label="主导航">
       <router-link v-for="item in navigation" :key="item.path" :to="item.path" :class="{ active: isActive(item.path) }" :aria-current="isActive(item.path) ? 'page' : undefined">{{ item.label }}</router-link>
       <el-dropdown trigger="click" @command="navigate">
         <button class="more-trigger" type="button">更多<el-icon><ArrowDown /></el-icon></button>
@@ -19,12 +19,21 @@
         </el-dropdown-menu></template>
       </el-dropdown>
     </nav>
+    <nav v-else class="admin-navigation" aria-label="管理导航">
+      <el-dropdown trigger="click" @command="navigate">
+        <button class="more-trigger" type="button">后台导航<el-icon><ArrowDown /></el-icon></button>
+        <template #dropdown><el-dropdown-menu>
+          <el-dropdown-item v-for="item in adminNavigation" :key="item.path" :command="item.path">{{ item.label }}</el-dropdown-item>
+        </el-dropdown-menu></template>
+      </el-dropdown>
+      <router-link to="/home">前台首页</router-link>
+    </nav>
     <div class="navbar-right">
       <div class="navbar-theme"><ThemeSwitcher /></div>
       <el-badge :value="chat.state.unreadCount>99?'99+':chat.state.unreadCount" :hidden="!chat.state.unreadCount">
         <el-button class="message-entry" :icon="ChatDotRound" text aria-label="查看消息" @click="navigate('/messages')" />
       </el-badge>
-      <el-badge v-if="appStore.showOrderBadge" class="order-entry" :value="appStore.orderBadgeText" :max="99">
+      <el-badge v-if="!userStore.isAdmin && appStore.showOrderBadge" class="order-entry" :value="appStore.orderBadgeText" :max="99">
         <el-button :icon="Bell" text aria-label="查看订单" @click="navigate('/profile/orders')" />
       </el-badge>
       <el-dropdown trigger="click" @command="handleCommand">
@@ -33,11 +42,11 @@
           <el-icon class="user-arrow"><ArrowDown /></el-icon>
         </button>
         <template #dropdown><el-dropdown-menu>
-          <el-dropdown-item disabled>{{ userStore.userInfo?.nickname || '同学' }} · {{ userStore.scoreBalance }} 积分</el-dropdown-item>
+          <el-dropdown-item disabled>{{ userStore.userInfo?.nickname || '同学' }} · {{ userStore.isAdmin ? '管理员' : `${userStore.scoreBalance} 积分` }}</el-dropdown-item>
           <el-dropdown-item divided command="/profile">个人中心</el-dropdown-item>
           <el-dropdown-item command="/profile/courses">我的选课</el-dropdown-item>
           <el-dropdown-item command="/messages">我的消息</el-dropdown-item>
-          <el-dropdown-item command="/profile/orders">我的订单</el-dropdown-item>
+          <el-dropdown-item v-if="!userStore.isAdmin" command="/profile/orders">我的订单</el-dropdown-item>
           <el-dropdown-item command="/profile/settings">设置</el-dropdown-item>
           <el-dropdown-item command="/contact">通讯录</el-dropdown-item>
           <el-dropdown-item command="/mall">积分商城</el-dropdown-item>
@@ -50,6 +59,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { Bell, User, ArrowDown, ChatDotRound } from '@element-plus/icons-vue'
@@ -62,6 +72,15 @@ const router = useRouter()
 const appStore = useAppStore()
 const userStore = useUserStore()
 const chat = useChatStore()
+const isAdminRoute = computed(() => userStore.isAdmin && route.path.startsWith('/admin'))
+const adminNavigation = [
+  { path: '/admin/dashboard', label: '管理概览' }, { path: '/admin/courses', label: '课程管理' },
+  { path: '/admin/materials', label: '资料审核' }, { path: '/admin/reviews', label: '评价管理' },
+  { path: '/admin/square', label: '广场管理' }, { path: '/admin/users', label: '用户管理' },
+  { path: '/admin/goods', label: '商品管理' }, { path: '/admin/orders', label: '订单管理' },
+  { path: '/admin/banners', label: '首页公告' }, { path: '/admin/reports', label: '举报管理' },
+  { path: '/profile/feedback', label: '反馈管理' }
+]
 const navigation = [
   { path: '/home', label: '首页' }, { path: '/course', label: '课程' },
   { path: '/material', label: '资料' }, { path: '/square', label: '广场' }, { path: '/profile', label: '我的' }
@@ -94,9 +113,12 @@ async function handleCommand(command) {
 .user-info { display: flex; align-items: center; gap: 9px; border: 0; padding: 4px; border-radius: 6px; color: var(--color-text-secondary); background: transparent; cursor: pointer; }
 .user-info:hover { background: var(--color-bg-soft); }
 .message-entry{min-width:44px;min-height:44px}
+.admin-navigation { display: flex; align-items: center; gap: 24px; margin-right: auto; }
+.admin-navigation > a { color: var(--color-text-secondary); font-size: 13px; text-decoration: none; }
 @media (min-width:768px) and (max-width:900px){.navbar-theme{display:none}}
 .brand:focus-visible, .primary-nav a:focus-visible, .user-info:focus-visible, .more-trigger:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
 @media (max-width: 1050px) { .app-navbar { padding: 0 24px; gap: 16px; } .primary-nav { gap: 18px; } .brand-copy strong { font-size: 19px; } .navbar-right { gap: 8px; } }
 @media (max-width: 767px) { .app-navbar { min-height: 66px; padding: 0 16px; } .primary-nav { display: none; } .brand-mark { width: 28px; height: 28px; } .brand-copy strong { font-size: 18px; } .brand-copy small { font-size: 10px; } .user-arrow { display: none; } }
 @media (max-width: 767px) { .navbar-theme,.order-entry{display:none}.navbar-right{gap:6px}.user-info{min-width:44px;min-height:44px;box-sizing:border-box} }
+@media (max-width: 767px) { .app-navbar:has(.admin-navigation) { flex-wrap: wrap; gap: 6px 12px; padding-top: 8px; padding-bottom: 8px; } .admin-navigation { order: 3; width: 100%; justify-content: space-between; padding: 0 2px; } }
 </style>

@@ -1046,4 +1046,24 @@ async function handleRegister() {
     opacity: 0.04;
   }
 }
+
+/* On a narrow screen, reach the login form before the marketing illustration. */
+@media (max-width: 1080px) {
+  .content-row { width: min(100% - 32px, 560px); gap: 22px; padding: 24px 0 40px; min-height: 100dvh; align-content: center; }
+  .left-panel { padding: 0; }
+  .brand-group { margin: 0; max-width: none; text-align: center; }
+  .brand-kicker { font-size: 11px; margin-bottom: 8px; }
+  .brand-group h1 { font-size: 30px; line-height: 1.2; }
+  .brand-subtitle { font-size: 13px; font-weight: 500; margin-top: 10px; }
+  .brand-line, .ecosystem, .campus-sketch, .flow-bridge { display: none; }
+  .right-panel { min-height: 0; }
+  .login-card { padding: 24px; width: 100%; border-radius: 20px; }
+  .login-card__head { margin-bottom: 20px; }
+  .login-card__head h2 { font-size: 24px; }
+  .card-glow { max-width: 90vw; max-height: 70vh; }
+  .mode-tabs { margin-bottom: 20px; }
+  .forgot-password-link { min-height: 32px; padding: 7px 0; margin-top: 8px; }
+}
+@media (max-width: 360px) { .content-row { width: calc(100% - 24px); } .login-card { padding: 20px 16px; } .brand-group h1 { font-size: 27px; } }
+@media (prefers-reduced-motion: reduce) { .soft-dot, .flow-path, .eco-link, .entry-pulse, .eco-card, .login-card { animation: none; } }
 </style>

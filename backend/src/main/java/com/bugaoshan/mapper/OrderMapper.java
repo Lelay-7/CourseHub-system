@@ -28,6 +28,8 @@ public interface OrderMapper {
 
     int completeIfProcessable(@Param("orderId") Long orderId);
 
+    int completeWithNote(@Param("orderId") Long orderId, @Param("note") String note);
+
     int softDelete(@Param("orderId") Long orderId, @Param("userId") Long userId);
 
     long countByUserIdAndGoodsId(@Param("userId") Long userId, @Param("goodsId") Long goodsId);

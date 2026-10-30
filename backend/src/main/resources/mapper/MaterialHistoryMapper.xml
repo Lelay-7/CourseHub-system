@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bugaoshan.mapper.MaterialHistoryMapper">
+    <insert id="insertSnapshot">
+        INSERT INTO material_revision(material_id,revision,material_name,material_type,course_id,uploader_id,
+          file_url,storage_key,original_file_name,content_type,file_size,download_score,description,keyword,status,reject_reason,create_time)
+        VALUES(#{materialId},#{revision},#{materialName},#{materialType},#{courseId},#{uploaderId},#{fileUrl},#{storageKey},
+          #{originalFileName},#{contentType},#{fileSize},#{downloadScore},#{description},#{keyword},#{status},#{rejectReason},#{updateTime})
+    </insert>
+    <select id="selectRevisions" resultType="com.bugaoshan.entity.Material">
+        SELECT * FROM material_revision WHERE material_id=#{materialId} ORDER BY revision DESC
+    </select>
+    <select id="selectRevision" resultType="com.bugaoshan.entity.Material">
+        SELECT * FROM material_revision WHERE material_id=#{materialId} AND revision=#{revision}
+    </select>
+    <insert id="insertAudit" useGeneratedKeys="true" keyProperty="auditId">
+        INSERT INTO material_audit_log(material_id,revision,reviewer_id,action,reason,create_time)
+        VALUES(#{materialId},#{revision},#{reviewerId},#{action},#{reason},#{createTime})
+    </insert>
+    <select id="selectAuditHistory" resultType="com.bugaoshan.entity.MaterialAuditLog">
+        SELECT a.*,COALESCE(NULLIF(u.nickname,''),u.username,'已注销用户') AS reviewer_name
+        FROM material_audit_log a LEFT JOIN user u ON a.reviewer_id=u.user_id AND u.is_deleted=0
+        WHERE a.material_id=#{materialId} ORDER BY a.create_time DESC,a.audit_id DESC
+    </select>
+</mapper>

@@ -17,11 +17,13 @@
           :prefix-icon="Search"
           clearable
           @input="onKeywordChange"
-          @clear="keyword = ''; page = 1; fetchPosts()"
+          @keyup.enter="resetPosts"
+          @clear="resetPosts"
         />
-        <el-radio-group v-model="activeTab" size="small" @change="page = 1; fetchPosts()">
+        <el-radio-group v-model="activeTab" size="small" @change="resetPosts">
           <el-radio-button v-for="tab in tabs" :key="tab" :value="tab">{{ tab }}</el-radio-button>
         </el-radio-group>
+        <el-select v-model="courseFilter" filterable clearable placeholder="关联课程" @change="resetPosts"><el-option v-for="c in courseOptions" :key="c.course_id" :label="c.course_name" :value="c.course_id" /></el-select>
       </Toolbar>
 
       <div class="square-entry-grid">
@@ -34,7 +36,8 @@
         </Card>
       </div>
 
-      <div class="post-list">
+      <ErrorState v-if="error" :title="error" @retry="fetchPosts" />
+      <div v-else v-loading="loading" class="post-list">
         <article v-for="post in posts" :key="post.id" class="post-card">
           <div class="post-avatar">
             <img
@@ -58,7 +61,7 @@
             </div>
             <p>{{ post.content }}</p>
             <div class="post-relations" v-if="post.course || post.material">
-              <button v-if="post.course" type="button" @click="$router.push({ path: '/course', query: { keyword: post.course } })">课程：{{ post.course }}</button>
+              <button v-if="post.course" type="button" @click="$router.push(post.courseId ? '/course/' + post.courseId : { path: '/course', query: { keyword: post.course } })">课程：{{ post.course }}</button>
               <button v-if="post.material" type="button" @click="$router.push({ path: '/material', query: { keyword: post.material } })">资料：{{ post.material }}</button>
             </div>
             <div class="post-foot">
@@ -66,10 +69,10 @@
                 <StatusTag v-for="tag in post.tags" :key="tag">{{ tag }}</StatusTag>
               </div>
               <div class="post-stats">
-                <span class="like-btn" :class="{ liked: post.liked }" @click="handleLike(post)">
+                <button type="button" class="like-btn" :class="{ liked: post.liked }" @click="handleLike(post)">
                   {{ post.liked ? '❤️' : '🤍' }} 赞 {{ post.likes }}
-                </span>
-                <span class="comment-toggle" @click="toggleComments(post)">💬 评论 {{ post.comments }}</span>
+                </button>
+                <button type="button" class="comment-toggle" @click="toggleComments(post)">💬 评论 {{ post.comments }}</button>
               </div>
             </div>
             <!-- 评论区 -->
@@ -93,7 +96,7 @@
           </div>
         </article>
       </div>
-      <EmptyState v-if="!loading && posts.length === 0" description="还没有帖子，发布第一条动态吧" />
+      <EmptyState v-if="!error && !loading && posts.length === 0" description="还没有帖子，发布第一条动态吧" />
       <el-pagination
         v-if="total > pageSize"
         background
@@ -105,7 +108,7 @@
         @current-change="handlePageChange"
       />
 
-      <el-dialog v-model="showDialog" title="发布动态" width="560px">
+      <el-dialog v-model="showDialog" title="发布动态" width="min(620px, 94vw)">
         <el-form label-position="top">
           <el-form-item label="动态内容">
             <el-input v-model="postContent" type="textarea" :rows="5" maxlength="220" show-word-limit placeholder="分享你的选课经验、资料线索或避坑提醒..." />
@@ -128,7 +131,7 @@
           </el-form-item>
           <el-form-item label="关联课程（可选）">
             <el-select v-model="linkedCourse" placeholder="选择课程" clearable filterable style="width:100%">
-              <el-option v-for="c in courseOptions" :key="c.course_id || c.courseId" :label="c.course_name || c.courseName" :value="c.course_name || c.courseName" />
+              <el-option v-for="c in courseOptions" :key="c.course_id || c.courseId" :label="c.course_name || c.courseName" :value="c.course_id || c.courseId" />
             </el-select>
           </el-form-item>
           <el-form-item label="关联资料（可选）">
@@ -147,7 +150,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute } from 'vue-router'
+import { useRequestGate, useListMemory } from '@/composables/useListQuery'
+import ErrorState from '@/components/ErrorState.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { EditPen, Search, Reading, FolderOpened, ChatDotRound, Star } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
@@ -162,7 +168,9 @@ import Card from '@/components/Card.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 
-const userStore = useUserStore()
+const userStore = useUserStore(), route = useRoute()
+const courseFilter = ref(Number(route.query.courseId) || null)
+const error = ref('')
 const showDialog = ref(false)
 const postContent = ref('')
 const selectedTags = ref([])
@@ -172,7 +180,7 @@ const activeTab = ref('全部')
 const tabs = ['全部', '选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点']
 const tagOptions = ['选课经验', '资料互助', '问答讨论', '避坑提醒', '期末复习', '项目实战', '考试重点', '复习', '数据库', '算法', '前端', '答辩', '团队项目', '给分高', '作业少', '点名多', '实验多', '课程设计']
 const customTag = ref('')
-const linkedCourse = ref('')
+const linkedCourse = ref(Number(route.query.courseId) || null)
 const linkedMaterial = ref('')
 const courseOptions = ref([])
 const materialOptions = ref([])
@@ -196,6 +204,17 @@ const failedAvatars = reactive(new Set())
 const page = ref(1)
 const pageSize = 10
 const total = ref(0)
+const gate = useRequestGate(() => { posts.value = []; showDialog.value = false; postContent.value = ''; loading.value = false })
+const restoreScroll = useListMemory(
+  () => ({ keyword: keyword.value, tab: activeTab.value, page: page.value, course: courseFilter.value }),
+  state => { keyword.value = state.keyword; activeTab.value = state.tab; page.value = state.page; courseFilter.value = state.course },
+  (to, restored) => {
+    clearTimeout(searchTimer)
+    if (!restored) { keyword.value = ''; activeTab.value = '全部'; page.value = 1; courseFilter.value = Number(to.query.courseId) || null }
+    linkedCourse.value = courseFilter.value
+    fetchPosts()
+  }
+)
 let searchTimer = null
 
 function formatPost(p) {
@@ -207,6 +226,7 @@ function formatPost(p) {
     time: formatTime(p.create_time),
     content: p.content,
     course: p.course_name || '',
+    courseId: p.course_id,
     material: p.material_name || '',
     tags: p.tags ? p.tags.split(',') : [],
     likes: p.likes || 0,
@@ -219,22 +239,29 @@ function formatPost(p) {
 }
 
 async function fetchPosts() {
-  loading.value = true
+  const ticket = gate.begin()
+  loading.value = true; error.value = ''
   try {
-    const params = { page: page.value, pageSize }
+    const params = { page: page.value, pageSize, courseId: courseFilter.value || undefined }
     const q = keyword.value.trim()
     if (q) params.keyword = q
     if (activeTab.value !== '全部') params.tag = activeTab.value
     const res = await getSquarePosts(params)
+    if (!gate.valid(ticket)) return
     const data = res.data || {}
     posts.value = (data.list || []).map(formatPost)
     total.value = data.total || 0
-  } catch { /* ignore */ }
-  finally { loading.value = false }
+    const lastPage = Math.max(1, Math.ceil(total.value / pageSize))
+    if (page.value > lastPage) { page.value = lastPage; await fetchPosts(); return }
+    await restoreScroll()
+  } catch (err) { if (gate.valid(ticket) && !err.sessionChanged) { error.value = '动态加载失败'; posts.value = [] } }
+  finally { if (gate.valid(ticket)) loading.value = false }
 }
 
+function resetPosts() { clearTimeout(searchTimer); page.value = 1; fetchPosts() }
 function onKeywordChange() {
   clearTimeout(searchTimer)
+  gate.invalidate()
   searchTimer = setTimeout(() => {
     page.value = 1
     fetchPosts()
@@ -248,23 +275,24 @@ function handlePageChange(p) {
 }
 
 async function submitPost() {
+  if (posting.value) return
   if (!postContent.value.trim()) { ElMessage.warning('请先输入动态内容'); return }
   posting.value = true
   try {
     const tags = selectedTags.value.length > 0 ? selectedTags.value.join(',') : ''
     const data = { content: postContent.value.trim(), tags }
-    if (linkedCourse.value) data.courseName = linkedCourse.value
+    if (linkedCourse.value) { data.courseId = linkedCourse.value; data.courseName = courseOptions.value.find(c => c.course_id === linkedCourse.value)?.course_name || '' }
     if (linkedMaterial.value) data.materialName = linkedMaterial.value
     await createSquarePost(data)
     postContent.value = ''
     selectedTags.value = []
     customTag.value = ''
-    linkedCourse.value = ''
+    linkedCourse.value = courseFilter.value
     linkedMaterial.value = ''
     showDialog.value = false
     ElMessage.success('发布成功')
     fetchPosts()
-  } finally { posting.value = false }
+  } catch { /* retain draft for retry */ } finally { posting.value = false }
 }
 
 async function handleLike(post) {
@@ -336,7 +364,7 @@ function formatTime(time) {
 async function loadAssociationOptions() {
   try {
     const [courseRes, materialRes] = await Promise.all([
-      courseApi.getCourseList({ page: 1, pageSize: 100 }),
+      materialApi.getCourseOptions(),
       materialApi.getMaterialList({ page: 1, pageSize: 100 })
     ])
     courseOptions.value = courseRes.data?.list || courseRes.data?.records || []
@@ -344,6 +372,7 @@ async function loadAssociationOptions() {
   } catch { /* ignore */ }
 }
 
+onBeforeUnmount(() => clearTimeout(searchTimer))
 onMounted(() => {
   fetchPosts()
   loadAssociationOptions()
@@ -359,17 +388,19 @@ onMounted(() => {
 }
 
 .square-entry {
-  min-height: 142px;
+  min-height: 64px;
   border: 0;
-  padding: var(--spacing-lg);
+  padding: 12px 16px;
   text-align: left;
+  display: grid; grid-template-columns: 36px 1fr; gap: 4px 12px; align-items: center;
   cursor: pointer;
 }
 
 .square-entry span {
-  width: 54px;
-  height: 54px;
-  border-radius: 18px;
+  width: 36px;
+  height: 36px;
+  grid-row: 1 / 3;
+  border-radius: 10px;
   color: var(--color-on-primary);
   display: inline-flex;
   align-items: center;
@@ -382,13 +413,13 @@ onMounted(() => {
 }
 
 .square-entry strong {
-  margin-top: 12px;
+  margin-top: 0;
   color: var(--color-text-primary);
   font-size: var(--font-size-md);
 }
 
 .square-entry small {
-  margin-top: 5px;
+  margin-top: 0;
   color: var(--color-text-secondary);
 }
 
@@ -446,6 +477,7 @@ onMounted(() => {
 }
 
 .post-body p {
+  white-space: pre-wrap; overflow-wrap: anywhere;
   margin: var(--spacing-sm) 0 var(--spacing-md);
   color: var(--color-text-regular);
   line-height: 1.75;
@@ -478,7 +510,7 @@ onMounted(() => {
   display: flex;
   gap: 16px;
 }
-.like-btn, .comment-toggle { cursor: pointer; user-select: none; }
+.like-btn, .comment-toggle { cursor: pointer; user-select: none; background: transparent; border: 0; color: inherit; font: inherit; min-height: 36px; }
 .like-btn:hover, .comment-toggle:hover { color: var(--color-primary); }
 .like-btn.liked { color: var(--color-danger); }
 .comment-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border-light); }
@@ -494,7 +526,12 @@ onMounted(() => {
 
 @media (max-width: 900px) {
   .square-entry-grid {
-    grid-template-columns: 1fr;
+    display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
   }
+  .square-entry { flex: 0 0 auto; display: flex; min-height: 44px; padding: 8px 12px; gap: 8px; }
+  .square-entry span { width: 28px; height: 28px; }
+  .square-entry small { display: none; }
+  .post-card { grid-template-columns: 36px minmax(0, 1fr); gap: 10px; padding: 16px; border-radius: 16px; }
+  .post-avatar { width: 36px; height: 36px; border-radius: 12px; }
 }
 </style>

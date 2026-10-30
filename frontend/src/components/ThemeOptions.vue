@@ -25,15 +25,16 @@ const groupName = `theme-${getCurrentInstance().uid}`
 <style scoped>
 .theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; padding: 0; margin: 0; border: 0; }
 .theme-options.compact { grid-template-columns: 1fr; gap: 6px; }
-.theme-option { position: relative; display: flex; align-items: center; gap: 12px; padding: 15px 12px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; background: var(--color-bg-card); }
+.theme-option { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 15px 12px; border: 1px solid var(--color-border); border-radius: 8px; cursor: pointer; background: var(--color-bg-card); }
+.compact .theme-option { min-height: 60px; padding: 10px; }
 .theme-option:hover, .theme-option.selected { border-color: var(--color-primary); background: var(--color-bg-soft); }
 .theme-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .theme-swatches { display: flex; flex: 0 0 auto; overflow: hidden; border: 1px solid var(--color-border); border-radius: 5px; }
 .theme-swatches > span { width: 12px; height: 32px; }
 .theme-option input:focus-visible + .theme-swatches { outline: 2px solid var(--color-primary); outline-offset: 4px; }
 .theme-copy { min-width: 0; flex: 1; }
-.theme-copy strong { display: block; color: var(--color-text-primary); font-size: 13px; font-weight: 650; }
-.theme-copy small { display: block; margin-top: 4px; color: var(--color-text-secondary); font-size: 11px; line-height: 1.5; }
+.theme-copy strong { display: block; color: var(--color-text-primary); font-size: 14px; font-weight: 650; }
+.theme-copy small { display: block; margin-top: 4px; color: var(--color-text-secondary); font-size: 12px; line-height: 1.5; }
 .theme-check { flex: 0 0 auto; color: var(--color-primary); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 900px) { .theme-options { grid-template-columns: 1fr; } }

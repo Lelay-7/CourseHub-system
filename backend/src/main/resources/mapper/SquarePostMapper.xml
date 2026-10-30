@@ -7,6 +7,7 @@
         FROM square_post p
         LEFT JOIN user u ON p.user_id = u.user_id
         WHERE p.is_deleted = 0
+        <if test="courseId != null">AND p.course_id = #{courseId}</if>
         <if test="status != null">AND p.status = #{status}</if>
         <if test="keyword != null and keyword != ''">
             AND (p.content LIKE CONCAT('%', #{keyword}, '%')
@@ -18,7 +19,7 @@
         <if test="tag != null and tag != ''">
             AND p.tags LIKE CONCAT('%', #{tag}, '%')
         </if>
-        ORDER BY p.create_time DESC
+        ORDER BY p.create_time DESC, p.post_id DESC
         <if test="offset != null and limit != null">
             LIMIT #{limit} OFFSET #{offset}
         </if>
@@ -28,6 +29,7 @@
         SELECT COUNT(*) FROM square_post p
         LEFT JOIN user u ON p.user_id = u.user_id
         WHERE p.is_deleted = 0
+        <if test="courseId != null">AND p.course_id = #{courseId}</if>
         <if test="status != null">AND p.status = #{status}</if>
         <if test="keyword != null and keyword != ''">
             AND (p.content LIKE CONCAT('%', #{keyword}, '%')
