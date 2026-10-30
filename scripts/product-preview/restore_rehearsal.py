@@ -70,6 +70,7 @@ def rehearse(backup):
             probe = socket.socket(); probe.bind(('127.0.0.1', 0)); sockets.append(probe)
             config[key] = probe.getsockname()[1]
         config.update(data_root=str(data_root), restore_rehearsal=True,
+                      git_commit=manifest['commit'],
                       web_url=f"http://localhost:{config['web_port']}")
         manage.save(runtime / 'config.json', config)
         manage.save(runtime / 'state.json', {'status': 'stopped', 'run_id': config['run_id']})

@@ -320,6 +320,9 @@ def main():
             save(CONFIG, {"run_id": run_id, "nonce": nonce, "data_root": str(data_root), "database": "coursehub_product_preview_" + run_id, "mysql_port": 33363, "api_port": 8081, "web_port": 3001, "mailbox_port": 3002, "smtp_port": 2526, "recovery_secret": secrets.token_urlsafe(64), "root_password": secrets.token_hex(24), "db_password": secrets.token_hex(24), "jwt_secret": secrets.token_urlsafe(64), "git_commit": commit, "accounts": [{"username": name, "password": "Product-local-2026!", "nickname": nick, "user_type": role, "email": name + "@example.test"} for name, nick, role in [("product_student_a", "体验学生甲", 1), ("product_student_b", "体验学生乙", 1), ("product_teacher", "体验教师", 2), ("product_admin", "体验管理员", 3)]]})
         STOP.unlink(missing_ok=True)
         config = load(CONFIG)
+        if not config.get('restore_rehearsal'):
+            config.setdefault('seed_commit', config['git_commit'])
+            config['git_commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True, encoding='utf-8').strip()
         config["web_url"] = f"http://localhost:{config['web_port']}"
         save(CONFIG, config)
         with open(HERE / "supervisor.log", "ab", buffering=0) as log:
