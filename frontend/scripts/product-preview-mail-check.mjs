@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const runtime = resolve(root, 'backend/target/product-preview')
+const { previewRuntime: runtime } = await import('./preview-runtime.mjs')
 const checks = []
 let stage = 'ownership', proof = { status: 'failed', started_at: new Date().toISOString(), checks }
 const mark = name => checks.push({ name, passed: true })

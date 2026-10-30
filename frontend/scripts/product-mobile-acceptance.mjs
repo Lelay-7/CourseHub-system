@@ -8,7 +8,8 @@ import { chromium } from 'playwright'
 // Real form login and HTTP data; no mocked responses or injected authentication.
 // Does not send chat/mail, place orders, or alter existing account credentials.
 // Material mutations belong to a newly registered mobile-test account only.
-const config = JSON.parse(await readFile(resolve('../backend/target/product-preview/config.json'), 'utf8'))
+const { previewRuntime } = await import('./preview-runtime.mjs')
+const config = JSON.parse(await readFile(resolve(previewRuntime, 'config.json'), 'utf8'))
 assert.match(config.database, /^coursehub_product_preview_[a-f0-9]{32}$/)
 const base = `http://localhost:${config.web_port}`
 const ownership = await (await fetch(base + '/__preview')).json()

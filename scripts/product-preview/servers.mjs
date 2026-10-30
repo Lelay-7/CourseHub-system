@@ -10,7 +10,7 @@ import { decodeRecoveryMime } from '../../frontend/scripts/account-recovery-smtp
 const configFile = path.resolve(process.argv[2])
 const config = JSON.parse(fs.readFileSync(configFile, 'utf8'))
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const dist = path.join(root, 'frontend/dist')
+const dist = config.restore_rehearsal ? path.join(path.dirname(configFile), 'frontend-dist') : path.join(root, 'frontend/dist')
 const inboxFile = path.join(path.dirname(configFile), 'mailbox.json')
 let messages = fs.existsSync(inboxFile) ? JSON.parse(fs.readFileSync(inboxFile, 'utf8')) : []
 const allowedHost = (req, port) => [`localhost:${port}`, `127.0.0.1:${port}`].includes(req.headers.host)

@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { chromium } from 'playwright'
+import { previewRuntime } from './preview-runtime.mjs'
 
 // Real production page, real local backend; no route interception or injected login state.
-const config = JSON.parse(await readFile(resolve('../backend/target/product-preview/config.json'),'utf8'))
+const config = JSON.parse(await readFile(resolve(previewRuntime, 'config.json'),'utf8'))
 const base = `http://localhost:${config.web_port}`
 const identity = await (await fetch(base+'/__preview')).json()
 assert.equal(identity.nonce,config.nonce); assert.equal(identity.database,config.database)

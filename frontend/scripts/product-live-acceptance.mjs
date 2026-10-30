@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto'
 import { chromium } from 'playwright'
 
 // Writes only to the nonce-verified, isolated local product preview. No production target option.
-const config = JSON.parse(await readFile(resolve('../backend/target/product-preview/config.json'), 'utf8'))
+const { previewRuntime } = await import('./preview-runtime.mjs')
+const config = JSON.parse(await readFile(resolve(previewRuntime, 'config.json'), 'utf8'))
 assert.match(config.database, /^coursehub_product_preview_[a-f0-9]{32}$/)
 const base = `http://127.0.0.1:${config.web_port}`
 const ownership = await (await fetch(base + '/__preview')).json()

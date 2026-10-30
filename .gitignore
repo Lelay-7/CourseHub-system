@@ -66,4 +66,5 @@ frontend/output/
 
 # Local demo snapshots include private runtime configuration and test data
 .demo-backups/
+.coursehub-demo/
 **/__pycache__/

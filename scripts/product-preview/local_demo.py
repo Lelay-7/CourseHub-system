@@ -64,6 +64,7 @@ def show(config):
     print(f"演示网页：http://localhost:{config['web_port']}/login")
     print(f"测试收件箱：http://localhost:{config['mailbox_port']}")
     print("账号与演示顺序：docs/local-demo-guide.md")
+    print("固定数据与备份目录：" + str(manage.DATA_HOME))
 
 
 def start(no_browser):
@@ -89,7 +90,7 @@ def start(no_browser):
         if state["status"] in ("failed", "stopped", "supervisor-not-running") and time.monotonic() > grace:
             raise RuntimeError(state.get("error", "Preview stopped during startup"))
         time.sleep(.5)
-    raise RuntimeError("Startup timed out; see backend/target/product-preview/*.log")
+    raise RuntimeError("Startup timed out; see " + str(manage.HERE))
 
 
 def stop():
@@ -105,6 +106,7 @@ def stop():
 
 
 def backup():
+    from recovery import fingerprint
     config = check_ready()
     manage.identity(config)
     if manage.mysql(config, f"SELECT nonce FROM `{config['database']}`.local_preview_guard;") != config["nonce"]:
@@ -116,8 +118,9 @@ def backup():
     if subprocess.check_output(["git", "status", "--porcelain"], cwd=manage.ROOT, text=True).strip():
         raise RuntimeError("Save tracked source changes in Git before creating a versioned demo backup")
     commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=manage.ROOT, text=True).strip()
-    destination = manage.ROOT / ".demo-backups" / (datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d-%H%M%S") + "-" + commit[:7])
+    destination = manage.DATA_HOME / "backups" / (datetime.now(ZoneInfo("Asia/Shanghai")).strftime("%Y%m%d-%H%M%S") + "-" + commit[:7])
     destination.mkdir(parents=True, exist_ok=False)
+    database_fingerprint = fingerprint(config)
     sql = destination / "demo.sql"
     env = os.environ.copy()
     env["MYSQL_PWD"] = config["root_password"]
@@ -156,13 +159,16 @@ def backup():
         if archive.testzip() is not None:
             raise RuntimeError("Runtime archive integrity check failed")
     subprocess.run(["git", "bundle", "verify", str(destination / "source.bundle")], cwd=manage.ROOT, check=True, capture_output=True)
+    if fingerprint(config) != database_fingerprint:
+        raise RuntimeError('Demo data changed during backup; retry with page edits paused')
+    manage.save(destination / 'database-fingerprint.json', database_fingerprint)
     manifest = {"status": "complete", "at": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
                 "commit": commit, "run_id": config["run_id"], "database": config["database"],
                 "scope": "Local demo only; SQL + uploads + builds + mailbox + private config + Git history",
                 "note": "Pause demo edits during backup. Restore is manual; not a portable installer or one-click reset.",
-                "files": {path.name: digest(path) for path in (sql, destination / "source.bundle", archive_path)}}
+                "files": {path.name: digest(path) for path in (sql, destination / "source.bundle", archive_path, destination / 'database-fingerprint.json')}}
     manage.save(destination / "manifest.json", manifest)
-    manage.save(manage.ROOT / ".demo-backups/latest.json", {"path": str(destination), "commit": commit, "at": manifest["at"]})
+    manage.save(manage.DATA_HOME / "backups/latest.json", {"path": str(destination), "commit": commit, "at": manifest["at"]})
     print("本机演示备份已保存：" + str(destination))
     print("备份含本地账号配置，请保存在当前电脑；恢复由维护者按说明处理。")
 
@@ -188,7 +194,7 @@ def main():
                 raise RuntimeError(state.get("error", "Demo is not ready"))
     except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
         print("操作未完成：" + str(error), file=sys.stderr)
-        print("日志目录：backend/target/product-preview/；没有重置数据。", file=sys.stderr)
+        print("日志目录：" + str(manage.HERE) + "；没有重置数据。", file=sys.stderr)
         return 1
     return 0
 

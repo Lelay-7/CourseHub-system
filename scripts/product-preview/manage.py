@@ -15,12 +15,14 @@ import traceback
 import urllib.error
 import urllib.request
 import uuid
+from storage import DATA_HOME, data_directory, no_reparse, runtime_directory
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 SCRIPTS = Path(__file__).resolve().parent
 ROOT = SCRIPTS.parents[1]
-HERE = ROOT / "backend/target/product-preview"
+HERE = runtime_directory()
+no_reparse(HERE)
 HERE.mkdir(parents=True, exist_ok=True)
 CONFIG = HERE / "config.json"
 STATE = HERE / "state.json"
@@ -75,13 +77,12 @@ class OwnedProcess:
         kernel.CloseHandle(self.handle)
 
 def require_path(config):
-    expected = Path(r"C:\Windows\Temp") / ("coursehub-product-preview-" + config["run_id"])
+    expected = data_directory(config["run_id"], HERE)
     if not re.fullmatch(r"[a-f0-9]{32}", config["run_id"]) or Path(config["data_root"]) != expected:
         raise RuntimeError("Unexpected test data path")
     if config["database"] != "coursehub_product_preview_" + config["run_id"] or not re.fullmatch(r"[a-f0-9]{32}", config["nonce"]):
         raise RuntimeError("Unexpected preview database identity")
-    if expected.is_symlink() or expected.is_junction() or (expected / "data").is_symlink() or (expected / "data").is_junction():
-        raise RuntimeError("Test data path must not be a reparse point")
+    no_reparse(expected / 'data')
     if (expected / ".coursehub-run-marker").read_text(encoding="utf-8") != config["nonce"]:
         raise RuntimeError("Test data ownership mismatch")
     return expected
@@ -158,7 +159,9 @@ def worker():
     save(STATE, state)
     try:
         root = require_path(config)
-        if not (root / "data/mysql").exists():
+        if not (root / "data/mysql.ibd").exists():
+            if any((root / 'data').iterdir()):
+                raise RuntimeError('Existing database files found; refusing to initialize over them')
             with open(HERE / "mysql-initialize.log", "ab", buffering=0) as log:
                 process = subprocess.Popen([str(MYSQL_HOME / "bin/mysqld.exe"), "--no-defaults", "--basedir=" + MYSQL_HOME.as_posix(), "--datadir=" + (root / "data").as_posix(), "--initialize-insecure", "--console"], stdout=log, stderr=subprocess.STDOUT, creationflags=NO_WINDOW)
                 wait_for(lambda: process.poll() is not None, 60, "MySQL initializer")
@@ -199,7 +202,8 @@ def worker():
         env.update({"DB_URL": f"jdbc:mysql://127.0.0.1:{config['mysql_port']}/{config['database']}?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai", "DB_USERNAME": "product_preview", "DB_PASSWORD": config["db_password"], "JWT_SECRET": config["jwt_secret"], "RECOVERY_ENABLED": "true", "RECOVERY_HMAC_SECRET": config["recovery_secret"], "SMS_MOCK": "false", "SMTP_HOST": "127.0.0.1", "SMTP_PORT": str(config["smtp_port"]), "SMTP_USERNAME": "", "SMTP_PASSWORD": "", "SMTP_FROM": "coursehub@example.test", "SMTP_STARTTLS": "false", "SMTP_SSL": "false", "FILE_UPLOAD_PATH": str(HERE / "uploads")})
         # Run an owned snapshot: rebuilding target/ must not rewrite a live JVM's jar.
         jar = HERE / "backend-runtime.jar"
-        shutil.copy2(ROOT / "backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar", jar)
+        if not config.get('restore_rehearsal'):
+            shutil.copy2(ROOT / "backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar", jar)
         programs.append(start_program([str(JAVA), "-Dfile.encoding=UTF-8", "-jar", str(jar), "--server.address=127.0.0.1", f"--server.port={config['api_port']}", "--spring.mail.properties.mail.smtp.auth=false", "--logging.level.root=WARN", "--spring.main.banner-mode=off"], ROOT / "backend", "backend", env))
         def backend_ready():
             try:
@@ -289,7 +293,11 @@ def main():
         save(HERE / "material-check-env.json", values)
         print("Created guarded material IT database. Environment saved in ignored runtime/material-check-env.json.")
     elif command == "start":
-        for artifact in [ROOT / "backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar", ROOT / "frontend/dist/index.html", JAVA, NODE, MYSQL_HOME / "bin/mysqld.exe"]:
+        restore = CONFIG.exists() and load(CONFIG).get('restore_rehearsal')
+        if restore and HERE == DATA_HOME / 'runtime':
+            raise RuntimeError('Restore artifacts are allowed only in an isolated rehearsal')
+        artifacts = [HERE / 'backend-runtime.jar', HERE / 'frontend-dist/index.html'] if restore else [ROOT / "backend/target/bugaoshan-backend-0.0.1-SNAPSHOT.jar", ROOT / "frontend/dist/index.html"]
+        for artifact in [*artifacts, JAVA, NODE, MYSQL_HOME / "bin/mysqld.exe"]:
             if not artifact.is_file():
                 raise RuntimeError("Required build/runtime missing: " + str(artifact))
         if STATE.exists():
@@ -300,9 +308,12 @@ def main():
             with socket.socket() as check:
                 check.bind(("127.0.0.1", port))
         if not CONFIG.exists():
+            if (ROOT / 'backend/target/product-preview/config.json').exists():
+                raise RuntimeError('Legacy demo found; run migrate_storage.py before starting to preserve its data')
             run_id, nonce = uuid.uuid4().hex, uuid.uuid4().hex
-            data_root = Path(r"C:\Windows\Temp") / ("coursehub-product-preview-" + run_id)
-            data_root.mkdir(exist_ok=False)
+            data_root = data_directory(run_id, HERE)
+            no_reparse(data_root)
+            data_root.mkdir(parents=True, exist_ok=False)
             (data_root / "data").mkdir()
             (data_root / ".coursehub-run-marker").write_text(nonce, encoding="utf-8")
             commit = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, encoding="utf-8").strip()
